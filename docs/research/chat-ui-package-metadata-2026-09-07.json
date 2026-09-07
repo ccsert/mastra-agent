@@ -1,0 +1,147 @@
+{
+  "checkedAt": "2026-09-07T03:53:56.726101+00:00",
+  "scope": "Public npm latest metadata only; no package install, build, or runtime verification.",
+  "packages": [
+    {
+      "name": "@ant-design/x",
+      "url": "https://registry.npmjs.org/@ant-design/x/latest",
+      "version": "2.9.0",
+      "license": "MIT",
+      "peerDependencies": {
+        "antd": "^6.1.1",
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@ant-design/x-sdk",
+      "url": "https://registry.npmjs.org/@ant-design/x-sdk/latest",
+      "version": "2.9.0",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@ant-design/x-markdown",
+      "url": "https://registry.npmjs.org/@ant-design/x-markdown/latest",
+      "version": "2.9.0",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@assistant-ui/react",
+      "url": "https://registry.npmjs.org/@assistant-ui/react/latest",
+      "version": "0.15.18",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": "^18 || ^19",
+        "react-dom": "^18 || ^19",
+        "@types/react": "*",
+        "@types/react-dom": "*"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@assistant-ui/react-ai-sdk",
+      "url": "https://registry.npmjs.org/@assistant-ui/react-ai-sdk/latest",
+      "version": "1.4.9",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": "^18 || ^19",
+        "@types/react": "*"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@assistant-ui/react-ag-ui",
+      "url": "https://registry.npmjs.org/@assistant-ui/react-ag-ui/latest",
+      "version": "0.0.58",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": "^18 || ^19",
+        "@types/react": "*"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@mastra/ai-sdk",
+      "url": "https://registry.npmjs.org/@mastra/ai-sdk/latest",
+      "version": "1.10.1",
+      "license": "Apache-2.0",
+      "peerDependencies": {
+        "zod": "^3.25.0 || ^4.0.0",
+        "@mastra/core": ">=1.5.0-0 <2.0.0-0"
+      },
+      "engines": {
+        "node": ">=22.13.0"
+      }
+    },
+    {
+      "name": "ai",
+      "url": "https://registry.npmjs.org/ai/latest",
+      "version": "7.0.93",
+      "license": "Apache-2.0",
+      "peerDependencies": {
+        "zod": "^3.25.76 || ^4.1.8"
+      },
+      "engines": {
+        "node": ">=22"
+      }
+    },
+    {
+      "name": "@ai-sdk/react",
+      "url": "https://registry.npmjs.org/@ai-sdk/react/latest",
+      "version": "4.0.96",
+      "license": "Apache-2.0",
+      "peerDependencies": {
+        "react": "^18 || ~19.0.1 || ~19.1.2 || ^19.2.1"
+      },
+      "engines": {
+        "node": ">=22"
+      }
+    },
+    {
+      "name": "@copilotkit/react-core",
+      "url": "https://registry.npmjs.org/@copilotkit/react-core/latest",
+      "version": "1.70.1",
+      "license": "MIT",
+      "peerDependencies": {
+        "zod": ">=3.25",
+        "react": "^18 || ^19 || ^19.0.0-rc",
+        "react-dom": "^18 || ^19 || ^19.0.0-rc",
+        "@modelcontextprotocol/sdk": "^1.29.0"
+      },
+      "engines": {}
+    },
+    {
+      "name": "@assistant-ui/ai-sdk",
+      "url": "https://registry.npmjs.org/@assistant-ui/ai-sdk/latest",
+      "checkedAt": "2026-09-07T03:54:51.058999+00:00",
+      "version": "0.0.4",
+      "license": "MIT",
+      "peerDependencies": {
+        "react": "^18 || ^19",
+        "@types/react": "*"
+      },
+      "dependencies": {
+        "ai": "^7.0.85",
+        "@ai-sdk/mcp": "^2.0.41",
+        "@ai-sdk/react": "^4.0.88",
+        "assistant-cloud": "*",
+        "assistant-stream": "^0.3.41",
+        "@assistant-ui/tap": "^0.9.16",
+        "@assistant-ui/core": "^0.3.17",
+        "@assistant-ui/store": "^0.3.12"
+      },
+      "engines": {}
+    }
+  ]
+}
