@@ -1,0 +1,18 @@
+{
+  "name": "@platform/control-plane",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@hono/zod-openapi": "1.6.3",
+    "@platform/contracts": "workspace:*",
+    "@platform/database": "workspace:*",
+    "ai": "7.0.93",
+    "ajv": "8.20.0",
+    "hono": "4.13.7"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "mastra-agent-platform",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=24.13.0"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm typecheck && pnpm sdk:build && pnpm --filter @platform/console build",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "sdk:generate": "pnpm openapi && openapi-ts -f openapi-ts.config.ts",
+    "lint": "biome check apps packages scripts tests --error-on-warnings",
+    "format": "biome format --write apps packages scripts tests",
+    "setup:local": "tsx scripts/setup.ts",
+    "sdk:build": "pnpm --filter @platform/sdk build",
+    "fixture": "tsx scripts/fixture.ts",
+    "sdk:check": "tsx scripts/sdk-check.ts",
+    "preview": "tsx scripts/dev.ts --preview"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@hey-api/openapi-ts": "0.99.0",
+    "@hono/node-server": "2.1.1",
+    "@platform/database": "workspace:*",
+    "@types/node": "24.3.0",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "tsx": "4.23.13",
+    "typescript": "6.0.3"
+  }
+}

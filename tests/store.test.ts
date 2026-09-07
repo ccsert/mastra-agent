@@ -1,0 +1,258 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { after, before, test } from "node:test";
+import { Database } from "@platform/database";
+import { createApp } from "../apps/control-plane/src/app.ts";
+import { hashPassword, Vault } from "../apps/control-plane/src/crypto.ts";
+import { Queue } from "../apps/control-plane/src/queue.ts";
+import { Store } from "../apps/control-plane/src/store.ts";
+import type { Principal } from "../packages/contracts/src/index.ts";
+import { required } from "../scripts/env.ts";
+
+const schema = `test_store_${process.pid}`,
+  admin = new Database(required("DATABASE_URL")),
+  db = new Database(required("DATABASE_URL"), schema),
+  store = new Store(db, new Vault("ab".repeat(32)));
+let actor: Principal, other: Principal;
+before(async () => {
+  await admin.query(`CREATE SCHEMA ${schema}`);
+  await store.initialize();
+  const ids = await store.setup("test-owner", "test-password-123", "Test workspace");
+  actor = {
+    id: ids.userId,
+    tenantId: ids.tenantId,
+    displayName: "Owner",
+    kind: "user",
+    entry: "console",
+  };
+  const tenantId = randomUUID(),
+    id = randomUUID();
+  await db.query("INSERT INTO tenants(id,name) VALUES($1,$2)", [tenantId, "Other"]);
+  await db.query(
+    "INSERT INTO users(id,tenant_id,username,display_name,password_hash) VALUES($1,$2,$3,$4,$5)",
+    [id, tenantId, "other", "Other", await hashPassword("test-password-234")],
+  );
+  other = { id, tenantId, displayName: "Other", kind: "user", entry: "console" };
+});
+after(async () => {
+  await db.close();
+  await admin.query(`DROP SCHEMA ${schema} CASCADE`);
+  await admin.close();
+});
+test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
+  const project = await store.createProject(actor, { name: "Orders", description: "" });
+  const model = await store.createModel(actor, project.id, {
+    name: "Development",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "sensitive-test-key",
+  });
+  assert.equal(model.hasCredential, true);
+  assert.ok(!JSON.stringify(model).includes("sensitive-test-key"));
+  const agent = await store.createAgent(actor, project.id, {
+    name: "Orders agent",
+    description: "",
+    instructions: "Version one",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  const v1 = await store.publish(actor, project.id, agent.id, 1);
+  assert.equal(v1.version, 1);
+  assert.ok(!JSON.stringify(v1).includes("sensitive-test-key"));
+  const thread = await store.createConversation(actor, project.id, agent.id, "First");
+  const updated = await store.updateAgent(
+    actor,
+    project.id,
+    agent.id,
+    {
+      name: agent.name,
+      description: "",
+      instructions: "Version two",
+      modelId: model.id,
+      toolIds: [],
+      maxSteps: 3,
+    },
+    1,
+  );
+  await assert.rejects(() => store.publish(actor, project.id, agent.id, 1), {
+    code: "DRAFT_CONFLICT",
+  });
+  const v2 = await store.publish(actor, project.id, agent.id, updated.draftRevision);
+  assert.equal(v2.version, 2);
+  assert.notEqual(v1.digest, v2.digest);
+  assert.equal((await store.conversation(actor, project.id, thread.id)).releaseId, v1.id);
+  assert.equal(
+    (await store.releases(actor, project.id, agent.id))[1].snapshot.agent.instructions,
+    "Version one",
+  );
+  await assert.rejects(() => store.project(other, project.id), { code: "NOT_FOUND" });
+  const otherUser = { ...actor, id: randomUUID() };
+  await assert.rejects(() => store.messages(otherUser, project.id, thread.id), {
+    code: "NOT_FOUND",
+  });
+  const run = await store.createRun(actor, project.id, thread.id, "Hello", "request-1");
+  assert.equal(run.releaseId, v1.id);
+  assert.equal(
+    (await store.createRun(actor, project.id, thread.id, "Hello", "request-1")).id,
+    run.id,
+  );
+  await assert.rejects(
+    () => store.createRun(actor, project.id, thread.id, "Changed", "request-1"),
+    { code: "IDEMPOTENCY_CONFLICT" },
+  );
+  await assert.rejects(() => store.createRun(actor, project.id, thread.id, "Next", "request-2"), {
+    code: "CONVERSATION_BUSY",
+  });
+  assert.equal((await store.cancel(actor, project.id, run.id)).status, "cancelled");
+  const reconnect = new Database(required("DATABASE_URL"), schema);
+  try {
+    const reopened = new Store(reconnect, store.vault);
+    assert.equal((await reopened.messages(actor, project.id, thread.id)).length, 1);
+    assert.equal((await reopened.runs(actor, project.id)).length, 1);
+  } finally {
+    await reconnect.close();
+  }
+});
+
+test("leases fence late workers, events are ordered and deduplicated, failed jobs are not replayed", async () => {
+  const project = await store.createProject(actor, { name: "Lease tests", description: "" });
+  const foreign = await store.createProject(actor, { name: "Foreign project", description: "" });
+  const model = await store.createModel(actor, project.id, {
+    name: "Model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  await assert.rejects(
+    () =>
+      store.createAgent(actor, foreign.id, {
+        name: "Foreign",
+        description: "",
+        instructions: "Test",
+        modelId: model.id,
+        toolIds: [],
+        maxSteps: 3,
+      }),
+    { code: "NOT_FOUND" },
+  );
+  const agent = await store.createAgent(actor, project.id, {
+    name: "Lease agent",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  const releases = await Promise.all([
+    store.publish(actor, project.id, agent.id, 1),
+    store.publish(actor, project.id, agent.id, 1),
+  ]);
+  assert.equal(releases[0].id, releases[1].id);
+  const thread = await store.createConversation(actor, project.id, agent.id, "Lease");
+  const run = await store.createRun(actor, project.id, thread.id, "Hello", "lease-test");
+  const queue = new Queue(db, store.vault, "hosted-local"),
+    job = await queue.claim();
+  assert.equal(job?.runId, run.id);
+  assert.ok(job);
+  await queue.append(run.id, job.leaseToken, 0, { type: "start", messageId: "assistant" });
+  await queue.append(run.id, job.leaseToken, 0, { messageId: "assistant", type: "start" });
+  await assert.rejects(
+    () => queue.append(run.id, job.leaseToken, 0, { type: "start", messageId: "different" }),
+    { code: "EVENT_CONFLICT" },
+  );
+  await assert.rejects(
+    () => queue.append(run.id, job.leaseToken, 2, { type: "text-start", id: "text" }),
+    { code: "EVENT_SEQUENCE" },
+  );
+  await assert.rejects(() => queue.append(run.id, job.leaseToken, 1, { type: "not-a-chunk" }), {
+    code: "INVALID_EVENT",
+  });
+  await assert.rejects(() => queue.renew(run.id, randomUUID()), { code: "LEASE_EXPIRED" });
+  await db.query("UPDATE runs SET lease_until=now()-interval '1 second' WHERE id=$1", [run.id]);
+  await queue.reap();
+  assert.equal((await store.run(actor, project.id, run.id)).errorCode, "RUNTIME_LOST");
+  assert.equal(await queue.claim(), null);
+  await assert.rejects(
+    () =>
+      queue.finish(run.id, {
+        leaseToken: job.leaseToken,
+        status: "succeeded",
+        message: { id: "late", role: "assistant", parts: [{ type: "text", text: "Late output" }] },
+      }),
+    { code: "LEASE_EXPIRED" },
+  );
+  assert.equal(
+    (await store.createRun(actor, project.id, thread.id, "Hello", "lease-test")).id,
+    run.id,
+  );
+  assert.equal((await store.messages(actor, project.id, thread.id)).length, 1);
+});
+
+test("chat drains committed tail events when completion races an event poll", async () => {
+  const project = await store.createProject(actor, { name: "Stream race", description: "" });
+  const model = await store.createModel(actor, project.id, {
+    name: "Race",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.createAgent(actor, project.id, {
+    name: "Race",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.publish(actor, project.id, agent.id, 1);
+  const thread = await store.createConversation(actor, project.id, agent.id, "Race");
+  const token = await store.login("test-owner", "test-password-123");
+  const { app, queue } = createApp(store, {
+    origin: "http://127.0.0.1:5173",
+    runtimeToken: "test-token",
+  });
+  const originalEvents = store.events.bind(store);
+  let completed = false;
+  store.events = async (...args) => {
+    const polled = await originalEvents(...args);
+    if (!completed) {
+      completed = true;
+      const job = await queue.claim();
+      assert.ok(job);
+      const chunks = [
+        { type: "start", messageId: "race" },
+        { type: "text-start", id: "text" },
+        { type: "text-delta", id: "text", delta: "tail-marker" },
+        { type: "text-end", id: "text" },
+        { type: "finish", finishReason: "stop" },
+      ];
+      for (const [seq, chunk] of chunks.entries())
+        await queue.append(job.runId, job.leaseToken, seq, chunk);
+      await queue.finish(job.runId, {
+        leaseToken: job.leaseToken,
+        status: "succeeded",
+        message: { id: "race", role: "assistant", parts: [{ type: "text", text: "tail-marker" }] },
+      });
+    }
+    return polled;
+  };
+  try {
+    const response = await app.request(
+      `/api/v1/projects/${project.id}/conversations/${thread.id}/chat`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: `platform_session=${token}` },
+        body: JSON.stringify({
+          messages: [{ id: "race-request", role: "user", parts: [{ type: "text", text: "Run" }] }],
+        }),
+      },
+    );
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.ok(body.includes("tail-marker"), body);
+    assert.ok(body.includes('"type":"finish"'), body);
+  } finally {
+    store.events = originalEvents;
+  }
+});

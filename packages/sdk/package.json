@@ -1,0 +1,31 @@
+{
+  "name": "@platform/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/generated/client/index.d.ts",
+      "development": "./src/generated/client/index.ts",
+      "default": "./dist/generated/client/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "development": "./src/auth.ts",
+      "default": "./dist/auth.js"
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

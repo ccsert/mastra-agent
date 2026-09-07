@@ -1,0 +1,17 @@
+name: mastra-agent-platform
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    environment:
+      POSTGRES_DB: agent_platform
+      POSTGRES_USER: agent_platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run pnpm setup:local first}
+    ports: ['127.0.0.1:5442:5432']
+    volumes: ['platform-postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agent_platform -d agent_platform']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  platform-postgres:
