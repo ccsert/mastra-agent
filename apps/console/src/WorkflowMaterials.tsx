@@ -87,7 +87,7 @@ export function WorkflowNodeCard({ node }: { node: WorkflowNodeEntity }) {
         ? [
             [
               "如果",
-              `${bindingText(data.left)} ${{ eq: "等于", neq: "不等于", exists: "存在且非空", gt: "大于", gte: "大于等于", lt: "小于", lte: "小于等于" }[data.operator]} ${data.right ? bindingText(data.right) : ""}`,
+              `${bindingText(data.left)} ${{ eq: "等于", neq: "不等于", exists: "有值（非 null）", gt: "大于", gte: "大于等于", lt: "小于", lte: "小于等于" }[data.operator]} ${data.right ? bindingText(data.right) : ""}`,
             ],
           ]
         : data.type === "agent"

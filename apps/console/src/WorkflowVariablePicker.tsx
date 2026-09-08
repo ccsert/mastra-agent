@@ -5,6 +5,7 @@ import type { WorkflowVariableOption } from "./workflow-variables";
 interface VariableTreeItem {
   value: string;
   label: string;
+  displayLabel: string;
   title: React.ReactNode;
   disabled: boolean;
   children: VariableTreeItem[];
@@ -14,11 +15,15 @@ export function WorkflowVariablePicker({
   options,
   value,
   label,
+  placeholder = "选择上游节点的变量",
+  acceptType,
   onChange,
 }: {
   options: WorkflowVariableOption[];
   value?: string;
   label: string;
+  placeholder?: string;
+  acceptType?: string;
   onChange(path: string): void;
 }) {
   const treeData = useMemo(() => {
@@ -30,7 +35,8 @@ export function WorkflowVariablePicker({
         : (option.value.split(".").at(-1) ?? option.value);
       entries.set(option.value, {
         value: option.value,
-        label: `${name} ${option.value} ${option.type}`,
+        label: `${option.label} ${option.value} ${option.type}`,
+        displayLabel: option.label.split(" · ")[0],
         title: (
           <span className="workflow-variable-option">
             <span>{name}</span>
@@ -40,7 +46,12 @@ export function WorkflowVariablePicker({
             </small>
           </span>
         ),
-        disabled: option.optional,
+        disabled:
+          option.optional ||
+          (!!acceptType &&
+            !["未知", "any"].includes(option.type) &&
+            (option.type === "integer" ? "number" : option.type) !==
+              (acceptType === "integer" ? "number" : acceptType)),
         children: [],
       });
     }
@@ -51,19 +62,19 @@ export function WorkflowVariablePicker({
       else roots.push(item);
     }
     return roots;
-  }, [options]);
+  }, [options, acceptType]);
   return (
     <TreeSelect
       aria-label={label}
-      value={value}
-      placeholder="选择上游节点的变量"
+      value={value ?? null}
+      placeholder={placeholder}
       treeData={treeData}
       treeDefaultExpandAll
       showSearch={{
         filterTreeNode: (input, node) =>
           String(node.label).toLowerCase().includes(input.toLowerCase()),
       }}
-      treeNodeLabelProp="value"
+      treeNodeLabelProp="displayLabel"
       styles={{ popup: { root: { maxWidth: "calc(100vw - 32px)", minWidth: 280 } } }}
       notFoundContent="当前节点暂无可引用的上游变量"
       onChange={onChange}

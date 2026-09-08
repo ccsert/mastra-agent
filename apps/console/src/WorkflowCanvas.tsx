@@ -641,9 +641,9 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
           factories: [
             {
               key: "workflow-side",
-              defaultSize: 380,
-              minSize: 320,
-              maxSize: 560,
+              defaultSize: 480,
+              minSize: 400,
+              maxSize: 720,
               render: () => <WorkflowSidePanel />,
             },
           ],
@@ -737,7 +737,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       : undefined;
     const closeInspector = () => {
       if (!formValid) {
-        live.current.onError?.("请先修正节点名称或无效的固定值");
+        live.current.onError?.("请先修正节点配置中的错误");
         return;
       }
       props.onCloseInspector?.();
@@ -759,7 +759,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       <>
         <div className="workflow-panel-heading">
           <NodeIcon type={selectedEntity.flowNodeType as WorkflowNode["type"]} />
-          <strong>节点配置</strong>
+          <strong>{nodeNames[selectedEntity.flowNodeType as WorkflowNode["type"]]}配置</strong>
           <Button
             type="text"
             aria-label="关闭节点配置"
