@@ -26,13 +26,30 @@ export function bindingType(
   binding: WorkflowBinding | undefined,
   options: WorkflowVariableOption[],
 ) {
-  const type =
-    binding?.kind === "literal"
-      ? valueType(binding.value)
-      : binding?.kind === "template"
-        ? "string"
-        : options.find((v) => v.value === binding?.path)?.type;
+  const type = bindingSchemaType(binding, options);
   return type === "integer" ? "number" : type;
+}
+export function bindingSchemaType(
+  binding: WorkflowBinding | undefined,
+  options: WorkflowVariableOption[],
+) {
+  return binding?.kind === "literal"
+    ? Number.isInteger(binding.value)
+      ? "integer"
+      : valueType(binding.value)
+    : binding?.kind === "template"
+      ? "string"
+      : options.find((v) => v.value === binding?.path)?.type;
+}
+/** JSON Schema assignment is directional: integer can widen to number, not vice versa. */
+export function acceptsBindingType(from: string | undefined, to: string | undefined) {
+  return (
+    !to ||
+    !from ||
+    ["未知", "any"].includes(from) ||
+    from === to ||
+    (from === "integer" && to === "number")
+  );
 }
 export function defaultLiteral(type?: string): unknown {
   return type === "number" || type === "integer"

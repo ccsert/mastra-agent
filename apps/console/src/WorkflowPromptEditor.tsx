@@ -1,5 +1,5 @@
 import { ExpandOutlined } from "@ant-design/icons";
-import { Transaction } from "@codemirror/state";
+import { Compartment, Transaction } from "@codemirror/state";
 import { Decoration, EditorView, MatchDecorator, ViewPlugin } from "@codemirror/view";
 import preset, { type EditorAPI, languageSupport } from "@flowgram.ai/coze-editor/preset-prompt";
 import { EditorProvider, Renderer } from "@flowgram.ai/coze-editor/react";
@@ -33,6 +33,7 @@ export default function WorkflowPromptEditor({
   const editor = useRef<EditorAPI | null>(null);
   const selection = useRef({ from: 0, to: 0 });
   const syncing = useRef(false);
+  const language = useMemo(() => new Compartment(), []);
   const tokens = template ? promptVariables(value) : [];
   const extensions = useMemo(() => {
     const matcher = new MatchDecorator({
@@ -61,6 +62,9 @@ export default function WorkflowPromptEditor({
       ),
     ];
   }, [template, options]);
+  useEffect(() => {
+    editor.current?.$view.dispatch({ effects: language.reconfigure(extensions) });
+  }, [language, extensions]);
   useEffect(() => {
     const view = editor.current?.$view;
     if (!view || editor.current?.getValue() === value) return;
@@ -102,7 +106,7 @@ export default function WorkflowPromptEditor({
       <EditorProvider>
         <Renderer
           plugins={preset}
-          extensions={extensions}
+          extensions={[language.of(extensions)]}
           defaultValue={value}
           options={{
             minHeight: full ? 420 : compact ? 120 : 260,

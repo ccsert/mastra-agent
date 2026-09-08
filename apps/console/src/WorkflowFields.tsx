@@ -267,7 +267,8 @@ function NodeFields({
                   }))}
                   onChange={(operator) => {
                     const { right: _right, ...rest } = node;
-                    setInvalidFields((previous) => ({ ...previous, right: false }));
+                    if (operator === "exists")
+                      setInvalidFields((previous) => ({ ...previous, right: false }));
                     setNode({
                       ...rest,
                       operator,

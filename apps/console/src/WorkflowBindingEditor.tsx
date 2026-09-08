@@ -2,7 +2,13 @@ import type { WorkflowBinding } from "@platform/sdk";
 import { Input, Segmented, Select } from "antd";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { WorkflowVariablePicker } from "./WorkflowVariablePicker";
-import { bindingType, defaultLiteral, valueType, valueTypes } from "./workflow-field-model";
+import {
+  acceptsBindingType,
+  bindingSchemaType,
+  defaultLiteral,
+  valueType,
+  valueTypes,
+} from "./workflow-field-model";
 import type { WorkflowVariableOption } from "./workflow-variables";
 
 const PromptEditor = lazy(() => import("./WorkflowPromptEditor"));
@@ -47,22 +53,18 @@ export function WorkflowBindingEditor({
     setParseError("");
   }, [canonicalValue]);
   const expectedType = typeof schema.type === "string" ? schema.type : undefined;
-  const actualType = bindingType(value, options);
+  const actualType = bindingSchemaType(value, options);
   const literalType = value.kind === "literal" ? valueType(value.value) : "string";
   const enumValues = Array.isArray(schema.enum)
     ? schema.enum.filter((v) => ["string", "number", "boolean"].includes(typeof v) || v === null)
     : [];
-  const typeError =
-    expectedType &&
-    actualType &&
-    !["未知", "any"].includes(actualType) &&
-    actualType !== (expectedType === "integer" ? "number" : expectedType)
-      ? `此字段需要${valueTypes.find((v) => v.value === expectedType)?.label ?? expectedType}，当前为 ${actualType}。`
-      : expectedType === "integer" && value.kind === "literal" && !Number.isInteger(value.value)
-        ? "请输入整数。"
-        : value.kind === "literal" && enumValues.length && !enumValues.includes(value.value)
-          ? "请选择约定范围内的值。"
-          : "";
+  const typeError = !acceptsBindingType(actualType, expectedType)
+    ? `此字段需要${valueTypes.find((v) => v.value === expectedType)?.label ?? expectedType}，当前为 ${actualType}。`
+    : expectedType === "integer" && value.kind === "literal" && !Number.isInteger(value.value)
+      ? "请输入整数。"
+      : value.kind === "literal" && enumValues.length && !enumValues.includes(value.value)
+        ? "请选择约定范围内的值。"
+        : "";
   const text =
     value.kind === "template"
       ? value.template
@@ -115,13 +117,8 @@ export function WorkflowBindingEditor({
                 ? {
                     kind,
                     path:
-                      options.find(
-                        (v) =>
-                          !v.optional &&
-                          (!expectedType ||
-                            bindingType({ kind: "ref", path: v.value }, options) ===
-                              (expectedType === "integer" ? "number" : expectedType)),
-                      )?.value ?? "",
+                      options.find((v) => !v.optional && acceptsBindingType(v.type, expectedType))
+                        ?.value ?? "",
                   }
                 : kind === "template"
                   ? {

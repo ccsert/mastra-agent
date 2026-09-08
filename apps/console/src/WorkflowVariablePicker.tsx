@@ -1,5 +1,6 @@
 import { TreeSelect } from "antd";
 import { useMemo } from "react";
+import { acceptsBindingType } from "./workflow-field-model";
 import type { WorkflowVariableOption } from "./workflow-variables";
 
 interface VariableTreeItem {
@@ -46,12 +47,7 @@ export function WorkflowVariablePicker({
             </small>
           </span>
         ),
-        disabled:
-          option.optional ||
-          (!!acceptType &&
-            !["未知", "any"].includes(option.type) &&
-            (option.type === "integer" ? "number" : option.type) !==
-              (acceptType === "integer" ? "number" : acceptType)),
+        disabled: option.optional || !acceptsBindingType(option.type, acceptType),
         children: [],
       });
     }
@@ -64,7 +60,7 @@ export function WorkflowVariablePicker({
     return roots;
   }, [options, acceptType]);
   return (
-    <TreeSelect
+    <TreeSelect<string | null>
       aria-label={label}
       value={value ?? null}
       placeholder={placeholder}
@@ -77,7 +73,9 @@ export function WorkflowVariablePicker({
       treeNodeLabelProp="displayLabel"
       styles={{ popup: { root: { maxWidth: "calc(100vw - 32px)", minWidth: 280 } } }}
       notFoundContent="当前节点暂无可引用的上游变量"
-      onChange={onChange}
+      onChange={(path) => {
+        if (path !== null) onChange(path);
+      }}
     />
   );
 }

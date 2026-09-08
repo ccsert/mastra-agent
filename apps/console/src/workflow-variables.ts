@@ -51,7 +51,7 @@ function literalType(value: unknown, depth = 0): ASTNodeJSON {
         type: literalType(item, depth + 1),
       })),
     };
-  return schemaType({ type: typeof value });
+  return schemaType({ type: Number.isInteger(value) ? "integer" : typeof value });
 }
 
 export function syncWorkflowVariables(

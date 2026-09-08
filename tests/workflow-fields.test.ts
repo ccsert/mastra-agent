@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { WorkflowNode } from "@platform/sdk";
 import {
+  acceptsBindingType,
+  bindingSchemaType,
   conditionTypeIssue,
   describeBinding,
   promptVariables,
@@ -17,7 +18,7 @@ const options = [
     optional: false,
   },
 ];
-const rule: Extract<WorkflowNode, { type: "condition" }> = {
+const rule: Parameters<typeof evaluateCondition>[0] = {
   id: "check",
   label: "判断",
   type: "condition",
@@ -25,6 +26,15 @@ const rule: Extract<WorkflowNode, { type: "condition" }> = {
   left: { kind: "ref", path: "input.total" },
   right: { kind: "literal", value: 100 },
 };
+test("schema binding preserves directional integer compatibility", () => {
+  assert.equal(acceptsBindingType("integer", "number"), true);
+  assert.equal(acceptsBindingType("number", "integer"), false);
+  assert.equal(acceptsBindingType("integer", "integer"), true);
+  assert.equal(acceptsBindingType("string", "number"), false);
+  assert.equal(bindingSchemaType({ kind: "literal", value: 2 }, options), "integer");
+  assert.equal(bindingSchemaType({ kind: "literal", value: 2.5 }, options), "number");
+  assert.equal(bindingSchemaType({ kind: "ref", path: "input.total" }, options), "number");
+});
 test("condition form matches executor numeric and equality type rules", () => {
   assert.equal(conditionTypeIssue(rule, options), undefined);
   assert.equal(evaluateCondition(rule, { total: 100 }, {}), true);
