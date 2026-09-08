@@ -1,8 +1,10 @@
-import type { Agent, Application, KnowledgeBase, Model, Tool } from "@platform/sdk";
+import type { Agent, Application } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { Alert, Button, Drawer, Form, Input, InputNumber, Select } from "antd";
 import { useEffect, useState } from "react";
 import { unwrap } from "./api";
+import { useProjectQuery } from "./data/ProjectData";
+import { QueryState } from "./data/QueryState";
 import { useLifetime } from "./useLifetime";
 export type EditorKind = "project" | "model" | "tool" | "agent" | "application";
 type Values = {
@@ -33,9 +35,6 @@ const labels = {
 export function Editor({
   kind,
   projectId,
-  models,
-  tools,
-  knowledgeBases,
   agent,
   onClose,
   onSaved,
@@ -43,15 +42,24 @@ export function Editor({
 }: {
   kind: EditorKind | null;
   projectId: string;
-  models: Model[];
-  tools: Tool[];
-  knowledgeBases: KnowledgeBase[];
   agent?: Agent;
   onClose: () => void;
   onSaved: () => void;
-  onCredential: (value: Application & { secretKey: string }) => void;
+  onCredential?: (value: Application & { secretKey: string }) => void;
 }) {
   const lifetime = useLifetime();
+  const modelsQuery = useProjectQuery("models", { enabled: kind === "agent" }),
+    toolsQuery = useProjectQuery("tools", { enabled: kind === "agent" }),
+    knowledgeQuery = useProjectQuery("knowledgeBases", { enabled: kind === "agent" });
+  const models = modelsQuery.data ?? [],
+    tools = toolsQuery.data ?? [],
+    knowledgeBases = knowledgeQuery.data ?? [];
+  const ready =
+    kind !== "agent" ||
+    [modelsQuery, toolsQuery, knowledgeQuery].every(
+      (query) => query.data !== undefined && !query.error,
+    );
+
   const [form] = Form.useForm<Values>(),
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
@@ -75,6 +83,7 @@ export function Editor({
     }
   }, [kind, agent, form]);
   async function submit(values: Values) {
+    if (!ready) return;
     const signal = lifetime();
     setSaving(true);
     setError("");
@@ -145,7 +154,7 @@ export function Editor({
           api.createApplication({ path, body: { name: values.name }, signal }),
         );
         if (signal.aborted) return;
-        onCredential(credential);
+        onCredential?.(credential);
       }
       if (signal.aborted) return;
       onSaved();
@@ -166,14 +175,33 @@ export function Editor({
       footer={
         <div className="dialog-footer">
           <Button onClick={onClose}>取消</Button>
-          <Button type="primary" loading={saving} onClick={() => form.submit()}>
+          <Button type="primary" loading={saving} disabled={!ready} onClick={() => form.submit()}>
             {kind === "agent" ? "保存草稿" : "保存"}
           </Button>
         </div>
       }
     >
       {error && <Alert type="error" title={error} showIcon className="form-alert" />}
-      <Form form={form} layout="vertical" onFinish={submit} requiredMark="optional">
+      {kind === "agent" && (
+        <>
+          <QueryState label="模型服务" query={modelsQuery}>
+            {null}
+          </QueryState>
+          <QueryState label="工具" query={toolsQuery}>
+            {null}
+          </QueryState>
+          <QueryState label="知识库" query={knowledgeQuery}>
+            {null}
+          </QueryState>
+        </>
+      )}
+      <Form
+        disabled={!ready}
+        form={form}
+        layout="vertical"
+        onFinish={submit}
+        requiredMark="optional"
+      >
         <Form.Item
           name="name"
           label={kind === "tool" ? "工具调用名" : "名称"}

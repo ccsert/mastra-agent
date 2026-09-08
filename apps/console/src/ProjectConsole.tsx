@@ -18,19 +18,9 @@ import {
   RobotOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
-import type {
-  Agent,
-  Application,
-  Conversation,
-  KnowledgeBase,
-  Model,
-  Project,
-  Run,
-  RunEvent,
-  RuntimeInfo,
-  Tool,
-} from "@platform/sdk";
+import type { Agent, Conversation, Model, Project, Tool } from "@platform/sdk";
 import * as api from "@platform/sdk";
+import { useIsFetching } from "@tanstack/react-query";
 import { type UIMessage, validateUIMessages } from "ai";
 import {
   Alert,
@@ -38,9 +28,6 @@ import {
   Badge,
   Button,
   Drawer,
-  Empty,
-  Input,
-  Modal,
   Select,
   Spin,
   Table,
@@ -48,12 +35,17 @@ import {
   Tooltip,
 } from "antd";
 import type React from "react";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useRef, useState } from "react";
+import { ApplicationsWorkspace } from "./Applications";
 import { timestamp, unwrap } from "./api";
 import type { ConsoleSession } from "./auth/SessionBoundary";
+import { Blank } from "./Blank";
+import { useProjectQuery, useProjectRefresh } from "./data/ProjectData";
+import { QueryState } from "./data/QueryState";
 import { Editor, type EditorKind } from "./Editors";
 import { KnowledgeWorkspace } from "./Knowledge";
 import { McpWorkspace } from "./Mcp";
+import { RunsWorkspace } from "./Runs";
 import { useLifetime } from "./useLifetime";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
@@ -98,48 +90,6 @@ const pageTitles: Record<Page, [string, string]> = {
   applications: ["应用接入", "通过 OpenAPI 和生成 SDK，将 Agent 接入业务后端。"],
   runtimes: ["Runtime", "查看承接 Agent 执行的运行服务及连接状态。"],
 };
-const statusNames: Record<Run["status"], string> = {
-  queued: "排队中",
-  running: "执行中",
-  succeeded: "成功",
-  failed: "失败",
-  cancelled: "已取消",
-};
-const statusColors: Record<Run["status"], string> = {
-  queued: "default",
-  running: "processing",
-  succeeded: "success",
-  failed: "error",
-  cancelled: "warning",
-};
-function RunStatus({ status }: { status: Run["status"] }) {
-  return <Tag color={statusColors[status]}>{statusNames[status]}</Tag>;
-}
-function Blank({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="blank-state">
-      <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-          <>
-            <h3>{title}</h3>
-            <p>{description}</p>
-          </>
-        }
-      >
-        {action}
-      </Empty>
-    </div>
-  );
-}
 export function ProjectConsole({
   user,
   logout,
@@ -157,26 +107,33 @@ export function ProjectConsole({
   const lifetime = useLifetime();
   const [page, setPage] = useState<Page>("overview"),
     [mobileNav, setMobileNav] = useState(false);
-  const [models, setModels] = useState<Model[]>([]),
-    [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]),
-    [tools, setTools] = useState<Tool[]>([]),
-    [agents, setAgents] = useState<Agent[]>([]),
-    [conversations, setConversations] = useState<Conversation[]>([]),
-    [runs, setRuns] = useState<Run[]>([]),
-    [applications, setApplications] = useState<Application[]>([]),
-    [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
-  const [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
+  const modelsQuery = useProjectQuery("models", {
+    enabled: ["overview", "agents", "models", "knowledge", "workflows"].includes(page),
+  });
+  const toolsQuery = useProjectQuery("tools", {
+    enabled: ["overview", "tools", "mcp"].includes(page),
+  });
+  const agentsQuery = useProjectQuery("agents", { enabled: ["overview", "agents"].includes(page) });
+  const conversationsQuery = useProjectQuery("conversations", { enabled: page === "chat" });
+  const runsQuery = useProjectQuery("runs", {
+    enabled: page === "overview",
+    poll: page === "overview",
+  });
+  const runtimesQuery = useProjectQuery("runtimes", { poll: true });
+  const models = modelsQuery.data ?? [],
+    tools = toolsQuery.data ?? [],
+    agents = agentsQuery.data ?? [],
+    conversations = conversationsQuery.data ?? [],
+    runs = runsQuery.data ?? [],
+    runtimes = runtimesQuery.data ?? [];
+  const refresh = useProjectRefresh(),
+    loading = useIsFetching() > 0;
+  const [error, setError] = useState(""),
     [editor, setEditor] = useState<EditorKind | null>(null),
     [editingAgent, setEditingAgent] = useState<Agent>(),
     [publishing, setPublishing] = useState("");
   const [conversation, setConversation] = useState<Conversation | null>(null),
-    [messages, setMessages] = useState<UIMessage[] | null>(null),
-    [runDetail, setRunDetail] = useState<Run | null>(null),
-    [events, setEvents] = useState<RunEvent[]>([]),
-    [eventsMore, setEventsMore] = useState(false),
-    [eventsLoading, setEventsLoading] = useState(false),
-    [credential, setCredential] = useState<(Application & { secretKey: string }) | null>(null);
+    [messages, setMessages] = useState<UIMessage[] | null>(null);
   const workflowGuard = useRef<(() => "busy" | "dirty" | null) | undefined>(undefined);
   const registerWorkflowGuard = useCallback((guard?: () => "busy" | "dirty" | null) => {
     workflowGuard.current = guard;
@@ -197,64 +154,8 @@ export function ProjectConsole({
       });
     } else action();
   };
-  const conversationRequest = useRef(0),
-    detailRequest = useRef(0);
+  const conversationRequest = useRef(0);
   const selectedProject = projects.find((p) => p.id === projectId);
-  const refreshRequest = useRef(0);
-  const refresh = useCallback(async () => {
-    if (!projectId) return;
-    const signal = lifetime(),
-      request = ++refreshRequest.current;
-    setLoading(true);
-    setError("");
-    try {
-      const path = { projectId };
-      const result = await Promise.all([
-        unwrap(api.listModels({ path, signal })),
-        unwrap(api.listTools({ path, signal })),
-        unwrap(api.listAgents({ path, signal })),
-        unwrap(api.listConversations({ path, signal })),
-        unwrap(api.listRuns({ path, signal })),
-        unwrap(api.listApplications({ path, signal })),
-        unwrap(api.listRuntimes({ signal })),
-        unwrap(api.listKnowledgeBases({ path, signal })),
-      ]);
-      if (signal.aborted || request !== refreshRequest.current) return;
-      setModels(result[0]);
-      setTools(result[1]);
-      setAgents(result[2]);
-      setConversations(result[3]);
-      setRuns(result[4]);
-      setApplications(result[5]);
-      setRuntimes(result[6]);
-      setKnowledgeBases(result[7]);
-    } catch (e) {
-      if (signal.aborted || request !== refreshRequest.current) return;
-      setError(e instanceof Error ? e.message : "加载失败");
-    } finally {
-      if (!signal.aborted && request === refreshRequest.current) setLoading(false);
-    }
-  }, [projectId, lifetime]);
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-  useEffect(() => {
-    const signal = lifetime();
-    const timer = setInterval(() => {
-      void unwrap(api.listRuntimes({ signal }))
-        .then((items) => {
-          if (!signal.aborted) setRuntimes(items);
-        })
-        .catch(() => {});
-      if (projectId)
-        void unwrap(api.listRuns({ path: { projectId }, signal }))
-          .then((items) => {
-            if (!signal.aborted) setRuns(items);
-          })
-          .catch(() => {});
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [projectId, lifetime]);
   function openEditor(kind: EditorKind, agent?: Agent) {
     setEditingAgent(agent);
     setEditor(kind);
@@ -272,11 +173,11 @@ export function ProjectConsole({
       );
       if (signal.aborted) return;
       void message.success(`已发布 v${release.version}`);
-      await refresh();
+      await refresh("agents");
     } catch (e) {
       if (!signal.aborted) void message.error(e instanceof Error ? e.message : "发布失败");
     } finally {
-      setPublishing("");
+      if (!signal.aborted) setPublishing("");
     }
   }
   async function selectConversation(item: Conversation) {
@@ -307,42 +208,11 @@ export function ProjectConsole({
         }),
       );
       if (signal.aborted || request !== conversationRequest.current) return;
-      setConversations((current) => [item, ...current]);
+      void refresh("conversations");
       await selectConversation(item);
     } catch (e) {
       if (!signal.aborted && request === conversationRequest.current)
         void message.error(e instanceof Error ? e.message : "创建会话失败");
-    }
-  }
-  async function inspectRun(run: Run, append = false) {
-    const signal = lifetime(),
-      request = ++detailRequest.current;
-    setRunDetail(run);
-    setEventsLoading(true);
-    if (!append) {
-      setEvents([]);
-      setEventsMore(false);
-    }
-    try {
-      const [batch, current] = await Promise.all([
-        unwrap(
-          api.listRunEvents({
-            signal,
-            path: { projectId, id: run.id },
-            query: { after: append ? (events.at(-1)?.seq ?? -1) : -1 },
-          }),
-        ),
-        unwrap(api.getRun({ path: { projectId, id: run.id }, signal })),
-      ]);
-      if (signal.aborted || request !== detailRequest.current) return;
-      setRunDetail(current);
-      setEvents((previous) => (append ? [...previous, ...batch] : batch));
-      setEventsMore(batch.length === 500);
-    } catch (e) {
-      if (!signal.aborted && request === detailRequest.current)
-        void message.error(e instanceof Error ? e.message : "读取事件失败");
-    } finally {
-      if (!signal.aborted && request === detailRequest.current) setEventsLoading(false);
     }
   }
   function navigate(next: Page) {
@@ -383,8 +253,24 @@ export function ProjectConsole({
       </nav>
       <div className="sidebar-bottom">
         <div className="connection">
-          <Badge status={runtimes.some((r) => r.online) ? "success" : "default"} />
-          <span>{runtimes.some((r) => r.online) ? "Runtime 已连接" : "等待 Runtime 连接"}</span>
+          <Badge
+            status={
+              runtimesQuery.error
+                ? "warning"
+                : runtimes.some((r) => r.online)
+                  ? "success"
+                  : "default"
+            }
+          />
+          <span>
+            {runtimesQuery.error
+              ? "Runtime 状态更新失败"
+              : !runtimesQuery.data
+                ? "正在读取 Runtime 状态"
+                : runtimes.some((r) => r.online)
+                  ? "Runtime 已连接"
+                  : "等待 Runtime 连接"}
+          </span>
         </div>
         <div className="user-row">
           <span className="user-avatar">{user.displayName[0]?.toUpperCase()}</span>
@@ -515,7 +401,7 @@ export function ProjectConsole({
               <h1>{pageTitles[page][0]}</h1>
               <p>{pageTitles[page][1]}</p>
             </div>
-            {projectId && ["agents", "models", "tools", "applications"].includes(page) && (
+            {projectId && ["agents", "models", "tools"].includes(page) && (
               <Button
                 type="primary"
                 icon={<PlusOutlined key="PlusOutlined" />}
@@ -526,7 +412,6 @@ export function ProjectConsole({
                         agents: "agent",
                         models: "model",
                         tools: "tool",
-                        applications: "application",
                       } as Record<string, EditorKind>
                     )[page],
                   )
@@ -538,7 +423,6 @@ export function ProjectConsole({
                       agents: "创建 Agent",
                       models: "接入模型",
                       tools: "登记工具",
-                      applications: "创建应用",
                     } as Record<string, string>
                   )[page]
                 }
@@ -578,21 +462,30 @@ export function ProjectConsole({
                       [
                         <RobotOutlined key="RobotOutlined" />,
                         "Agent",
-                        agents.length,
-                        `${agents.filter((a) => a.publishedReleaseId).length} 个已发布`,
+                        agentsQuery.data?.length ?? "—",
+                        agentsQuery.data
+                          ? `${agents.filter((a) => a.publishedReleaseId).length} 个已发布`
+                          : "等待数据",
                       ],
-                      [<ApiOutlined key="ApiOutlined" />, "模型服务", models.length, "已登记配置"],
+                      [
+                        <ApiOutlined key="ApiOutlined" />,
+                        "模型服务",
+                        modelsQuery.data?.length ?? "—",
+                        "已登记配置",
+                      ],
                       [
                         <ToolOutlined key="ToolOutlined" />,
                         "工具",
-                        tools.length,
+                        toolsQuery.data?.length ?? "—",
                         "只读与确定性能力",
                       ],
                       [
                         <DeploymentUnitOutlined key="DeploymentUnitOutlined" />,
                         "最近运行",
-                        runs.length,
-                        `${runs.filter((r) => r.status === "succeeded").length} 次成功`,
+                        runsQuery.data?.length ?? "—",
+                        runsQuery.data
+                          ? `${runs.filter((r) => r.status === "succeeded").length} 次成功`
+                          : "等待数据",
                       ],
                     ].map(([icon, label, value, note]) => (
                       <section className="metric" key={String(label)}>
@@ -604,6 +497,15 @@ export function ProjectConsole({
                       </section>
                     ))}
                   </div>
+                  <QueryState label="模型服务" query={modelsQuery}>
+                    {null}
+                  </QueryState>
+                  <QueryState label="工具" query={toolsQuery}>
+                    {null}
+                  </QueryState>
+                  <QueryState label="运行记录" query={runsQuery}>
+                    {null}
+                  </QueryState>
                   <section className="onboarding">
                     <div>
                       <span className="eyebrow">从配置到调用</span>
@@ -650,21 +552,23 @@ export function ProjectConsole({
                       查看全部 <ArrowRightOutlined key="ArrowRightOutlined" />
                     </Button>
                   </div>
-                  {agents.length ? (
-                    agentCards(agents.slice(0, 3))
-                  ) : (
-                    <section className="panel">
-                      <Blank
-                        title="还没有 Agent"
-                        description="先接入模型，再创建一个可以使用授权工具的 Agent。"
-                        action={
-                          <Button onClick={() => openEditor(models.length ? "agent" : "model")}>
-                            {models.length ? "创建 Agent" : "接入模型"}
-                          </Button>
-                        }
-                      />
-                    </section>
-                  )}
+                  <QueryState label="Agents" query={agentsQuery}>
+                    {agents.length ? (
+                      agentCards(agents.slice(0, 3))
+                    ) : (
+                      <section className="panel">
+                        <Blank
+                          title="还没有 Agent"
+                          description="先接入模型，再创建一个可以使用授权工具的 Agent。"
+                          action={
+                            <Button onClick={() => openEditor(models.length ? "agent" : "model")}>
+                              {models.length ? "创建 Agent" : "接入模型"}
+                            </Button>
+                          }
+                        />
+                      </section>
+                    )}
+                  </QueryState>
                   <div className="scope-note">
                     <ExperimentOutlined key="ExperimentOutlined" />
                     <p>
@@ -674,148 +578,168 @@ export function ProjectConsole({
                   </div>
                 </>
               )}
-              {page === "agents" &&
-                (agents.length ? (
-                  agentCards(agents)
-                ) : (
-                  <section className="panel">
-                    <Blank
-                      title="创建第一个 Agent"
-                      description="为它选择模型，写下角色指令，并绑定允许使用的工具。"
-                      action={
-                        <Button type="primary" onClick={() => openEditor("agent")}>
-                          创建 Agent
-                        </Button>
-                      }
-                    />
-                  </section>
-                ))}
+              {page === "agents" && (
+                <>
+                  <QueryState label="模型服务" query={modelsQuery}>
+                    {null}
+                  </QueryState>
+                  <QueryState label="Agents" query={agentsQuery}>
+                    {agents.length ? (
+                      agentCards(agents)
+                    ) : (
+                      <section className="panel">
+                        <Blank
+                          title="创建第一个 Agent"
+                          description="为它选择模型，写下角色指令，并绑定允许使用的工具。"
+                          action={
+                            <Button type="primary" onClick={() => openEditor("agent")}>
+                              创建 Agent
+                            </Button>
+                          }
+                        />
+                      </section>
+                    )}
+                  </QueryState>
+                </>
+              )}
               {page === "knowledge" && (
-                <KnowledgeWorkspace
-                  key={projectId}
-                  projectId={projectId}
-                  models={models}
-                  onChanged={() => void refresh()}
-                  onConfigureModels={() => navigate("models")}
-                />
-              )}
-              {page === "mcp" && (
-                <McpWorkspace
-                  key={projectId}
-                  projectId={projectId}
-                  tools={tools}
-                  onChanged={() => void refresh()}
-                />
-              )}
-              {page === "workflows" && (
-                <Suspense fallback={<Spin />}>
-                  <Workflows
+                <QueryState label="模型服务" query={modelsQuery}>
+                  <KnowledgeWorkspace
                     key={projectId}
                     projectId={projectId}
                     models={models}
-                    registerGuard={registerWorkflowGuard}
+                    onChanged={() => void refresh("knowledgeBases")}
+                    onConfigureModels={() => navigate("models")}
                   />
-                </Suspense>
+                </QueryState>
+              )}
+              {page === "mcp" && (
+                <QueryState label="工具" query={toolsQuery}>
+                  <McpWorkspace
+                    key={projectId}
+                    projectId={projectId}
+                    tools={tools}
+                    onChanged={() => void refresh("tools")}
+                  />
+                </QueryState>
+              )}
+              {page === "workflows" && (
+                <QueryState label="模型服务" query={modelsQuery}>
+                  <Suspense fallback={<Spin />}>
+                    <Workflows
+                      key={projectId}
+                      projectId={projectId}
+                      models={models}
+                      registerGuard={registerWorkflowGuard}
+                    />
+                  </Suspense>
+                </QueryState>
               )}
               {page === "models" && (
-                <section className="panel">
-                  <Table<Model>
-                    scroll={{ x: 850 }}
-                    rowKey="id"
-                    dataSource={models}
-                    pagination={false}
-                    locale={{
-                      emptyText: (
-                        <Blank
-                          title="接入你的模型服务"
-                          description="支持 OpenAI 兼容接口，凭据加密保存在平台。"
-                          action={<Button onClick={() => openEditor("model")}>接入模型</Button>}
-                        />
-                      ),
-                    }}
-                    columns={[
-                      {
-                        title: "模型服务",
-                        dataIndex: "name",
-                        render: (_, m) => (
-                          <div className="cell-title">
-                            <span className="table-icon">
-                              <ApiOutlined key="ApiOutlined" />
-                            </span>
-                            <div>
-                              <strong>{m.name}</strong>
-                              <small>OpenAI 兼容接口</small>
+                <QueryState label="模型服务" query={modelsQuery}>
+                  <section className="panel">
+                    <Table<Model>
+                      scroll={{ x: 850 }}
+                      rowKey="id"
+                      dataSource={models}
+                      pagination={false}
+                      locale={{
+                        emptyText: (
+                          <Blank
+                            title="接入你的模型服务"
+                            description="支持 OpenAI 兼容接口，凭据加密保存在平台。"
+                            action={<Button onClick={() => openEditor("model")}>接入模型</Button>}
+                          />
+                        ),
+                      }}
+                      columns={[
+                        {
+                          title: "模型服务",
+                          dataIndex: "name",
+                          render: (_, m) => (
+                            <div className="cell-title">
+                              <span className="table-icon">
+                                <ApiOutlined key="ApiOutlined" />
+                              </span>
+                              <div>
+                                <strong>{m.name}</strong>
+                                <small>OpenAI 兼容接口</small>
+                              </div>
                             </div>
-                          </div>
-                        ),
-                      },
-                      {
-                        title: "能力",
-                        dataIndex: "kind",
-                        render: (kind: Model["kind"], m: Model) => (
-                          <Tag>
-                            {{ chat: "对话", embedding: "向量", rerank: "重排" }[kind ?? "chat"]}
-                            {m.dimensions ? ` · ${m.dimensions} 维` : ""}
-                          </Tag>
-                        ),
-                      },
-                      { title: "模型 ID", dataIndex: "modelId", render: (v) => <code>{v}</code> },
-                      { title: "服务地址", dataIndex: "baseUrl", ellipsis: true },
-                      {
-                        title: "凭据",
-                        dataIndex: "hasCredential",
-                        render: (v) => (
-                          <Tag color={v ? "success" : "default"}>{v ? "已加密保存" : "未设置"}</Tag>
-                        ),
-                      },
-                      { title: "登记时间", dataIndex: "createdAt", render: timestamp },
-                    ]}
-                  />
-                </section>
+                          ),
+                        },
+                        {
+                          title: "能力",
+                          dataIndex: "kind",
+                          render: (kind: Model["kind"], m: Model) => (
+                            <Tag>
+                              {{ chat: "对话", embedding: "向量", rerank: "重排" }[kind ?? "chat"]}
+                              {m.dimensions ? ` · ${m.dimensions} 维` : ""}
+                            </Tag>
+                          ),
+                        },
+                        { title: "模型 ID", dataIndex: "modelId", render: (v) => <code>{v}</code> },
+                        { title: "服务地址", dataIndex: "baseUrl", ellipsis: true },
+                        {
+                          title: "凭据",
+                          dataIndex: "hasCredential",
+                          render: (v) => (
+                            <Tag color={v ? "success" : "default"}>
+                              {v ? "已加密保存" : "未设置"}
+                            </Tag>
+                          ),
+                        },
+                        { title: "登记时间", dataIndex: "createdAt", render: timestamp },
+                      ]}
+                    />
+                  </section>
+                </QueryState>
               )}
               {page === "tools" && (
-                <section className="panel">
-                  <Table<Tool>
-                    rowKey="id"
-                    dataSource={tools}
-                    pagination={false}
-                    locale={{
-                      emptyText: (
-                        <Blank
-                          title="连接业务能力"
-                          description="登记只读 JSON 接口，或用内置求和工具验证 Agent 工具调用。"
-                          action={<Button onClick={() => openEditor("tool")}>登记工具</Button>}
-                        />
-                      ),
-                    }}
-                    columns={[
-                      {
-                        title: "工具",
-                        dataIndex: "name",
-                        render: (_, t) => (
-                          <div className="cell-title">
-                            <span className="table-icon">
-                              <ToolOutlined key="ToolOutlined" />
-                            </span>
-                            <div>
-                              <strong>{t.name}</strong>
-                              <small>{t.description}</small>
-                            </div>
-                          </div>
+                <QueryState label="工具" query={toolsQuery}>
+                  <section className="panel">
+                    <Table<Tool>
+                      rowKey="id"
+                      dataSource={tools}
+                      pagination={false}
+                      locale={{
+                        emptyText: (
+                          <Blank
+                            title="连接业务能力"
+                            description="登记只读 JSON 接口，或用内置求和工具验证 Agent 工具调用。"
+                            action={<Button onClick={() => openEditor("tool")}>登记工具</Button>}
+                          />
                         ),
-                      },
-                      {
-                        title: "执行方式",
-                        dataIndex: "kind",
-                        render: (v) =>
-                          v === "sum" ? "内置求和" : v === "mcp" ? "MCP" : "HTTP GET",
-                      },
-                      { title: "能力范围", render: () => <Tag>只读 / 无业务写入</Tag> },
-                      { title: "版本", render: () => <code>v1</code> },
-                      { title: "登记时间", dataIndex: "createdAt", render: timestamp },
-                    ]}
-                  />
-                </section>
+                      }}
+                      columns={[
+                        {
+                          title: "工具",
+                          dataIndex: "name",
+                          render: (_, t) => (
+                            <div className="cell-title">
+                              <span className="table-icon">
+                                <ToolOutlined key="ToolOutlined" />
+                              </span>
+                              <div>
+                                <strong>{t.name}</strong>
+                                <small>{t.description}</small>
+                              </div>
+                            </div>
+                          ),
+                        },
+                        {
+                          title: "执行方式",
+                          dataIndex: "kind",
+                          render: (v) =>
+                            v === "sum" ? "内置求和" : v === "mcp" ? "MCP" : "HTTP GET",
+                        },
+                        { title: "能力范围", render: () => <Tag>只读 / 无业务写入</Tag> },
+                        { title: "版本", render: () => <code>v1</code> },
+                        { title: "登记时间", dataIndex: "createdAt", render: timestamp },
+                      ]}
+                    />
+                  </section>
+                </QueryState>
               )}
               {page === "chat" && (
                 <section className="chat-workspace">
@@ -829,30 +753,32 @@ export function ProjectConsole({
                         onClick={() => navigate("agents")}
                       />
                     </div>
-                    {conversations.length ? (
-                      conversations.map((c) => (
-                        <button
-                          type="button"
-                          key={c.id}
-                          className={
-                            conversation?.id === c.id
-                              ? "conversation-item selected"
-                              : "conversation-item"
-                          }
-                          onClick={() => void selectConversation(c)}
-                        >
-                          <CommentOutlined key="CommentOutlined" />
-                          <span>
-                            <strong>{c.title}</strong>
-                            <small>
-                              v{c.releaseVersion} · {timestamp(c.createdAt)}
-                            </small>
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
-                    )}
+                    <QueryState label="会话" query={conversationsQuery}>
+                      {conversations.length ? (
+                        conversations.map((c) => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            className={
+                              conversation?.id === c.id
+                                ? "conversation-item selected"
+                                : "conversation-item"
+                            }
+                            onClick={() => void selectConversation(c)}
+                          >
+                            <CommentOutlined key="CommentOutlined" />
+                            <span>
+                              <strong>{c.title}</strong>
+                              <small>
+                                v{c.releaseVersion} · {timestamp(c.createdAt)}
+                              </small>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
+                      )}
+                    </QueryState>
                   </aside>
                   <div className="chat-main">
                     {conversation ? (
@@ -877,7 +803,7 @@ export function ProjectConsole({
                               projectId={projectId}
                               conversationId={conversation.id}
                               messages={messages}
-                              onFinish={() => void refresh()}
+                              onFinish={() => void refresh("runs", "conversations")}
                             />
                           </Suspense>
                         ) : (
@@ -900,171 +826,48 @@ export function ProjectConsole({
                   </div>
                 </section>
               )}
-              {page === "runs" && (
-                <section className="panel">
-                  <Table<Run>
-                    rowKey="id"
-                    dataSource={runs}
-                    pagination={{ pageSize: 10 }}
-                    locale={{
-                      emptyText: (
-                        <Blank
-                          title="还没有运行记录"
-                          description="发布 Agent 并发起一次对话后，可以在这里查看执行情况。"
-                        />
-                      ),
-                    }}
-                    columns={[
-                      {
-                        title: "任务",
-                        dataIndex: "id",
-                        render: (_, r) => (
-                          <Button type="link" onClick={() => void inspectRun(r)}>
-                            {r.id.slice(0, 8)}
-                          </Button>
-                        ),
-                      },
-                      { title: "Agent", dataIndex: "agentName" },
-                      {
-                        title: "发布版本",
-                        dataIndex: "releaseVersion",
-                        render: (v) => <code>v{v}</code>,
-                      },
-                      {
-                        title: "状态",
-                        dataIndex: "status",
-                        render: (v) => <RunStatus status={v} />,
-                      },
-                      { title: "Runtime", dataIndex: "runtimeId" },
-                      { title: "创建时间", dataIndex: "createdAt", render: timestamp },
-                      {
-                        title: "操作",
-                        render: (_, r) => (
-                          <Button type="text" onClick={() => void inspectRun(r)}>
-                            查看详情
-                          </Button>
-                        ),
-                      },
-                    ]}
-                  />
-                </section>
-              )}
-              {page === "applications" && (
-                <>
-                  <section className="integration-banner">
-                    <div className="integration-icon">
-                      <CodeOutlined key="CodeOutlined" />
-                    </div>
-                    <div>
-                      <h2>把 Agent 接入业务后端</h2>
-                      <p>
-                        创建项目范围的 AppID 与 AK/SK，使用生成的 TypeScript SDK
-                        调用。凭据仅保存在服务端。
-                      </p>
-                    </div>
-                    <Button
-                      href="/openapi.json"
-                      target="_blank"
-                      icon={<ApiOutlined key="ApiOutlined" />}
-                    >
-                      OpenAPI 定义
-                    </Button>
-                  </section>
-                  <section className="panel">
-                    <Table<Application>
-                      rowKey="id"
-                      dataSource={applications}
-                      pagination={false}
-                      locale={{
-                        emptyText: (
-                          <Blank
-                            title="创建应用凭据"
-                            description="应用与平台用户的会话默认隔离，应用只能使用当前项目中已发布的 Agent。"
-                          />
-                        ),
-                      }}
-                      columns={[
-                        { title: "应用名称", dataIndex: "name" },
-                        { title: "AppID", dataIndex: "id", render: (v) => <code>{v}</code> },
-                        {
-                          title: "状态",
-                          dataIndex: "active",
-                          render: (v) => (
-                            <Tag color={v ? "success" : "default"}>{v ? "有效" : "已撤销"}</Tag>
-                          ),
-                        },
-                        {
-                          title: "操作",
-                          render: (_, a) => (
-                            <Button
-                              danger
-                              type="text"
-                              disabled={!a.active}
-                              onClick={() =>
-                                void unwrap(
-                                  api.revokeApplication({
-                                    path: { projectId, id: a.id },
-                                    body: {},
-                                  }),
-                                )
-                                  .then(() => refresh())
-                                  .catch((e) => message.error(e.message))
-                              }
-                            >
-                              撤销凭据
-                            </Button>
-                          ),
-                        },
-                      ]}
-                    />
-                  </section>
-                  <section className="code-panel">
-                    <div>
-                      <strong>生成 SDK 调用示例</strong>
-                      <Tag>TypeScript · 服务端</Tag>
-                    </div>
-                    <pre>{`import { createClient } from '@platform/sdk/client';\nimport { applicationSigner } from '@platform/sdk/auth';\nimport { createConversation, createRun, getRun } from '@platform/sdk';\n\nconst client = createClient({ baseUrl: process.env.PLATFORM_URL });\nclient.interceptors.request.use(applicationSigner({\n  appId: process.env.APP_ID,\n  accessKey: process.env.ACCESS_KEY,\n  secretKey: process.env.SECRET_KEY,\n}));\nconst path = { projectId: '${projectId}' };\nconst { data: conversation } = await createConversation({\n  client, path, body: { agentId: '已发布的 Agent ID' },\n});\nconst { data: run } = await createRun({\n  client, path, body: { conversationId: conversation.id,\n    input: '请处理这项任务', requestId: crypto.randomUUID() },\n});\n// 使用 getRun 查询状态；使用 listRunEvents 读取执行事件。`}</pre>
-                  </section>
-                </>
-              )}
+              {page === "runs" && <RunsWorkspace projectId={projectId} />}
+              {page === "applications" && <ApplicationsWorkspace projectId={projectId} />}
               {page === "runtimes" && (
-                <div className="runtime-grid">
-                  {runtimes.map((r) => (
-                    <section className="runtime-card" key={r.id}>
-                      <div className="runtime-title">
-                        <span>
-                          <CloudServerOutlined key="CloudServerOutlined" />
-                        </span>
-                        <div>
-                          <h2>{r.name}</h2>
-                          <code>{r.id}</code>
+                <QueryState label="Runtime" query={runtimesQuery}>
+                  <div className="runtime-grid">
+                    {runtimes.map((r) => (
+                      <section className="runtime-card" key={r.id}>
+                        <div className="runtime-title">
+                          <span>
+                            <CloudServerOutlined key="CloudServerOutlined" />
+                          </span>
+                          <div>
+                            <h2>{r.name}</h2>
+                            <code>{r.id}</code>
+                          </div>
+                          <Tag color={r.online ? "success" : "default"}>
+                            {r.online ? "在线" : "离线"}
+                          </Tag>
                         </div>
-                        <Tag color={r.online ? "success" : "default"}>
-                          {r.online ? "在线" : "离线"}
-                        </Tag>
-                      </div>
-                      <dl>
-                        <div>
-                          <dt>部署位置</dt>
-                          <dd>平台托管</dd>
-                        </div>
-                        <div>
-                          <dt>连接方式</dt>
-                          <dd>主动连接控制面</dd>
-                        </div>
-                        <div>
-                          <dt>最近连接</dt>
-                          <dd>{r.lastSeenAt ? timestamp(r.lastSeenAt) : "尚未连接"}</dd>
-                        </div>
-                        <div>
-                          <dt>执行能力</dt>
-                          <dd>Agent · 授权只读工具</dd>
-                        </div>
-                      </dl>
-                      <p>Runtime 独立执行任务，并回传消息与工具事件。</p>
-                    </section>
-                  ))}
-                </div>
+                        <dl>
+                          <div>
+                            <dt>部署位置</dt>
+                            <dd>平台托管</dd>
+                          </div>
+                          <div>
+                            <dt>连接方式</dt>
+                            <dd>主动连接控制面</dd>
+                          </div>
+                          <div>
+                            <dt>最近连接</dt>
+                            <dd>{r.lastSeenAt ? timestamp(r.lastSeenAt) : "尚未连接"}</dd>
+                          </div>
+                          <div>
+                            <dt>执行能力</dt>
+                            <dd>Agent · 授权只读工具</dd>
+                          </div>
+                        </dl>
+                        <p>Runtime 独立执行任务，并回传消息与工具事件。</p>
+                      </section>
+                    ))}
+                  </div>
+                </QueryState>
               )}
             </>
           )}
@@ -1074,122 +877,23 @@ export function ProjectConsole({
         key={`${editor ?? "closed"}:${editingAgent?.id ?? "new"}`}
         kind={editor}
         projectId={projectId}
-        models={models}
-        tools={tools}
-        knowledgeBases={knowledgeBases}
         agent={editingAgent}
         onClose={() => setEditor(null)}
         onSaved={() => {
           if (editor === "project") void refreshProjects(true);
-          else void refresh();
+          else if (editor)
+            void refresh(
+              (
+                {
+                  model: "models",
+                  tool: "tools",
+                  agent: "agents",
+                  application: "applications",
+                } as const
+              )[editor],
+            );
         }}
-        onCredential={setCredential}
       />
-      <Modal
-        title="保存应用凭据"
-        open={!!credential}
-        onCancel={() => setCredential(null)}
-        footer={
-          <Button type="primary" onClick={() => setCredential(null)}>
-            我已保存
-          </Button>
-        }
-        destroyOnHidden
-      >
-        {credential && (
-          <>
-            <Alert type="warning" title="SK 只显示这一次。关闭后无法再次查看，请保存在业务后端。" />
-            <div className="credential-fields">
-              <label htmlFor="app-id">
-                AppID
-                <Input id="app-id" readOnly value={credential.id} />
-              </label>
-              <label htmlFor="access-key">
-                Access Key
-                <Input id="access-key" readOnly value={credential.accessKey} />
-              </label>
-              <label htmlFor="secret-key">
-                Secret Key
-                <Input.Password id="secret-key" readOnly value={credential.secretKey} />
-              </label>
-            </div>
-          </>
-        )}
-      </Modal>
-      <Drawer
-        title="运行详情"
-        open={!!runDetail}
-        onClose={() => {
-          detailRequest.current++;
-          setRunDetail(null);
-        }}
-        size={640}
-      >
-        {runDetail && (
-          <>
-            <div className="run-detail-head">
-              <h2>{runDetail.agentName}</h2>
-              <RunStatus status={runDetail.status} />
-            </div>
-            <dl className="detail-grid">
-              <dt>运行 ID</dt>
-              <dd>
-                <code>{runDetail.id}</code>
-              </dd>
-              <dt>发布版本</dt>
-              <dd>v{runDetail.releaseVersion}</dd>
-              <dt>Runtime</dt>
-              <dd>{runDetail.runtimeId}</dd>
-              <dt>开始时间</dt>
-              <dd>{timestamp(runDetail.createdAt)}</dd>
-            </dl>
-            {runDetail.errorCode && (
-              <Alert
-                type="error"
-                title={`运行失败：${runDetail.errorCode}`}
-                description="请检查模型连接、服务凭据与 Runtime 状态。"
-              />
-            )}
-            {runDetail.outputText && (
-              <section className="run-output">
-                <h3>输出</h3>
-                <p>{runDetail.outputText}</p>
-              </section>
-            )}
-            <h3>
-              执行事件{" "}
-              <span className="muted">
-                {events.length}
-                {eventsMore ? "+" : ""}
-              </span>
-              <Button
-                type="link"
-                loading={eventsLoading}
-                onClick={() => void inspectRun(runDetail)}
-              >
-                刷新详情
-              </Button>
-            </h3>
-            {eventsMore && (
-              <Button loading={eventsLoading} onClick={() => void inspectRun(runDetail, true)}>
-                加载后续事件
-              </Button>
-            )}
-            <div className="event-list">
-              {events.map((e) => (
-                <details key={e.seq}>
-                  <summary>
-                    <span>#{e.seq}</span>
-                    <strong>{String(e.chunk.type)}</strong>
-                    <small>{timestamp(e.createdAt)}</small>
-                  </summary>
-                  <pre>{JSON.stringify(e.chunk, null, 2)}</pre>
-                </details>
-              ))}
-            </div>
-          </>
-        )}
-      </Drawer>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Alert, Button, Spin } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { unwrap } from "./api";
 import type { ConsoleSession } from "./auth/SessionBoundary";
+import { ProjectData } from "./data/ProjectData";
 import { ProjectConsole } from "./ProjectConsole";
 import { useLifetime } from "./useLifetime";
 
@@ -51,14 +52,15 @@ export function Workspace(session: ConsoleSession) {
         />
       )}
       {ready ? (
-        <ProjectConsole
-          key={projectId}
-          {...session}
-          projects={projects}
-          projectId={projectId}
-          onProjectChange={setProjectId}
-          refreshProjects={refreshProjects}
-        />
+        <ProjectData key={projectId} projectId={projectId}>
+          <ProjectConsole
+            {...session}
+            projects={projects}
+            projectId={projectId}
+            onProjectChange={setProjectId}
+            refreshProjects={refreshProjects}
+          />
+        </ProjectData>
       ) : (
         !error && (
           <div className="full-loader">

@@ -57,6 +57,16 @@ const releaseDto = (r: Row) =>
     snapshot: r.snapshot,
     createdAt: workflowDate(r.created_at),
   });
+const assetDto = (row: Row) =>
+  WorkflowAsset.parse({
+    ...(row.data as object),
+    id: row.id,
+    projectId: row.project_id,
+    revision: row.revision,
+    publishedReleaseId: row.current_release_id,
+    publishedVersion: row.version ?? null,
+    createdAt: workflowDate(row.created_at),
+  });
 export function toolCapability(tool: z.infer<typeof Tool>): WorkflowCapability {
   const outputSchema =
     tool.kind === "mcp" && tool.mcp?.descriptor.outputSchema
@@ -104,24 +114,19 @@ export class Workflows {
       [id, projectId, actor.tenantId],
     );
     if (!row) throw notFound();
-    return WorkflowAsset.parse({
-      ...(row.data as object),
-      id: row.id,
-      projectId,
-      revision: row.revision,
-      publishedReleaseId: row.current_release_id,
-      publishedVersion: row.version ?? null,
-      createdAt: workflowDate(row.created_at),
-    });
+    return assetDto(row);
   }
   async list(actor: Principal, projectId: string) {
     this.store.requireUser(actor);
     await this.store.project(actor, projectId);
     const rows = await this.db.query(
-      "SELECT id FROM workflows WHERE project_id=$1 ORDER BY created_at DESC LIMIT 100",
-      [projectId],
+      `SELECT w.*,r.version FROM workflows w
+       LEFT JOIN workflow_releases r ON r.id=w.current_release_id
+       WHERE w.project_id=$1 AND w.tenant_id=$2
+       ORDER BY w.created_at DESC,w.id DESC LIMIT 100`,
+      [projectId, actor.tenantId],
     );
-    return Promise.all(rows.map((r) => this.asset(actor, projectId, String(r.id))));
+    return rows.map(assetDto);
   }
   private checkLayout(input: z.infer<typeof WorkflowAssetInput>) {
     if (

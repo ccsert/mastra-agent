@@ -22,6 +22,7 @@
     "@flowgram.ai/minimap-plugin": "1.0.15",
     "@flowgram.ai/panel-manager-plugin": "1.0.15",
     "@platform/sdk": "workspace:*",
+    "@tanstack/react-query": "5.102.8",
     "ai": "7.0.93",
     "antd": "6.6.3",
     "react": "19.2.8",
