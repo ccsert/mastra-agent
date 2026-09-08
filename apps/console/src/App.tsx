@@ -2,6 +2,7 @@ import {
   ApiOutlined,
   AppstoreOutlined,
   ArrowRightOutlined,
+  BookOutlined,
   CheckCircleOutlined,
   CloudServerOutlined,
   CodeOutlined,
@@ -21,6 +22,7 @@ import type {
   Agent,
   Application,
   Conversation,
+  KnowledgeBase,
   Model,
   Principal,
   Project,
@@ -51,12 +53,14 @@ import type React from "react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { timestamp, unwrap } from "./api";
 import { Editor, type EditorKind } from "./Editors";
+import { KnowledgeWorkspace } from "./Knowledge";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
 type Page =
   | "overview"
   | "agents"
   | "chat"
+  | "knowledge"
   | "models"
   | "tools"
   | "runs"
@@ -66,6 +70,7 @@ const navigation: [Page, string, React.ReactNode][] = [
   ["overview", "工作台", <AppstoreOutlined key="AppstoreOutlined" />],
   ["agents", "Agents", <RobotOutlined key="RobotOutlined" />],
   ["chat", "对话", <CommentOutlined key="CommentOutlined" />],
+  ["knowledge", "知识库", <BookOutlined key="knowledge" />],
   ["models", "模型服务", <ApiOutlined key="ApiOutlined" />],
   ["tools", "工具", <ToolOutlined key="ToolOutlined" />],
   ["runs", "运行记录", <DeploymentUnitOutlined key="DeploymentUnitOutlined" />],
@@ -76,6 +81,7 @@ const pageTitles: Record<Page, [string, string]> = {
   overview: ["工作台", "从模型配置到业务调用，管理你的 Agent 项目。"],
   agents: ["Agents", "配置角色与工具，发布可供团队和业务系统使用的智能体。"],
   chat: ["对话", "与已发布的 Agent 协作，历史记录保存在当前项目。"],
+  knowledge: ["知识库", "将团队资料转为可检索的知识，供 Agent 按需引用。"],
   models: ["模型服务", "登记团队使用的模型服务，并管理调用凭据。"],
   tools: ["工具", "让 Agent 使用经过登记的业务能力。"],
   runs: ["运行记录", "查看任务状态、发布版本与工具执行结果。"],
@@ -136,6 +142,7 @@ export function App() {
     [page, setPage] = useState<Page>("overview"),
     [mobileNav, setMobileNav] = useState(false);
   const [models, setModels] = useState<Model[]>([]),
+    [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]),
     [tools, setTools] = useState<Tool[]>([]),
     [agents, setAgents] = useState<Agent[]>([]),
     [conversations, setConversations] = useState<Conversation[]>([]),
@@ -200,6 +207,7 @@ export function App() {
         unwrap(api.listRuns({ path })),
         unwrap(api.listApplications({ path })),
         unwrap(api.listRuntimes()),
+        unwrap(api.listKnowledgeBases({ path })),
       ]);
       if (projectRef.current !== projectId) return;
       setModels(result[0]);
@@ -209,6 +217,7 @@ export function App() {
       setRuns(result[4]);
       setApplications(result[5]);
       setRuntimes(result[6]);
+      setKnowledgeBases(result[7]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -223,6 +232,7 @@ export function App() {
     setConversation(null);
     setMessages(null);
     setModels([]);
+    setKnowledgeBases([]);
     setTools([]);
     setAgents([]);
     setConversations([]);
@@ -532,6 +542,11 @@ export function App() {
             <span>
               <ToolOutlined key="ToolOutlined" /> {agent.toolIds.length} 个工具
             </span>
+            {!!agent.knowledgeBaseIds?.length && (
+              <span>
+                <BookOutlined /> {agent.knowledgeBaseIds.length} 个知识库
+              </span>
+            )}
           </div>
           <div className="agent-actions">
             <Button onClick={() => openEditor("agent", agent)}>编辑</Button>
@@ -767,7 +782,7 @@ export function App() {
                   <div className="scope-note">
                     <ExperimentOutlined key="ExperimentOutlined" />
                     <p>
-                      当前已开放 Agent 运行闭环。知识库、Skills、AI
+                      当前已开放 Agent 对话、工具调用与知识库检索。Skills、AI
                       工作流和嵌入组件将继续接入这套平台。
                     </p>
                   </div>
@@ -789,9 +804,19 @@ export function App() {
                     />
                   </section>
                 ))}
+              {page === "knowledge" && (
+                <KnowledgeWorkspace
+                  key={projectId}
+                  projectId={projectId}
+                  models={models}
+                  onChanged={() => void refresh()}
+                  onConfigureModels={() => navigate("models")}
+                />
+              )}
               {page === "models" && (
                 <section className="panel">
                   <Table<Model>
+                    scroll={{ x: 850 }}
                     rowKey="id"
                     dataSource={models}
                     pagination={false}
@@ -818,6 +843,16 @@ export function App() {
                               <small>OpenAI 兼容接口</small>
                             </div>
                           </div>
+                        ),
+                      },
+                      {
+                        title: "能力",
+                        dataIndex: "kind",
+                        render: (kind: Model["kind"], m: Model) => (
+                          <Tag>
+                            {{ chat: "对话", embedding: "向量", rerank: "重排" }[kind ?? "chat"]}
+                            {m.dimensions ? ` · ${m.dimensions} 维` : ""}
+                          </Tag>
                         ),
                       },
                       { title: "模型 ID", dataIndex: "modelId", render: (v) => <code>{v}</code> },
@@ -1135,6 +1170,7 @@ export function App() {
         projectId={projectId}
         models={models}
         tools={tools}
+        knowledgeBases={knowledgeBases}
         agent={editingAgent}
         onClose={() => setEditor(null)}
         onSaved={() => {

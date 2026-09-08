@@ -1,5 +1,6 @@
 import { ExecutionJob, Message } from "@platform/contracts";
 import { executeJob } from "./execute.ts";
+import { runKnowledgeWorker } from "./knowledge-worker.ts";
 export interface WorkerConfig {
   controlPlaneUrl: string;
   runtimeId: string;
@@ -17,10 +18,11 @@ const wait = (ms: number, signal: AbortSignal) =>
     const timer = setTimeout(done, ms);
     signal.addEventListener("abort", done, { once: true });
   });
-export async function runWorker(config: WorkerConfig) {
-  async function post(path: string, body: unknown, signal: AbortSignal = config.signal) {
+export function runtimeClient(config: WorkerConfig) {
+  return async function post(path: string, body: unknown, signal: AbortSignal = config.signal) {
     const response = await fetch(config.controlPlaneUrl + path, {
       method: "POST",
+      redirect: "error",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${config.runtimeToken}`,
@@ -31,7 +33,13 @@ export async function runWorker(config: WorkerConfig) {
     });
     if (!response.ok) throw new Error(`CONTROL_PLANE_${response.status}`);
     return response.json();
-  }
+  };
+}
+export async function runWorker(config: WorkerConfig) {
+  await Promise.all([runAgentWorker(config), runKnowledgeWorker(config)]);
+}
+async function runAgentWorker(config: WorkerConfig) {
+  const post = runtimeClient(config);
   let disconnected = false;
   while (!config.signal.aborted) {
     let job: ExecutionJob | null = null;
@@ -77,13 +85,18 @@ export async function runWorker(config: WorkerConfig) {
         .catch(() => controller.abort());
     }, 4000);
     try {
-      const message = await executeJob(current, executionSignal, async (chunk) => {
-        await post(
-          `/internal/runtime/runs/${current.runId}/events`,
-          { leaseToken: current.leaseToken, seq: seq++, chunk },
-          executionSignal,
-        );
-      });
+      const message = await executeJob(
+        current,
+        executionSignal,
+        async (chunk) => {
+          await post(
+            `/internal/runtime/runs/${current.runId}/events`,
+            { leaseToken: current.leaseToken, seq: seq++, chunk },
+            executionSignal,
+          );
+        },
+        post,
+      );
       await post(`/internal/runtime/runs/${current.runId}/finish`, {
         leaseToken: current.leaseToken,
         status: "succeeded",

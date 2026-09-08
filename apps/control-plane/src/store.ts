@@ -4,6 +4,7 @@ import {
   AgentInput,
   Application,
   Conversation,
+  KnowledgeSnapshot,
   Model,
   type ModelInput,
   type Principal,
@@ -30,7 +31,7 @@ import { ApiError, notFound } from "./errors.ts";
 const text = (r: Row, key: string) => String(r[key]);
 const date = (value: unknown) => (value instanceof Date ? value.toISOString() : String(value));
 const data = (r: Row) => r.data as Record<string, unknown>;
-const modelDto = (r: Row) =>
+export const modelDto = (r: Row) =>
   Model.parse({
     ...data(r),
     id: r.id,
@@ -283,11 +284,13 @@ export class Store {
   async createModel(actor: Principal, projectId: string, input: ModelInput) {
     this.requireUser(actor);
     await this.project(actor, projectId);
+    if (input.dimensions !== undefined && input.kind !== "embedding")
+      throw new ApiError(400, "MODEL_DIMENSIONS", "仅向量模型可以配置维度");
     const { apiKey, ...payload } = input,
       id = randomUUID();
     const [r] = await this.db.query(
       "INSERT INTO resources(id,tenant_id,project_id,kind,data,secret_enc) VALUES($1,$2,$3,'model',$4,$5) RETURNING *",
-      [id, actor.tenantId, projectId, payload, this.vault.encrypt(apiKey)],
+      [id, actor.tenantId, projectId, payload, this.vault.encrypt(apiKey ?? "")],
     );
     return modelDto(r);
   }
@@ -340,16 +343,49 @@ export class Store {
     input: AgentInput,
     tx: Queryable = this.db,
   ) {
-    await this.resource(actor, projectId, input.modelId, "model", tx);
+    const model = modelDto(await this.resource(actor, projectId, input.modelId, "model", tx));
+    if (model.kind !== "chat") throw new ApiError(400, "MODEL_KIND", "Agent 必须绑定对话模型");
     if (new Set(input.toolIds).size !== input.toolIds.length)
       throw new ApiError(400, "DUPLICATE_TOOLS", "同一工具不能重复绑定");
     const names = new Set();
+    const knowledgeIds = input.knowledgeBaseIds ?? [];
+    if (new Set(knowledgeIds).size !== knowledgeIds.length)
+      throw new ApiError(400, "DUPLICATE_KNOWLEDGE", "同一知识库不能重复绑定");
+    for (const id of knowledgeIds) await this.knowledgeSnapshot(actor, projectId, id, tx);
     for (const id of input.toolIds) {
       const tool = await this.resource(actor, projectId, id, "tool", tx);
       const name = data(tool).name;
+      if (name === "knowledge_search")
+        throw new ApiError(400, "RESERVED_TOOL_NAME", "knowledge_search 是平台知识检索工具名称");
       if (names.has(name)) throw new ApiError(400, "DUPLICATE_TOOL_NAMES", "工具名称不能重复");
       names.add(name);
     }
+  }
+  async knowledgeSnapshot(
+    actor: Principal,
+    projectId: string,
+    id: string,
+    tx: Queryable = this.db,
+  ) {
+    await this.project(actor, projectId, tx);
+    const [kb] = await tx.query("SELECT * FROM knowledge_bases WHERE id=$1 AND project_id=$2", [
+      id,
+      projectId,
+    ]);
+    if (!kb) throw notFound();
+    const config = data(kb);
+    return KnowledgeSnapshot.parse({
+      id,
+      name: config.name,
+      chunkSize: config.chunkSize,
+      chunkOverlap: config.chunkOverlap,
+      embeddingModel: modelDto(
+        await this.resource(actor, projectId, String(config.embeddingModelId), "model", tx),
+      ),
+      rerankModel: config.rerankModelId
+        ? modelDto(await this.resource(actor, projectId, String(config.rerankModelId), "model", tx))
+        : null,
+    });
   }
   async createAgent(actor: Principal, projectId: string, input: AgentInput) {
     this.requireUser(actor);
@@ -389,10 +425,14 @@ export class Store {
         tools = [];
       for (const toolId of agent.toolIds)
         tools.push(toolDto(await this.resource(actor, projectId, toolId, "tool", tx)));
+      const knowledgeBases = [];
+      for (const kbId of agent.knowledgeBaseIds)
+        knowledgeBases.push(await this.knowledgeSnapshot(actor, projectId, kbId, tx));
       const snapshot = ReleaseSnapshot.parse({
         agent,
         model,
         tools,
+        knowledgeBases,
         adapterVersion: "mastra-agent-v1",
       });
       const digest = sha256(JSON.stringify(snapshot));

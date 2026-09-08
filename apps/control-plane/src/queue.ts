@@ -54,6 +54,12 @@ export class Queue {
         return this.vault.decrypt(String(r.secret_enc));
       };
       const modelApiKey = await secret(snapshot.model.id, "model");
+      const knowledgeModelKeys: Record<string, string> = {};
+      for (const kb of snapshot.knowledgeBases) {
+        knowledgeModelKeys[kb.embeddingModel.id] = await secret(kb.embeddingModel.id, "model");
+        if (kb.rerankModel)
+          knowledgeModelKeys[kb.rerankModel.id] = await secret(kb.rerankModel.id, "model");
+      }
       for (const tool of snapshot.tools) toolTokens[tool.id] = await secret(tool.id, "tool");
       const messages = (
         await tx.query("SELECT data FROM messages WHERE conversation_id=$1 ORDER BY position", [
@@ -65,7 +71,7 @@ export class Queue {
         leaseToken,
         snapshot,
         messages,
-        credentials: { modelApiKey, toolTokens },
+        credentials: { modelApiKey, toolTokens, knowledgeModelKeys },
         deadline: new Date(String(run.deadline)).getTime(),
       });
     });

@@ -14,29 +14,72 @@ import {
   ThreadPrimitive,
   type ToolCallMessagePartComponent,
 } from "@assistant-ui/react";
+import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import { cancelRun } from "@platform/sdk";
 import type { UIMessage } from "ai";
 import { Alert } from "antd";
 import { useRef, useState } from "react";
+import remarkGfm from "remark-gfm";
 import { unwrap } from "./api";
 
-const ToolCard: ToolCallMessagePartComponent = ({ toolName, args, result }) => (
-  <details className="tool-result" open>
-    <summary>
-      <ToolOutlined /> {toolName} <span>{result === undefined ? "执行中" : "已返回"}</span>
-    </summary>
-    <div>
-      <small>输入</small>
-      <pre>{JSON.stringify(args, null, 2)}</pre>
-      {result !== undefined && (
-        <>
-          <small>结果</small>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </>
-      )}
-    </div>
-  </details>
-);
+type Citation = { citationId: string; filename: string; ordinal: number; content: string };
+function citations(value: unknown): Citation[] {
+  if (!value || typeof value !== "object" || !("sources" in value) || !Array.isArray(value.sources))
+    return [];
+  return value.sources.filter(
+    (s): s is Citation =>
+      s &&
+      typeof s === "object" &&
+      typeof s.citationId === "string" &&
+      typeof s.filename === "string" &&
+      typeof s.ordinal === "number" &&
+      typeof s.content === "string",
+  );
+}
+const ToolCard: ToolCallMessagePartComponent = ({ toolName, args, result }) => {
+  if (toolName === "knowledge_search" && result !== undefined) {
+    const sources = citations(result);
+    return (
+      <section className="chat-citations" aria-label="知识库来源">
+        <strong>
+          <ToolOutlined /> 知识检索 · {sources.length} 个来源
+        </strong>
+        {sources.length ? (
+          sources.map((s) => (
+            <details key={s.citationId} className="chat-citation">
+              <summary>
+                <span>
+                  {s.filename} · 片段 {s.ordinal + 1}
+                </span>
+                <small>[{s.citationId}]</small>
+              </summary>
+              <p>{s.content}</p>
+            </details>
+          ))
+        ) : (
+          <p>未获得可用资料，请查看工具状态或调整问题。</p>
+        )}
+      </section>
+    );
+  }
+  return (
+    <details className="tool-result" open>
+      <summary>
+        <ToolOutlined /> {toolName} <span>{result === undefined ? "执行中" : "已返回"}</span>
+      </summary>
+      <div>
+        <small>输入</small>
+        <pre>{JSON.stringify(args, null, 2)}</pre>
+        {result !== undefined && (
+          <>
+            <small>结果</small>
+            <pre>{JSON.stringify(result, null, 2)}</pre>
+          </>
+        )}
+      </div>
+    </details>
+  );
+};
 function UserMessage() {
   return (
     <MessagePrimitive.Root className="chat-message user-message">
@@ -58,7 +101,28 @@ function AssistantMessage() {
       </span>
       <div className="message-body">
         <small>Assistant</small>
-        <MessagePrimitive.Parts components={{ tools: { Fallback: ToolCard } }} />
+        <MessagePrimitive.Parts>
+          {({ part }) => {
+            if (part.type === "text")
+              return (
+                <MarkdownTextPrimitive
+                  className="chat-markdown"
+                  remarkPlugins={[remarkGfm]}
+                  skipHtml
+                  components={{
+                    img: ({ alt }) => <span>{alt}</span>,
+                    a: ({ children, href }) => (
+                      <a href={href} target="_blank" rel="noreferrer">
+                        {children}
+                      </a>
+                    ),
+                  }}
+                />
+              );
+            if (part.type === "tool-call") return <ToolCard {...part} />;
+            return null;
+          }}
+        </MessagePrimitive.Parts>
         <MessagePrimitive.Error>
           <p className="chat-error">本次运行未完成，请查看错误提示和运行记录。</p>
         </MessagePrimitive.Error>

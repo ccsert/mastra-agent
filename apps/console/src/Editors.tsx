@@ -1,6 +1,6 @@
-import type { Agent, Application, Model, Tool } from "@platform/sdk";
+import type { Agent, Application, KnowledgeBase, Model, Tool } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { Alert, Button, Drawer, Form, Input, Select } from "antd";
+import { Alert, Button, Drawer, Form, Input, InputNumber, Select } from "antd";
 import { useEffect, useState } from "react";
 import { unwrap } from "./api";
 export type EditorKind = "project" | "model" | "tool" | "agent" | "application";
@@ -10,8 +10,11 @@ type Values = {
   baseUrl?: string;
   modelId?: string;
   apiKey?: string;
+  modelKind?: "chat" | "embedding" | "rerank";
+  dimensions?: number;
   instructions?: string;
   toolIds?: string[];
+  knowledgeBaseIds?: string[];
   maxSteps?: number;
   kind?: "sum" | "http_get";
   url?: string;
@@ -31,6 +34,7 @@ export function Editor({
   projectId,
   models,
   tools,
+  knowledgeBases,
   agent,
   onClose,
   onSaved,
@@ -40,6 +44,7 @@ export function Editor({
   projectId: string;
   models: Model[];
   tools: Tool[];
+  knowledgeBases: KnowledgeBase[];
   agent?: Agent;
   onClose: () => void;
   onSaved: () => void;
@@ -49,15 +54,18 @@ export function Editor({
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   const toolKind = Form.useWatch("kind", form);
+  const modelKind = Form.useWatch("modelKind", form);
   useEffect(() => {
     if (kind) {
       form.resetFields();
       form.setFieldsValue({
         description: "",
         kind: "sum",
+        modelKind: "chat",
         inputSchema: '{"type":"object","properties":{},"additionalProperties":false}',
         outputSchema: '{"type":"object"}',
         toolIds: [],
+        knowledgeBaseIds: [],
         maxSteps: 5,
         ...(agent ?? {}),
       });
@@ -82,6 +90,10 @@ export function Editor({
               baseUrl: values.baseUrl ?? "",
               modelId: values.modelId ?? "",
               apiKey: values.apiKey ?? "",
+              kind: values.modelKind ?? "chat",
+              ...(values.modelKind === "embedding" && values.dimensions
+                ? { dimensions: values.dimensions }
+                : {}),
             },
           }),
         );
@@ -107,6 +119,7 @@ export function Editor({
           modelId: values.modelId ?? "",
           instructions: values.instructions ?? "",
           toolIds: values.toolIds ?? [],
+          knowledgeBaseIds: values.knowledgeBaseIds ?? [],
           maxSteps: values.maxSteps ?? 5,
         };
         if (agent)
@@ -188,9 +201,17 @@ export function Editor({
         {kind === "model" && (
           <>
             <p className="form-note">
-              接入 OpenAI 兼容的 Chat Completions
-              服务。模型凭据加密保存，浏览器不会收到已保存的密钥。
+              接入对话、向量或重排服务。模型凭据加密保存，浏览器不会收到已保存的密钥。
             </p>
+            <Form.Item name="modelKind" label="服务能力">
+              <Select
+                options={[
+                  { value: "chat", label: "对话 · Chat Completions" },
+                  { value: "embedding", label: "向量 · Embeddings" },
+                  { value: "rerank", label: "重排 · Rerank" },
+                ]}
+              />
+            </Form.Item>
             <Form.Item
               name="baseUrl"
               label="Base URL"
@@ -211,7 +232,25 @@ export function Editor({
             <Form.Item name="apiKey" label="API Key">
               <Input.Password autoComplete="new-password" placeholder="无鉴权的自建服务可留空" />
             </Form.Item>
-            <Alert type="info" title="配置保存后，请通过 Agent 对话验证实际模型连接。" />
+            {modelKind === "embedding" && (
+              <Form.Item
+                name="dimensions"
+                label="向量维度（可选）"
+                extra="作为 dimensions 参数发送；不填则使用模型默认值。知识库会固定实际维度。"
+              >
+                <InputNumber
+                  min={1}
+                  max={16000}
+                  precision={0}
+                  placeholder="例如 1024"
+                  style={{ width: "100%" }}
+                />
+              </Form.Item>
+            )}
+            <Alert
+              type="info"
+              title="对话模型通过 Agent 验证；向量和重排模型通过文档入库及检索测试验证。"
+            />
           </>
         )}
         {kind === "tool" && (
@@ -270,7 +309,9 @@ export function Editor({
             >
               <Select
                 placeholder="选择已登记的模型"
-                options={models.map((m) => ({ label: `${m.name} · ${m.modelId}`, value: m.id }))}
+                options={models
+                  .filter((m) => m.kind === "chat")
+                  .map((m) => ({ label: `${m.name} · ${m.modelId}`, value: m.id }))}
               />
             </Form.Item>
             <Form.Item
@@ -289,6 +330,20 @@ export function Editor({
                 mode="multiple"
                 placeholder="选择允许 Agent 自主调用的工具"
                 options={tools.map((t) => ({ label: `${t.name} · ${t.description}`, value: t.id }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="knowledgeBaseIds"
+              label="授权知识库"
+              extra="Agent 可自主检索这些资料，使用最新处理成功的文档。发布版本固定知识库与模型配置。"
+            >
+              <Select
+                mode="multiple"
+                placeholder="选择当前项目的知识库"
+                options={knowledgeBases.map((k) => ({
+                  value: k.id,
+                  label: `${k.name} · ${k.readyCount} 份可检索文档`,
+                }))}
               />
             </Form.Item>
             <Form.Item name="maxSteps" label="每次运行最多执行轮数">

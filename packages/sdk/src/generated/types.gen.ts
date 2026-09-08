@@ -32,6 +32,8 @@ export type ProjectInput = {
 export type Model = {
     name: string;
     baseUrl: string;
+    kind?: 'chat' | 'embedding' | 'rerank';
+    dimensions?: number;
     modelId: string;
     id: string;
     projectId: string;
@@ -43,6 +45,8 @@ export type Model = {
 export type ModelInput = {
     name: string;
     baseUrl: string;
+    kind?: 'chat' | 'embedding' | 'rerank';
+    dimensions?: number;
     modelId: string;
     apiKey?: string;
 };
@@ -90,6 +94,7 @@ export type AgentInput = {
     instructions: string;
     modelId: string;
     toolIds: Array<string>;
+    knowledgeBaseIds?: Array<string>;
     maxSteps?: number;
 };
 
@@ -107,6 +112,16 @@ export type Release = {
         agent: AgentInput;
         model: Model;
         tools: Array<Tool>;
+        knowledgeBases?: Array<{
+            id: string;
+            name: string;
+            embeddingModel: Model;
+            rerankModel: Model & ({
+                [key: string]: unknown;
+            } | null);
+            chunkSize: number;
+            chunkOverlap: number;
+        }>;
         adapterVersion: 'mastra-agent-v1';
     };
     createdAt: string;
@@ -177,6 +192,71 @@ export type Application = {
     accessKey: string;
     active: boolean;
     createdAt: string;
+};
+
+export type KnowledgeBase = KnowledgeInput & {
+    id: string;
+    projectId: string;
+    dimensions: number | null;
+    documentCount: number;
+    readyCount: number;
+    chunkCount: number;
+    createdAt: string;
+};
+
+export type KnowledgeInput = {
+    name: string;
+    description?: string;
+    embeddingModelId: string;
+    rerankModelId?: string | null;
+    chunkSize?: number;
+    chunkOverlap?: number;
+};
+
+export type KnowledgeDocument = {
+    id: string;
+    knowledgeBaseId: string;
+    filename: string;
+    contentHash: string;
+    status: 'queued' | 'processing' | 'ready' | 'failed' | 'deleted';
+    chunkCount: number;
+    errorCode: string | null;
+    createdAt: string;
+};
+
+export type DocumentInput = {
+    filename: string;
+    content: string;
+};
+
+export type KnowledgeChunk = {
+    id: string;
+    documentId: string;
+    knowledgeBaseId: string;
+    filename: string;
+    ordinal: number;
+    content: string;
+    contentHash: string;
+};
+
+export type KnowledgeSearch = {
+    id: string;
+    knowledgeBaseId: string;
+    query: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    results: Array<SearchHit>;
+    errorCode: string | null;
+    createdAt: string;
+};
+
+export type SearchHit = KnowledgeChunk & {
+    similarity: number;
+    rerankScore: number | null;
+};
+
+export type SearchInput = {
+    query: string;
+    topK?: number;
 };
 
 export type HealthData = {
@@ -1701,3 +1781,479 @@ export type StreamConversationResponses = {
 };
 
 export type StreamConversationResponse = StreamConversationResponses[keyof StreamConversationResponses];
+
+export type ListKnowledgeBasesData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge';
+};
+
+export type ListKnowledgeBasesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListKnowledgeBasesError = ListKnowledgeBasesErrors[keyof ListKnowledgeBasesErrors];
+
+export type ListKnowledgeBasesResponses = {
+    /**
+     * 成功
+     */
+    200: Array<KnowledgeBase>;
+};
+
+export type ListKnowledgeBasesResponse = ListKnowledgeBasesResponses[keyof ListKnowledgeBasesResponses];
+
+export type CreateKnowledgeBaseData = {
+    body: KnowledgeInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge';
+};
+
+export type CreateKnowledgeBaseErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CreateKnowledgeBaseError = CreateKnowledgeBaseErrors[keyof CreateKnowledgeBaseErrors];
+
+export type CreateKnowledgeBaseResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeBase;
+};
+
+export type CreateKnowledgeBaseResponse = CreateKnowledgeBaseResponses[keyof CreateKnowledgeBaseResponses];
+
+export type ListKnowledgeDocumentsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        kbId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents';
+};
+
+export type ListKnowledgeDocumentsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListKnowledgeDocumentsError = ListKnowledgeDocumentsErrors[keyof ListKnowledgeDocumentsErrors];
+
+export type ListKnowledgeDocumentsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<KnowledgeDocument>;
+};
+
+export type ListKnowledgeDocumentsResponse = ListKnowledgeDocumentsResponses[keyof ListKnowledgeDocumentsResponses];
+
+export type UploadKnowledgeDocumentData = {
+    body: DocumentInput;
+    path: {
+        projectId: string;
+        kbId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents';
+};
+
+export type UploadKnowledgeDocumentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UploadKnowledgeDocumentError = UploadKnowledgeDocumentErrors[keyof UploadKnowledgeDocumentErrors];
+
+export type UploadKnowledgeDocumentResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeDocument;
+};
+
+export type UploadKnowledgeDocumentResponse = UploadKnowledgeDocumentResponses[keyof UploadKnowledgeDocumentResponses];
+
+export type RetryKnowledgeDocumentData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/retry';
+};
+
+export type RetryKnowledgeDocumentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RetryKnowledgeDocumentError = RetryKnowledgeDocumentErrors[keyof RetryKnowledgeDocumentErrors];
+
+export type RetryKnowledgeDocumentResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeDocument;
+};
+
+export type RetryKnowledgeDocumentResponse = RetryKnowledgeDocumentResponses[keyof RetryKnowledgeDocumentResponses];
+
+export type DeleteKnowledgeDocumentData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/delete';
+};
+
+export type DeleteKnowledgeDocumentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DeleteKnowledgeDocumentError = DeleteKnowledgeDocumentErrors[keyof DeleteKnowledgeDocumentErrors];
+
+export type DeleteKnowledgeDocumentResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: true;
+    };
+};
+
+export type DeleteKnowledgeDocumentResponse = DeleteKnowledgeDocumentResponses[keyof DeleteKnowledgeDocumentResponses];
+
+export type ListKnowledgeChunksData = {
+    body?: never;
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/chunks';
+};
+
+export type ListKnowledgeChunksErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListKnowledgeChunksError = ListKnowledgeChunksErrors[keyof ListKnowledgeChunksErrors];
+
+export type ListKnowledgeChunksResponses = {
+    /**
+     * 成功
+     */
+    200: Array<KnowledgeChunk>;
+};
+
+export type ListKnowledgeChunksResponse = ListKnowledgeChunksResponses[keyof ListKnowledgeChunksResponses];
+
+export type SearchKnowledgeData = {
+    body: SearchInput;
+    path: {
+        projectId: string;
+        kbId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches';
+};
+
+export type SearchKnowledgeErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SearchKnowledgeError = SearchKnowledgeErrors[keyof SearchKnowledgeErrors];
+
+export type SearchKnowledgeResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeSearch;
+};
+
+export type SearchKnowledgeResponse = SearchKnowledgeResponses[keyof SearchKnowledgeResponses];
+
+export type GetKnowledgeSearchData = {
+    body?: never;
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches/{id}';
+};
+
+export type GetKnowledgeSearchErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetKnowledgeSearchError = GetKnowledgeSearchErrors[keyof GetKnowledgeSearchErrors];
+
+export type GetKnowledgeSearchResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeSearch;
+};
+
+export type GetKnowledgeSearchResponse = GetKnowledgeSearchResponses[keyof GetKnowledgeSearchResponses];

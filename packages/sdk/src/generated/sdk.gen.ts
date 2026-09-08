@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client/index.js';
-import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, HealthData, HealthResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses } from './types.gen.js';
+import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, HealthData, HealthResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -182,3 +182,56 @@ export const streamConversation = <ThrowOnError extends boolean = false>(options
         ...options.headers
     }
 });
+
+export const listKnowledgeBases = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeBasesData, ThrowOnError>): RequestResult<ListKnowledgeBasesResponses, ListKnowledgeBasesErrors, ThrowOnError> => (options.client ?? client).get<ListKnowledgeBasesResponses, ListKnowledgeBasesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge', ...options });
+
+export const createKnowledgeBase = <ThrowOnError extends boolean = false>(options: Options<CreateKnowledgeBaseData, ThrowOnError>): RequestResult<CreateKnowledgeBaseResponses, CreateKnowledgeBaseErrors, ThrowOnError> => (options.client ?? client).post<CreateKnowledgeBaseResponses, CreateKnowledgeBaseErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listKnowledgeDocuments = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeDocumentsData, ThrowOnError>): RequestResult<ListKnowledgeDocumentsResponses, ListKnowledgeDocumentsErrors, ThrowOnError> => (options.client ?? client).get<ListKnowledgeDocumentsResponses, ListKnowledgeDocumentsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents', ...options });
+
+export const uploadKnowledgeDocument = <ThrowOnError extends boolean = false>(options: Options<UploadKnowledgeDocumentData, ThrowOnError>): RequestResult<UploadKnowledgeDocumentResponses, UploadKnowledgeDocumentErrors, ThrowOnError> => (options.client ?? client).post<UploadKnowledgeDocumentResponses, UploadKnowledgeDocumentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const retryKnowledgeDocument = <ThrowOnError extends boolean = false>(options: Options<RetryKnowledgeDocumentData, ThrowOnError>): RequestResult<RetryKnowledgeDocumentResponses, RetryKnowledgeDocumentErrors, ThrowOnError> => (options.client ?? client).post<RetryKnowledgeDocumentResponses, RetryKnowledgeDocumentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/retry',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const deleteKnowledgeDocument = <ThrowOnError extends boolean = false>(options: Options<DeleteKnowledgeDocumentData, ThrowOnError>): RequestResult<DeleteKnowledgeDocumentResponses, DeleteKnowledgeDocumentErrors, ThrowOnError> => (options.client ?? client).post<DeleteKnowledgeDocumentResponses, DeleteKnowledgeDocumentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/delete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listKnowledgeChunks = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeChunksData, ThrowOnError>): RequestResult<ListKnowledgeChunksResponses, ListKnowledgeChunksErrors, ThrowOnError> => (options.client ?? client).get<ListKnowledgeChunksResponses, ListKnowledgeChunksErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/chunks', ...options });
+
+export const searchKnowledge = <ThrowOnError extends boolean = false>(options: Options<SearchKnowledgeData, ThrowOnError>): RequestResult<SearchKnowledgeResponses, SearchKnowledgeErrors, ThrowOnError> => (options.client ?? client).post<SearchKnowledgeResponses, SearchKnowledgeErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getKnowledgeSearch = <ThrowOnError extends boolean = false>(options: Options<GetKnowledgeSearchData, ThrowOnError>): RequestResult<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError> => (options.client ?? client).get<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches/{id}', ...options });

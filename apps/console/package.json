@@ -11,11 +11,13 @@
     "@ant-design/icons": "6.3.4",
     "@assistant-ui/ai-sdk": "0.0.4",
     "@assistant-ui/react": "0.15.18",
+    "@assistant-ui/react-markdown": "0.14.14",
     "@platform/sdk": "workspace:*",
     "ai": "7.0.93",
     "antd": "6.6.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "remark-gfm": "4.0.1"
   },
   "devDependencies": {
     "vite": "8.2.2"

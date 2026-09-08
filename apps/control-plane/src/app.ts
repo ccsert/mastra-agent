@@ -31,6 +31,8 @@ import { bodyLimit } from "hono/body-limit";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { secureEqual } from "./crypto.ts";
 import { ApiError } from "./errors.ts";
+import { Knowledge } from "./knowledge.ts";
+import { registerKnowledgeRoutes } from "./knowledge-routes.ts";
 import { Queue } from "./queue.ts";
 import type { Store } from "./store.ts";
 
@@ -75,12 +77,16 @@ export function createApp(store: Store, config: AppConfig) {
     },
   });
   const queue = new Queue(store.db, store.vault, store.runtimeId);
-  app.use(
-    "*",
+  const knowledge = new Knowledge(store);
+  app.use("*", (c, next) =>
     bodyLimit({
-      maxSize: 262144,
+      maxSize: c.req.path.startsWith("/internal/")
+        ? 8388608
+        : /\/knowledge\/[^/]+\/documents$/.test(c.req.path)
+          ? 1048576
+          : 262144,
       onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "请求内容过大" }, 400),
-    }),
+    })(c, next),
   );
   app.onError((error, c) => {
     if (error instanceof ApiError)
@@ -662,12 +668,13 @@ export function createApp(store: Store, config: AppConfig) {
     await queue.finish(Id.parse(c.req.param("id")), RuntimeFinishInput.parse(await c.req.json()));
     return c.json({ ok: true });
   });
+  registerKnowledgeRoutes(app, knowledge);
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Agent Platform API", version: "0.1.0" },
     servers: [{ url: "http://127.0.0.1:4110" }],
   });
-  return { app, queue };
+  return { app, queue, knowledge };
 }
 function checkUrl(value: string) {
   let url: URL;
