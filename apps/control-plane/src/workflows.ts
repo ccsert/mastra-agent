@@ -514,16 +514,12 @@ export class Workflows {
       const snapshot = await this.snapshot(actor, projectId, candidate.definition, tx);
       if (validateWorkflow(snapshot.definition, snapshot.catalog).length)
         throw new ApiError(409, "CANDIDATE_INVALID", "候选的当前依赖或变量校验未通过");
-      const layout = Object.fromEntries(
-        Object.entries(asset.layout).filter(([nodeId]) =>
-          candidate.definition.nodes.some((n) => n.id === nodeId),
-        ),
-      );
       const data = WorkflowAssetInput.parse({
         name: asset.name,
         description: asset.description,
         definition: candidate.definition,
-        layout,
+        // A generated graph receives a fresh FlowGram layout after node measurement.
+        layout: {},
       });
       await tx.query("UPDATE workflows SET data=$1,revision=revision+1 WHERE id=$2", [
         data,

@@ -9,8 +9,10 @@ import {
   type FreeLayoutProps,
   type OperationMeta,
   ValidateTrigger,
+  WorkflowDragService,
   type WorkflowJSON,
   WorkflowLineEntity,
+  WorkflowLinesManager,
   WorkflowNodeEntity,
   WorkflowOperationBaseService,
 } from "@flowgram.ai/free-layout-editor";
@@ -18,6 +20,7 @@ import { createFreeLinesPlugin } from "@flowgram.ai/free-lines-plugin";
 import {
   createFreeNodePanelPlugin,
   WorkflowNodePanelService,
+  WorkflowNodePanelUtils,
 } from "@flowgram.ai/free-node-panel-plugin";
 import {
   createPanelManagerPlugin,
@@ -52,7 +55,7 @@ import {
   type NodePlacement,
   pasteWorkflowNodes,
 } from "./workflow-editing";
-import { autoPositions, connectionIssue, nodeNames, objectSchema } from "./workflow-model";
+import { connectionIssue, needsWorkflowLayout, nodeNames, objectSchema } from "./workflow-model";
 import {
   scopedWorkflowVariables,
   syncWorkflowVariables,
@@ -100,13 +103,12 @@ const registries = Object.keys(nodeNames).map((type) => ({
   },
 }));
 function documentFor(value: WorkflowAssetInput): WorkflowJSON {
-  const positions = { ...autoPositions(value.definition), ...value.layout };
   return {
     nodes: value.definition.nodes.map((n) => ({
       id: n.id,
       type: n.type,
       data: structuredClone(n),
-      meta: { position: positions[n.id] },
+      meta: { position: value.layout?.[n.id] ?? { x: 0, y: 0 } },
     })),
     edges: value.definition.edges.map((e) => ({
       sourceNodeID: e.source,
@@ -118,7 +120,7 @@ function documentFor(value: WorkflowAssetInput): WorkflowJSON {
 }
 export interface WorkflowCanvasHandle {
   capture(): WorkflowAssetInput;
-  replace(value: WorkflowAssetInput): void;
+  replace(value: WorkflowAssetInput): Promise<void>;
   fit(): void;
   autoLayout(): Promise<void>;
   undo(): Promise<void>;
@@ -131,6 +133,7 @@ export interface WorkflowCanvasHandle {
 type CanvasProps = {
   initial: WorkflowAssetInput;
   onChange(value: WorkflowAssetInput): void;
+  onInitialized?(value: WorkflowAssetInput): void;
   onSelect(id: string): void;
   onError?(message: string): void;
   onHistoryChange?(state: { canUndo: boolean; canRedo: boolean }): void;
@@ -162,6 +165,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const suppress = useRef(false);
     const [ready, setReady] = useState(false);
+    const [layoutBusy, setLayoutBusy] = useState(false);
+    const panelOpen = useRef(false);
     const [options, setOptions] = useState<WorkflowVariableOption[]>([]);
     const [formValid, setFormValid] = useState(true);
     const formValidRef = useRef(true);
@@ -296,14 +301,20 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         },
         shouldMerge: () => false,
       };
-    const replace = (value: WorkflowAssetInput) => {
+    const replace = async (
+      value: WorkflowAssetInput,
+      afterRender?: () => void,
+      autoLayout = false,
+    ) => {
       const ctx = context.current;
       if (!ctx) {
         source.current = value;
         return;
       }
+      if (suppress.current) throw new Error("请等待流程布局完成");
       clearTimeout(timer.current);
       suppress.current = true;
+      setLayoutBusy(true);
       ctx.history.startTransaction();
       try {
         const before = metadataOf(source.current),
@@ -314,9 +325,16 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         ctx
           .get<WorkflowOperationBaseService>(WorkflowOperationBaseService)
           .fromJSON(documentFor(value));
+        if (autoLayout || needsWorkflowLayout(value) || afterRender) {
+          await WorkflowNodePanelUtils.waitNodeRender();
+          if (autoLayout || needsWorkflowLayout(value))
+            await ctx.tools.autoLayout({ disableFitView: true, enableAnimation: false });
+          else afterRender?.();
+        }
       } finally {
         ctx.history.endTransaction();
         suppress.current = false;
+        setLayoutBusy(false);
       }
       notify();
     };
@@ -342,38 +360,88 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       queueMicrotask(() => ctx?.playground.node.focus());
       return true;
     };
-    const add = (type: AddableNodeType, placement: NodePlacement) => {
-      if (live.current.readonly || !formValidRef.current) return;
+    const add = async (type: AddableNodeType, placement: NodePlacement) => {
+      const ctx = context.current;
+      if (!ctx || live.current.readonly || suppress.current || !formValidRef.current) return;
       try {
+        const fromPort = placement.source
+          ? ctx.document
+              .getNode(placement.source)
+              ?.ports.getPortEntityByKey("output", placement.port)
+          : undefined;
+        const toPort = placement.target
+          ? ctx.document.getNode(placement.target)?.ports.getPortEntityByKey("input", "in")
+          : undefined;
+        const position = WorkflowNodePanelUtils.adjustNodePosition({
+          nodeType: type,
+          position:
+            fromPort && !toPort
+              ? { x: placement.position.x + 100, y: placement.position.y }
+              : placement.position,
+          fromPort,
+          toPort,
+          document: ctx.document,
+          dragService: ctx.get(WorkflowDragService),
+        });
         const { next, id } = insertWorkflowNode(
           capture(),
           type,
-          placement,
+          { ...placement, position },
           live.current.catalog ?? [],
         );
-        replace(next);
+        await replace(
+          next,
+          fromPort && toPort
+            ? () => {
+                if (!placement.source || !placement.target) return;
+                const node = ctx.document.getNode(id);
+                const from = ctx.document
+                  .getNode(placement.source)
+                  ?.ports.getPortEntityByKey("output", placement.port);
+                const to = ctx.document
+                  .getNode(placement.target)
+                  ?.ports.getPortEntityByKey("input", "in");
+                if (node && from && to)
+                  WorkflowNodePanelUtils.subNodesAutoOffset({
+                    node,
+                    fromPort: from,
+                    toPort: to,
+                    historyService: ctx.history,
+                    dragService: ctx.get(WorkflowDragService),
+                    linesManager: ctx.get(WorkflowLinesManager),
+                  });
+              }
+            : undefined,
+          // Local offset only considers one edge. A fork needs Dagre to keep
+          // the new node clear of its sibling branch and both output ports.
+          fromPort?.node.flowNodeType === "condition",
+        );
         select(id, true);
-        requestAnimationFrame(() => focus(id));
       } catch (e) {
         live.current.onError?.(e instanceof Error ? e.message : "添加节点失败");
       }
     };
     const openPanel = async (placement: NodePlacement, panelPosition = placement.position) => {
       const ctx = context.current;
-      if (!ctx || live.current.readonly) return;
+      if (!ctx || live.current.readonly || suppress.current || panelOpen.current) return;
       if (!formValidRef.current) {
         live.current.onError?.("请先修正当前节点的无效输入");
         return;
       }
-      const result = await ctx
-        .get(WorkflowNodePanelService)
-        .singleSelectNodePanel({ position: panelPosition, panelProps: placement });
-      if (result && ["agent", "tool", "condition", "map", "end"].includes(result.nodeType))
-        add(result.nodeType as AddableNodeType, placement);
+      panelOpen.current = true;
+      try {
+        const result = await ctx
+          .get(WorkflowNodePanelService)
+          .singleSelectNodePanel({ position: panelPosition, panelProps: placement });
+        if (result && ["agent", "tool", "condition", "map", "end"].includes(result.nodeType))
+          await add(result.nodeType as AddableNodeType, placement);
+      } finally {
+        panelOpen.current = false;
+      }
     };
     const remove = (id?: string) => {
       const ctx = context.current;
-      if (!ctx || live.current.readonly) return;
+      if (!ctx || live.current.readonly || suppress.current) return;
       const selection = id ? [ctx.document.getNode(id)] : [...ctx.selection.selection];
       ctx.history.startTransaction();
       try {
@@ -418,12 +486,13 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         pasteOffset.current = 48;
       }
     };
-    const paste = () => {
-      if (!clipboard.current || live.current.readonly || !formValidRef.current) return;
+    const paste = async () => {
+      if (!clipboard.current || live.current.readonly || suppress.current || !formValidRef.current)
+        return;
       try {
         const { next, ids } = pasteWorkflowNodes(capture(), clipboard.current, pasteOffset.current);
         pasteOffset.current += 48;
-        replace(next);
+        await replace(next);
         const ctx = context.current;
         if (ctx)
           ctx.selection.selection = ids.flatMap((id) => {
@@ -439,6 +508,10 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       replace,
       focus,
       canLeaveNode: () => {
+        if (suppress.current || !ready) {
+          live.current.onError?.("请等待流程布局完成");
+          return false;
+        }
         if (!formValidRef.current) live.current.onError?.("请先修正当前节点的无效输入");
         return formValidRef.current;
       },
@@ -459,18 +532,24 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         void context.current?.tools.fitView();
       },
       autoLayout: async () => {
-        if (!context.current || live.current.readonly) return;
-        await context.current.tools.autoLayout();
-        notify();
-        await context.current.tools.fitView();
+        if (!context.current || live.current.readonly || suppress.current) return;
+        suppress.current = true;
+        setLayoutBusy(true);
+        try {
+          await context.current.tools.autoLayout();
+        } finally {
+          suppress.current = false;
+          setLayoutBusy(false);
+          notify();
+        }
       },
       undo: async () => {
-        if (!context.current || live.current.readonly) return;
+        if (!context.current || live.current.readonly || suppress.current) return;
         await context.current.history.undo();
         notify();
       },
       redo: async () => {
-        if (!context.current || live.current.readonly) return;
+        if (!context.current || live.current.readonly || suppress.current) return;
         await context.current.history.redo();
         notify();
       },
@@ -603,30 +682,48 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       },
       onAllLayersRendered: (ctx) => {
         context.current = ctx;
+        clearTimeout(timer.current);
+        suppress.current = true;
+        setLayoutBusy(true);
         const registration = ctx.history.operationRegistry.registerOperationMeta(metadataOperation);
         ctx.history.onWillDispose(() => registration.dispose());
-        ctx.history.clear();
         ctx.history.undoRedoService.onChange(() => {
           live.current.onHistoryChange?.({
             canUndo: ctx.history.canUndo(),
             canRedo: ctx.history.canRedo(),
           });
         });
-        setReady(true);
         const zoomSubscription = ctx.playground.onZoom((zoom) => live.current.onZoomChange?.(zoom));
         ctx.history.onWillDispose(() => zoomSubscription.dispose());
         live.current.onZoomChange?.(ctx.playground.config.zoom);
-        void ctx.tools.fitView(false).then(() => {
-          if (!live.current.readonly && ctx.playground.config.zoom < 0.75) {
-            const start = ctx.document.getAllNodes().find((n) => n.flowNodeType === "start");
-            if (start)
-              void ctx.playground.scrollToView({
-                bounds: start.transform.bounds,
-                zoom: 0.85,
-                scrollToCenter: true,
-              });
+        const initialize = async () => {
+          try {
+            if (needsWorkflowLayout(source.current)) {
+              await WorkflowNodePanelUtils.waitNodeRender();
+              await ctx.tools.autoLayout({ disableFitView: true, enableAnimation: false });
+            }
+            source.current = capture();
+            live.current.onInitialized?.(source.current);
+            ctx.history.clear();
+            await ctx.tools.fitView(false);
+            setReady(true);
+          } catch (e) {
+            live.current.onError?.(e instanceof Error ? e.message : "流程初始化失败");
+          } finally {
+            suppress.current = false;
+            setLayoutBusy(false);
           }
+        };
+        void initialize();
+        const selection = ctx.selection.onSelectionChanged(() => {
+          if (suppress.current || !formValidRef.current || !live.current.inspector) return;
+          const nodes = ctx.selection.selection.filter(
+            (entity) => entity instanceof WorkflowNodeEntity,
+          );
+          if (nodes.length === 1 && nodes[0].id !== live.current.selected)
+            live.current.onSelect(nodes[0].id);
         });
+        ctx.history.onWillDispose(() => selection.dispose());
       },
       onContentChange: (ctx) => {
         context.current = ctx;
@@ -688,20 +785,25 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         value={{
           value: initial,
           catalog: props.catalog ?? [],
-          readonly,
+          readonly: readonly || layoutBusy,
           select,
           remove,
           duplicate: (id) => {
             copy(id);
             paste();
           },
-          add: (placement) => {
-            void openPanel(placement);
+          add: (placement, anchor) => {
+            void openPanel(placement, anchor);
           },
         }}
       >
         <WorkflowPanelContent.Provider value={panelContent}>
-          <section ref={container} className="workflow-canvas" aria-label="流程画布">
+          <section
+            ref={container}
+            className="workflow-canvas"
+            aria-label="流程画布"
+            aria-busy={!ready || layoutBusy}
+          >
             <FreeLayoutEditorProvider {...editorProps}>
               <DockedPanelLayer style={{ width: "100%", height: "100%" }}>
                 <div
@@ -735,6 +837,11 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
                 </div>
               </DockedPanelLayer>
             </FreeLayoutEditorProvider>
+            {(!ready || layoutBusy) && (
+              <div className="workflow-layout-pending" role="status">
+                正在整理流程布局…
+              </div>
+            )}
           </section>
         </WorkflowPanelContent.Provider>
       </WorkflowMaterialsContext.Provider>

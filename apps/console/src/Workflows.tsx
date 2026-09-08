@@ -47,13 +47,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { timestamp, unwrap } from "./api";
 import { WorkflowCanvas, type WorkflowCanvasHandle } from "./WorkflowCanvas";
-import {
-  autoPositions,
-  describeChanges,
-  emptyWorkflow,
-  nodeNames,
-  objectSchema,
-} from "./workflow-model";
+import { describeChanges, emptyWorkflow, nodeNames, objectSchema } from "./workflow-model";
 import "./workflows.css";
 
 const statusNames: Record<string, string> = {
@@ -86,7 +80,7 @@ const draftOf = (asset: WorkflowAsset): WorkflowAssetInput => ({
   name: asset.name,
   description: asset.description,
   definition: asset.definition,
-  layout: { ...autoPositions(asset.definition), ...asset.layout },
+  layout: asset.layout ?? {},
 });
 const stable = (value: unknown) =>
   JSON.stringify(value, (_key, item) =>
@@ -407,9 +401,8 @@ function WorkflowEditor({
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
-  const remember = (next: WorkflowAssetInput, replaceCanvas = true) => {
+  const remember = (next: WorkflowAssetInput) => {
     if (pendingSave.current || same(next, currentDraft.current)) return;
-    if (replaceCanvas) canvas.current?.replace(next);
     setDraft(next);
     currentDraft.current = next;
     setIssues([]);
@@ -433,7 +426,7 @@ function WorkflowEditor({
     if (canvas.current && !canvas.current.canLeaveNode())
       throw new Error("请先修正节点中尚未完成的输入");
     const next = capture();
-    remember(next, false);
+    remember(next);
     pendingSave.current = true;
     try {
       const saved = await unwrap(
@@ -836,6 +829,10 @@ function WorkflowEditor({
                     onCloseInspector={() => setInspector(false)}
                     onZoomChange={setZoom}
                     onValidityChange={setNodeValid}
+                    onInitialized={(next) => {
+                      setDraft(next);
+                      currentDraft.current = next;
+                    }}
                     panel={
                       aiOpen
                         ? {
@@ -845,7 +842,7 @@ function WorkflowEditor({
                           }
                         : undefined
                     }
-                    onChange={(next) => remember(next, false)}
+                    onChange={remember}
                     onSelect={(id) => {
                       setSelected(id);
                       setInspector(true);
@@ -918,23 +915,30 @@ function WorkflowEditor({
         onCancel={() => setSettings(false)}
         width="min(850px, 96vw)"
         okText="应用设置"
-        onOk={() => {
-          try {
-            const input = JSON.parse(inputSchema),
+        confirmLoading={busy}
+        onOk={() =>
+          void guard(async () => {
+            let input: Record<string, unknown>, output: Record<string, unknown>;
+            try {
+              input = JSON.parse(inputSchema);
               output = JSON.parse(outputSchema);
-            if (input?.type !== "object" || output?.type !== "object" || !settingsName.trim())
-              throw new Error();
-            remember({
+              if (input?.type !== "object" || output?.type !== "object" || !settingsName.trim())
+                throw new Error();
+            } catch {
+              throw new Error("名称不能为空，输入输出必须是有效的 object JSON Schema");
+            }
+            const editor = canvas.current;
+            if (!editor?.canLeaveNode()) throw new Error("请等待布局完成或修正节点输入");
+            await editor.replace({
               ...capture(),
               name: settingsName.trim(),
               description: settingsDescription,
               definition: { ...capture().definition, inputSchema: input, outputSchema: output },
             });
+            remember(editor.capture());
             setSettings(false);
-          } catch {
-            message.error("名称不能为空，输入输出必须是有效的 object JSON Schema");
-          }
-        }}
+          })
+        }
       >
         <Form layout="vertical" component="div">
           <Form.Item label="名称" htmlFor="workflow-settings-name">
@@ -998,15 +1002,16 @@ function WorkflowEditor({
                 body: { baseRevision: review.baseRevision },
               }),
             );
-            setAsset(saved);
             const next = draftOf(saved);
-            setDraft(next);
-            currentDraft.current = next;
-            canvas.current?.replace(next);
+            setAsset(saved);
+            await canvas.current?.replace(next);
+            const laidOut = canvas.current?.capture() ?? next;
+            setDraft(laidOut);
+            currentDraft.current = laidOut;
             setReview(null);
             await load();
             setTimeout(() => canvas.current?.fit(), 50);
-            message.success("候选已接受为新草稿，尚未发布");
+            message.success("候选已接受，流程布局待保存，尚未发布");
           })
         }
       >
@@ -1030,7 +1035,7 @@ function WorkflowEditor({
               initial={{
                 ...draft,
                 definition: review.candidate.definition,
-                layout: autoPositions(review.candidate.definition),
+                layout: {},
               }}
               onChange={() => {}}
               onSelect={() => {}}

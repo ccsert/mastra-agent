@@ -177,6 +177,15 @@
   isolation: isolate;
   overflow: hidden;
 }
+.workflow-layout-pending {
+  position: absolute;
+  inset: 0;
+  z-index: 10001;
+  display: grid;
+  place-items: center;
+  background: #f7f8fae6;
+  color: #687489;
+}
 .workflow-canvas-foot {
   display: flex;
   flex-wrap: wrap;
@@ -362,11 +371,9 @@
   color: #6a7eb9;
   font: 18px / 1 sans-serif;
   cursor: pointer;
-  opacity: 0.5;
   z-index: 1;
   pointer-events: all;
 }
-.workflow-line-add.active,
 .workflow-line-add:hover,
 .workflow-line-add:focus-visible {
   opacity: 1;
@@ -404,15 +411,12 @@
   color: #8b94a4;
 }
 .workflow-node-palette {
-  position: fixed;
-  z-index: 1060;
   width: min(296px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
   overflow: auto;
   border: 1px solid #e1e5ee;
   border-radius: 12px;
   background: white;
-  box-shadow: 0 12px 48px #23355324;
   padding: 0 10px 10px;
 }
 .workflow-node-palette .workflow-panel-heading {

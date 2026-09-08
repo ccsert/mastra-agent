@@ -206,7 +206,11 @@ test("SDK → durable workflow → MCP + published Agent → Mastra branch; AI r
         { source: "report", target: "end", port: "out" },
       ],
     });
-    const draft = WorkflowAssetInput.parse({ name: "采购报告", definition });
+    const draft = WorkflowAssetInput.parse({
+      name: "采购报告",
+      definition,
+      layout: { start: { x: 13, y: 29 }, lookup: { x: 303, y: 29 } },
+    });
     let asset = defined((await sdk.createWorkflow({ client, path, body: draft })).data);
     const assetPath = { ...path, id: asset.id };
     assert.deepEqual(
@@ -356,6 +360,7 @@ test("SDK → durable workflow → MCP + published Agent → Mastra branch; AI r
       409,
     );
     assert.equal((await sdk.getWorkflow({ client, path: assetPath })).data?.name, "人工改名");
+    assert.deepEqual(asset.layout, draft.layout, "manual updates retain the saved geometry");
     const candidate = await beginGeneration(asset.revision);
     assert.equal(candidate.status, "succeeded", JSON.stringify(candidate));
     asset = defined(
@@ -368,6 +373,7 @@ test("SDK → durable workflow → MCP + published Agent → Mastra branch; AI r
       ).data,
     );
     assert.equal(asset.revision, 3);
+    assert.deepEqual(asset.layout, {}, "AI graph replacement must not reuse stale geometry");
     const v2 = defined(
       (
         await sdk.publishWorkflow({

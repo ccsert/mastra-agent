@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { connectionIssue, emptyWorkflow } from "../apps/console/src/workflow-model.ts";
+import {
+  connectionIssue,
+  emptyWorkflow,
+  needsWorkflowLayout,
+} from "../apps/console/src/workflow-model.ts";
 
 test("editor connections enforce the executable tree without rejecting a valid branch", () => {
   const { definition } = emptyWorkflow("编辑器连线");
@@ -29,7 +33,7 @@ test("editor connections enforce the executable tree without rejecting a valid b
   assert.match(connectionIssue(definition, "map", "check", "out") ?? "", /循环/);
 });
 
-test("line insertion preserves the chosen branch, moves its descendants, and has no partial mutation", async () => {
+test("line insertion preserves branch topology and leaves geometry to the editor without partial mutation", async () => {
   const { insertWorkflowNode } = await import("../apps/console/src/workflow-editing.ts");
   const original = emptyWorkflow("插入");
   original.layout = { start: { x: 0, y: 0 }, end: { x: 380, y: 0 } };
@@ -47,6 +51,9 @@ test("line insertion preserves the chosen branch, moves its descendants, and has
   assert.ok(next.definition.edges.some((e) => e.source === condition && e.port === "false"));
   const falseEdge = next.definition.edges.find((e) => e.source === condition && e.port === "false");
   assert.ok(falseEdge);
+  assert.deepEqual(next.layout?.end, original.layout.end);
+  assert.equal(next.layout?.[falseEdge.target], undefined);
+  assert.equal(needsWorkflowLayout(next), true);
   const truePosition = structuredClone(next.layout?.end);
   const inserted = insertWorkflowNode(
     next,

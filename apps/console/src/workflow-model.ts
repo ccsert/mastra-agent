@@ -44,28 +44,8 @@ export function emptyWorkflow(name: string): WorkflowAssetInput {
     },
   };
 }
-export function autoPositions(definition: WorkflowDefinition) {
-  const positions: Record<string, { x: number; y: number }> = {},
-    visited = new Set<string>();
-  let lane = 0;
-  const walk = (id: string, depth: number, y: number) => {
-    if (visited.has(id)) return;
-    visited.add(id);
-    positions[id] = { x: depth * 380 + 50, y: y * 280 + 90 };
-    const edges = definition.edges
-      .filter((e) => e.source === id)
-      .sort((a, b) => b.port.localeCompare(a.port));
-    edges.forEach((edge, i) => {
-      walk(edge.target, depth + 1, i ? ++lane : y);
-    });
-  };
-  const start = definition.nodes.find((n) => n.type === "start");
-  if (start) walk(start.id, 0, 0);
-  definition.nodes.forEach((n) => {
-    if (!positions[n.id]) positions[n.id] = { x: 50, y: ++lane * 280 + 90 };
-  });
-  return positions;
-}
+export const needsWorkflowLayout = (value: WorkflowAssetInput) =>
+  value.definition.nodes.some((node) => !value.layout?.[node.id]);
 export const objectSchema = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

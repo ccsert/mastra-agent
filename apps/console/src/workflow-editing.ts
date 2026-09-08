@@ -1,5 +1,5 @@
 import type { WorkflowAssetInput, WorkflowCapability, WorkflowNode } from "@platform/sdk";
-import { autoPositions, nodeNames, objectSchema } from "./workflow-model";
+import { nodeNames, objectSchema } from "./workflow-model";
 
 export type AddableNodeType = Exclude<WorkflowNode["type"], "start">;
 export interface NodePlacement {
@@ -89,7 +89,6 @@ export function insertWorkflowNode(
             };
   definition.nodes.push(node);
   next.layout = {
-    ...autoPositions(current.definition),
     ...next.layout,
     [id]: { ...placement.position },
   };
@@ -102,25 +101,13 @@ export function insertWorkflowNode(
         target: edge.target,
         port: type === "condition" ? "true" : "out",
       });
-      // Make room at the insertion point without moving unrelated branches.
-      const pending = [edge.target],
-        seen = new Set<string>();
-      const shift = Math.max(0, placement.position.x + 380 - next.layout[edge.target].x);
-      while (pending.length) {
-        const target = pending.pop();
-        if (target === undefined) break;
-        if (seen.has(target)) continue;
-        seen.add(target);
-        if (next.layout[target]) next.layout[target].x += shift;
-        pending.push(...definition.edges.filter((e) => e.source === target).map((e) => e.target));
-      }
     }
   }
   if (extraEnd) {
     const endId = `end_${newId()}`;
     definition.nodes.push({ id: endId, type: "end", label: "不满足时返回", values: outputValues });
     definition.edges.push({ source: id, target: endId, port: "false" });
-    next.layout[endId] = { x: placement.position.x + 380, y: placement.position.y + 280 };
+    // Missing geometry is laid out by FlowGram after the nodes have rendered.
   }
   return { next, id };
 }
@@ -181,11 +168,12 @@ export function pasteWorkflowNodes(
       .map((e) => ({ ...e, source: ids[e.source], target: ids[e.target] })),
   );
   next.layout = { ...next.layout };
-  const positions = { ...autoPositions(copied.definition), ...copied.layout };
+  const positions = copied.layout ?? {};
   for (const node of nodes)
-    next.layout[ids[node.id]] = {
-      x: positions[node.id].x + offset,
-      y: positions[node.id].y + offset,
-    };
+    if (positions[node.id])
+      next.layout[ids[node.id]] = {
+        x: positions[node.id].x + offset,
+        y: positions[node.id].y + offset,
+      };
   return { next, ids: Object.values(ids) };
 }

@@ -20,9 +20,8 @@ import {
 import type { LineRenderProps } from "@flowgram.ai/free-lines-plugin";
 import type { NodePanelRenderProps } from "@flowgram.ai/free-node-panel-plugin";
 import type { WorkflowAssetInput, WorkflowCapability, WorkflowNode } from "@platform/sdk";
-import { Button, Dropdown, Input } from "antd";
+import { Button, Dropdown, Input, Popover } from "antd";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { AddableNodeType, NodePlacement } from "./workflow-editing";
 import { bindingText, nodeNames, objectSchema } from "./workflow-model";
 
@@ -57,7 +56,7 @@ interface MaterialsContextValue {
   select(id: string): boolean;
   remove(id: string): void;
   duplicate(id: string): void;
-  add(position: NodePlacement): void;
+  add(position: NodePlacement, anchor?: { x: number; y: number }): void;
 }
 export const WorkflowMaterialsContext = createContext<MaterialsContextValue | null>(null);
 function useMaterials() {
@@ -102,17 +101,21 @@ export function WorkflowNodeCard({ node }: { node: WorkflowNodeEntity }) {
   return (
     <WorkflowNodeRenderer
       node={node}
-      onPortClick={(port) => {
-        if (ctx.readonly || port.portType !== "output") return;
+      onPortClick={(port, event) => {
+        if (ctx.readonly || port.portType !== "output" || typeof event === "function") return;
+        const anchor = editor.playground.config.getPosFromMouseEvent(event);
         const edge = ctx.value.definition.edges.find(
           (e) => e.source === node.id && e.port === port.portID,
         );
-        ctx.add({
-          position: { x: node.transform.bounds.right + 100, y: node.transform.bounds.y },
-          source: node.id,
-          port: port.portID as NodePlacement["port"],
-          target: edge?.target,
-        });
+        ctx.add(
+          {
+            position: anchor,
+            source: node.id,
+            port: port.portID as NodePlacement["port"],
+            target: edge?.target,
+          },
+          anchor,
+        );
       }}
     >
       <article className={`workflow-node workflow-node-${data.type} ${selected ? "selected" : ""}`}>
@@ -204,24 +207,28 @@ export function WorkflowNodeCard({ node }: { node: WorkflowNodeEntity }) {
     </WorkflowNodeRenderer>
   );
 }
-export function WorkflowLineInsert({ line, hovered, selected }: LineRenderProps) {
+export function WorkflowLineInsert({ line, hovered, selected, color }: LineRenderProps) {
   const ctx = useMaterials();
   // FlowGram may render once more after a history transaction disposes this line.
-  if (line.disposed) return null;
+  if (line.disposed || ctx.readonly || (!hovered && !selected)) return null;
   const { fromPort, toPort } = line;
-  if (ctx.readonly || !fromPort || !toPort) return null;
+  if (!fromPort || !toPort) return null;
   return (
     <button
       type="button"
-      className={`workflow-line-add ${hovered || selected ? "active" : ""}`}
+      className="workflow-line-add"
       aria-label={`在${fromPort.node.form?.values.label ?? fromPort.node.id}之后插入节点`}
       style={{
+        color,
         transform: `translate(-50%, -50%) translate(${line.center.labelX}px, ${line.center.labelY}px)`,
       }}
       onClick={(e) => {
         e.stopPropagation();
         ctx.add({
-          position: { x: line.center.labelX, y: line.center.labelY - 60 },
+          position: {
+            x: (line.position.from.x + line.position.to.x) / 2,
+            y: (line.position.from.y + line.position.to.y) / 2,
+          },
           source: fromPort.node.id,
           target: toPort.node.id,
           port: fromPort.portID as NodePlacement["port"],
@@ -243,37 +250,27 @@ export function WorkflowNodePanel({
     materials = useMaterials();
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const screen = ctx.playground.config.toFixedPos(position);
   useEffect(() => {
-    const close = (e: PointerEvent) => {
-      if (e.target instanceof Node && !ref.current?.contains(e.target)) onClose();
-    };
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
       }
     };
-    document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", key);
-    ref.current?.querySelector("input")?.focus();
+    const focusFrame = requestAnimationFrame(() => ref.current?.querySelector("input")?.focus());
+    const scroll = ctx.playground.onScroll(onClose);
+    const zoom = ctx.playground.onZoom(onClose);
     return () => {
-      document.removeEventListener("pointerdown", close);
       document.removeEventListener("keydown", key);
+      cancelAnimationFrame(focusFrame);
+      scroll.dispose();
+      zoom.dispose();
     };
-  }, [onClose]);
+  }, [onClose, ctx.playground]);
   const types: AddableNodeType[] = ["agent", "tool", "map", "condition", "end"];
-  return createPortal(
-    <div
-      className="workflow-node-palette"
-      ref={ref}
-      role="dialog"
-      aria-label="添加节点"
-      style={{
-        left: Math.max(12, Math.min(screen.x, window.innerWidth - 308)),
-        top: Math.max(12, Math.min(screen.y, window.innerHeight - 490)),
-      }}
-    >
+  const content = (
+    <div className="workflow-node-palette" ref={ref} role="dialog" aria-label="添加节点">
       <div className="workflow-panel-heading">
         <strong>
           {panelProps?.target ? "在连线中插入" : panelProps?.source ? "添加下一步" : "添加节点"}
@@ -331,8 +328,29 @@ export function WorkflowNodePanel({
             </button>
           );
         })}
-    </div>,
-    document.body,
+    </div>
+  );
+  // The official node-panel layer owns canvas translation and scaling. Anchor the
+  // popover to its DOM point; do not convert canvas coordinates into body pixels.
+  return (
+    <Popover
+      open
+      trigger="click"
+      placement="right"
+      align={{ offset: [30, 0] }}
+      arrow={false}
+      autoAdjustOverflow
+      zIndex={1060}
+      styles={{ container: { padding: 0 } }}
+      content={content}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <div
+        style={{ position: "absolute", left: position.x, top: position.y, width: 0, height: 0 }}
+      />
+    </Popover>
   );
 }
 export const WorkflowPanelContent = createContext<ReactNode>(null);
