@@ -12,11 +12,13 @@
     "@assistant-ui/ai-sdk": "0.0.4",
     "@assistant-ui/react": "0.15.18",
     "@assistant-ui/react-markdown": "0.14.14",
+    "@flowgram.ai/free-layout-editor": "1.0.15",
     "@platform/sdk": "workspace:*",
     "ai": "7.0.93",
     "antd": "6.6.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {

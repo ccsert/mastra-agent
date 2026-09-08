@@ -317,6 +317,202 @@ export type McpImport = {
     confirmedReadOnly: true;
 };
 
+export type WorkflowAsset = WorkflowAssetInput & {
+    id: string;
+    projectId: string;
+    revision: number;
+    publishedReleaseId: string | null;
+    publishedVersion: number | null;
+    createdAt: string;
+};
+
+export type WorkflowDefinition = {
+    inputSchema: {
+        [key: string]: unknown;
+    };
+    outputSchema: {
+        [key: string]: unknown;
+    };
+    nodes: Array<WorkflowNode>;
+    edges: Array<{
+        source: string;
+        target: string;
+        port: 'out' | 'true' | 'false';
+    }>;
+};
+
+export type WorkflowNode = {
+    id: string;
+    label: string;
+    type: 'start';
+} | {
+    id: string;
+    label: string;
+    type: 'end';
+    values: {
+        [key: string]: WorkflowBinding;
+    };
+} | {
+    id: string;
+    label: string;
+    type: 'map';
+    values: {
+        [key: string]: WorkflowBinding;
+    };
+} | {
+    id: string;
+    label: string;
+    type: 'tool';
+    toolId: string;
+    input: {
+        [key: string]: WorkflowBinding;
+    };
+} | {
+    id: string;
+    label: string;
+    type: 'agent';
+    releaseId: string;
+    prompt: WorkflowBinding;
+} | {
+    id: string;
+    label: string;
+    type: 'condition';
+    left: WorkflowBinding;
+    operator: 'eq' | 'neq' | 'exists' | 'gt' | 'gte' | 'lt' | 'lte';
+    right?: WorkflowBinding;
+};
+
+export type WorkflowBinding = {
+    kind: 'literal';
+    value?: unknown;
+} | {
+    kind: 'ref';
+    path: string;
+} | {
+    kind: 'template';
+    template: string;
+};
+
+export type WorkflowLayout = {
+    [key: string]: {
+        x: number;
+        y: number;
+    };
+};
+
+export type WorkflowAssetInput = {
+    name: string;
+    description?: string;
+    definition: WorkflowDefinition;
+    layout?: WorkflowLayout;
+};
+
+export type WorkflowCapability = {
+    id: string;
+    kind: 'tool' | 'agent';
+    name: string;
+    description: string;
+    version: number;
+    inputSchema: {
+        [key: string]: unknown;
+    };
+    outputSchema: {
+        [key: string]: unknown;
+    };
+};
+
+export type WorkflowAssetUpdate = WorkflowAssetInput & {
+    baseRevision: number;
+};
+
+export type WorkflowIssue = {
+    code: string;
+    message: string;
+    nodeId?: string;
+    field?: string;
+};
+
+export type WorkflowRelease = {
+    id: string;
+    workflowId: string;
+    projectId: string;
+    name: string;
+    version: number;
+    digest: string;
+    snapshot: WorkflowSnapshot;
+    createdAt: string;
+};
+
+export type WorkflowSnapshot = {
+    definition: WorkflowDefinition;
+    tools: Array<Tool>;
+    agents: Array<Release>;
+    catalog: Array<WorkflowCapability>;
+    adapterVersion: 'mastra-workflow-v1';
+};
+
+export type WorkflowRun = {
+    id: string;
+    workflowId: string;
+    releaseId: string;
+    version: number;
+    name: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    input: JsonSchema;
+    output: JsonSchema & ({
+        [key: string]: unknown;
+    } | null);
+    errorCode: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+};
+
+export type WorkflowRunInput = {
+    releaseId: string;
+    input: JsonSchema;
+    requestId: string;
+};
+
+export type WorkflowNodeRun = {
+    nodeId: string;
+    label: string;
+    type: string;
+    status: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'skipped';
+    input?: unknown;
+    output?: unknown;
+    errorCode: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+};
+
+export type WorkflowGeneration = {
+    id: string;
+    workflowId: string;
+    baseRevision: number;
+    intent: string;
+    modelId: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    candidate: WorkflowCandidate;
+    issues: Array<WorkflowIssue>;
+    attempts: number;
+    acceptedRevision: number | null;
+    errorCode: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+};
+
+export type WorkflowCandidate = {
+    definition: WorkflowDefinition;
+    explanation: string;
+} | null;
+
+export type WorkflowGenerationInput = {
+    baseRevision: number;
+    modelId: string;
+    intent: string;
+    requestId: string;
+};
+
 export type HealthData = {
     body?: never;
     path?: never;
@@ -2627,3 +2823,948 @@ export type ImportMcpToolResponses = {
 };
 
 export type ImportMcpToolResponse = ImportMcpToolResponses[keyof ImportMcpToolResponses];
+
+export type ListWorkflowsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows';
+};
+
+export type ListWorkflowsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListWorkflowsError = ListWorkflowsErrors[keyof ListWorkflowsErrors];
+
+export type ListWorkflowsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowAsset>;
+};
+
+export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
+
+export type CreateWorkflowData = {
+    body: WorkflowAssetInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows';
+};
+
+export type CreateWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CreateWorkflowError = CreateWorkflowErrors[keyof CreateWorkflowErrors];
+
+export type CreateWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowAsset;
+};
+
+export type CreateWorkflowResponse = CreateWorkflowResponses[keyof CreateWorkflowResponses];
+
+export type GetWorkflowCatalogData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/catalog';
+};
+
+export type GetWorkflowCatalogErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetWorkflowCatalogError = GetWorkflowCatalogErrors[keyof GetWorkflowCatalogErrors];
+
+export type GetWorkflowCatalogResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowCapability>;
+};
+
+export type GetWorkflowCatalogResponse = GetWorkflowCatalogResponses[keyof GetWorkflowCatalogResponses];
+
+export type GetWorkflowData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}';
+};
+
+export type GetWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetWorkflowError = GetWorkflowErrors[keyof GetWorkflowErrors];
+
+export type GetWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowAsset;
+};
+
+export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
+
+export type UpdateWorkflowData = {
+    body: WorkflowAssetUpdate;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}';
+};
+
+export type UpdateWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateWorkflowError = UpdateWorkflowErrors[keyof UpdateWorkflowErrors];
+
+export type UpdateWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowAsset;
+};
+
+export type UpdateWorkflowResponse = UpdateWorkflowResponses[keyof UpdateWorkflowResponses];
+
+export type ValidateWorkflowData = {
+    body: {
+        baseRevision: number;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/validate';
+};
+
+export type ValidateWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ValidateWorkflowError = ValidateWorkflowErrors[keyof ValidateWorkflowErrors];
+
+export type ValidateWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        issues: Array<WorkflowIssue>;
+    };
+};
+
+export type ValidateWorkflowResponse = ValidateWorkflowResponses[keyof ValidateWorkflowResponses];
+
+export type PublishWorkflowData = {
+    body: {
+        baseRevision: number;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/publish';
+};
+
+export type PublishWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type PublishWorkflowError = PublishWorkflowErrors[keyof PublishWorkflowErrors];
+
+export type PublishWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowRelease;
+};
+
+export type PublishWorkflowResponse = PublishWorkflowResponses[keyof PublishWorkflowResponses];
+
+export type ListWorkflowReleasesData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/releases';
+};
+
+export type ListWorkflowReleasesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListWorkflowReleasesError = ListWorkflowReleasesErrors[keyof ListWorkflowReleasesErrors];
+
+export type ListWorkflowReleasesResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowRelease>;
+};
+
+export type ListWorkflowReleasesResponse = ListWorkflowReleasesResponses[keyof ListWorkflowReleasesResponses];
+
+export type ListWorkflowRunsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/runs';
+};
+
+export type ListWorkflowRunsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListWorkflowRunsError = ListWorkflowRunsErrors[keyof ListWorkflowRunsErrors];
+
+export type ListWorkflowRunsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowRun>;
+};
+
+export type ListWorkflowRunsResponse = ListWorkflowRunsResponses[keyof ListWorkflowRunsResponses];
+
+export type CreateWorkflowRunData = {
+    body: WorkflowRunInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/runs';
+};
+
+export type CreateWorkflowRunErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CreateWorkflowRunError = CreateWorkflowRunErrors[keyof CreateWorkflowRunErrors];
+
+export type CreateWorkflowRunResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowRun;
+};
+
+export type CreateWorkflowRunResponse = CreateWorkflowRunResponses[keyof CreateWorkflowRunResponses];
+
+export type GetWorkflowRunData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-runs/{id}';
+};
+
+export type GetWorkflowRunErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetWorkflowRunError = GetWorkflowRunErrors[keyof GetWorkflowRunErrors];
+
+export type GetWorkflowRunResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowRun;
+};
+
+export type GetWorkflowRunResponse = GetWorkflowRunResponses[keyof GetWorkflowRunResponses];
+
+export type ListWorkflowNodeRunsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-runs/{id}/nodes';
+};
+
+export type ListWorkflowNodeRunsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListWorkflowNodeRunsError = ListWorkflowNodeRunsErrors[keyof ListWorkflowNodeRunsErrors];
+
+export type ListWorkflowNodeRunsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowNodeRun>;
+};
+
+export type ListWorkflowNodeRunsResponse = ListWorkflowNodeRunsResponses[keyof ListWorkflowNodeRunsResponses];
+
+export type CancelWorkflowRunData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-runs/{id}/cancel';
+};
+
+export type CancelWorkflowRunErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CancelWorkflowRunError = CancelWorkflowRunErrors[keyof CancelWorkflowRunErrors];
+
+export type CancelWorkflowRunResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowRun;
+};
+
+export type CancelWorkflowRunResponse = CancelWorkflowRunResponses[keyof CancelWorkflowRunResponses];
+
+export type ListWorkflowGenerationsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/generations';
+};
+
+export type ListWorkflowGenerationsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListWorkflowGenerationsError = ListWorkflowGenerationsErrors[keyof ListWorkflowGenerationsErrors];
+
+export type ListWorkflowGenerationsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<WorkflowGeneration>;
+};
+
+export type ListWorkflowGenerationsResponse = ListWorkflowGenerationsResponses[keyof ListWorkflowGenerationsResponses];
+
+export type GenerateWorkflowData = {
+    body: WorkflowGenerationInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflows/{id}/generations';
+};
+
+export type GenerateWorkflowErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GenerateWorkflowError = GenerateWorkflowErrors[keyof GenerateWorkflowErrors];
+
+export type GenerateWorkflowResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowGeneration;
+};
+
+export type GenerateWorkflowResponse = GenerateWorkflowResponses[keyof GenerateWorkflowResponses];
+
+export type GetWorkflowGenerationData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-generations/{id}';
+};
+
+export type GetWorkflowGenerationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetWorkflowGenerationError = GetWorkflowGenerationErrors[keyof GetWorkflowGenerationErrors];
+
+export type GetWorkflowGenerationResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowGeneration;
+};
+
+export type GetWorkflowGenerationResponse = GetWorkflowGenerationResponses[keyof GetWorkflowGenerationResponses];
+
+export type AcceptWorkflowGenerationData = {
+    body: {
+        baseRevision: number;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-generations/{id}/accept';
+};
+
+export type AcceptWorkflowGenerationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type AcceptWorkflowGenerationError = AcceptWorkflowGenerationErrors[keyof AcceptWorkflowGenerationErrors];
+
+export type AcceptWorkflowGenerationResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowAsset;
+};
+
+export type AcceptWorkflowGenerationResponse = AcceptWorkflowGenerationResponses[keyof AcceptWorkflowGenerationResponses];
+
+export type CancelWorkflowGenerationData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/workflow-generations/{id}/cancel';
+};
+
+export type CancelWorkflowGenerationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CancelWorkflowGenerationError = CancelWorkflowGenerationErrors[keyof CancelWorkflowGenerationErrors];
+
+export type CancelWorkflowGenerationResponses = {
+    /**
+     * 成功
+     */
+    200: WorkflowGeneration;
+};
+
+export type CancelWorkflowGenerationResponse = CancelWorkflowGenerationResponses[keyof CancelWorkflowGenerationResponses];

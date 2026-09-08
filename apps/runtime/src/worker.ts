@@ -2,6 +2,7 @@ import { ExecutionJob, McpErrorCode, Message } from "@platform/contracts";
 import { executeJob } from "./execute.ts";
 import { runKnowledgeWorker } from "./knowledge-worker.ts";
 import { runMcpWorker } from "./mcp-worker.ts";
+import { runWorkflowWorker } from "./workflow-worker.ts";
 export interface WorkerConfig {
   controlPlaneUrl: string;
   runtimeId: string;
@@ -37,7 +38,12 @@ export function runtimeClient(config: WorkerConfig) {
   };
 }
 export async function runWorker(config: WorkerConfig) {
-  await Promise.all([runAgentWorker(config), runKnowledgeWorker(config), runMcpWorker(config)]);
+  await Promise.all([
+    runAgentWorker(config),
+    runKnowledgeWorker(config),
+    runMcpWorker(config),
+    runWorkflowWorker(config),
+  ]);
 }
 async function runAgentWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
@@ -96,7 +102,20 @@ async function runAgentWorker(config: WorkerConfig) {
             executionSignal,
           );
         },
-        post,
+        {
+          authorizeMcp: (toolId, signal) =>
+            post(
+              `/internal/runtime/runs/${current.runId}/mcp`,
+              { leaseToken: current.leaseToken, toolId },
+              signal,
+            ),
+          queryKnowledge: (knowledgeBaseId, vector, signal) =>
+            post(
+              `/internal/runtime/runs/${current.runId}/knowledge`,
+              { leaseToken: current.leaseToken, knowledgeBaseId, vector },
+              signal,
+            ),
+        },
       );
       await post(`/internal/runtime/runs/${current.runId}/finish`, {
         leaseToken: current.leaseToken,

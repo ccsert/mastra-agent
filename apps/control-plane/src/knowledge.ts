@@ -365,7 +365,7 @@ export class Knowledge {
       }
     });
   }
-  private async nearest(tx: Queryable, kbId: string, vector: number[]) {
+  async nearest(tx: Queryable, kbId: string, vector: number[]) {
     const [kb] = await tx.query("SELECT dimensions FROM knowledge_bases WHERE id=$1", [kbId]);
     if (!kb) throw notFound();
     if (kb.dimensions === null) return [];

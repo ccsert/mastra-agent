@@ -3,6 +3,7 @@ import {
   AppstoreOutlined,
   ArrowRightOutlined,
   BookOutlined,
+  BranchesOutlined,
   CheckCircleOutlined,
   CloudServerOutlined,
   CodeOutlined,
@@ -57,11 +58,15 @@ import { KnowledgeWorkspace } from "./Knowledge";
 import { McpWorkspace } from "./Mcp";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
+const Workflows = lazy(() =>
+  import("./Workflows").then((module) => ({ default: module.WorkflowWorkspace })),
+);
 type Page =
   | "overview"
   | "agents"
   | "chat"
   | "knowledge"
+  | "workflows"
   | "models"
   | "tools"
   | "mcp"
@@ -73,6 +78,7 @@ const navigation: [Page, string, React.ReactNode][] = [
   ["agents", "Agents", <RobotOutlined key="RobotOutlined" />],
   ["chat", "对话", <CommentOutlined key="CommentOutlined" />],
   ["knowledge", "知识库", <BookOutlined key="knowledge" />],
+  ["workflows", "工作流", <BranchesOutlined key="workflows" />],
   ["models", "模型服务", <ApiOutlined key="ApiOutlined" />],
   ["tools", "工具", <ToolOutlined key="ToolOutlined" />],
   ["mcp", "MCP 服务", <ApiOutlined key="mcp" />],
@@ -85,6 +91,7 @@ const pageTitles: Record<Page, [string, string]> = {
   agents: ["Agents", "配置角色与工具，发布可供团队和业务系统使用的智能体。"],
   chat: ["对话", "与已发布的 Agent 协作，历史记录保存在当前项目。"],
   knowledge: ["知识库", "将团队资料转为可检索的知识，供 Agent 按需引用。"],
+  workflows: ["工作流", "用自然语言编排业务流程，发布后按固定版本执行。"],
   models: ["模型服务", "登记团队使用的模型服务，并管理调用凭据。"],
   tools: ["工具", "让 Agent 使用经过登记的业务能力。"],
   mcp: ["MCP 服务", "连接业务服务，发现并审阅可供 Agent 使用的工具。"],
@@ -135,7 +142,7 @@ function Blank({
   );
 }
 export function App() {
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const [user, setUser] = useState<Principal | null>(null),
     [initialized, setInitialized] = useState<boolean | null>(null),
     [authReady, setAuthReady] = useState(false),
@@ -165,6 +172,26 @@ export function App() {
     [eventsMore, setEventsMore] = useState(false),
     [eventsLoading, setEventsLoading] = useState(false),
     [credential, setCredential] = useState<(Application & { secretKey: string }) | null>(null);
+  const workflowGuard = useRef<(() => "busy" | "dirty" | null) | undefined>(undefined);
+  const registerWorkflowGuard = useCallback((guard?: () => "busy" | "dirty" | null) => {
+    workflowGuard.current = guard;
+  }, []);
+  const leaveWorkflow = (action: () => void) => {
+    const reason = workflowGuard.current?.();
+    if (reason === "busy") {
+      message.info("请等待当前工作流操作完成");
+      return;
+    }
+    if (reason === "dirty") {
+      modal.confirm({
+        title: "离开未保存的草稿？",
+        content: "当前修改尚未保存，可以先保存后再离开。",
+        okText: "离开",
+        cancelText: "继续编辑",
+        onOk: action,
+      });
+    } else action();
+  };
   const conversationRequest = useRef(0),
     detailRequest = useRef(0);
   const selectedProject = projects.find((p) => p.id === projectId),
@@ -363,8 +390,14 @@ export function App() {
     }
   }
   function navigate(next: Page) {
-    setPage(next);
-    setMobileNav(false);
+    if (next === page) {
+      setMobileNav(false);
+      return;
+    }
+    leaveWorkflow(() => {
+      setPage(next);
+      setMobileNav(false);
+    });
   }
   async function logout() {
     await unwrap(api.logout({ body: {} }));
@@ -517,7 +550,7 @@ export function App() {
               type="text"
               aria-label="退出登录"
               icon={<LogoutOutlined key="LogoutOutlined" />}
-              onClick={() => void logout()}
+              onClick={() => leaveWorkflow(() => void logout())}
             />
           </Tooltip>
         </div>
@@ -601,7 +634,9 @@ export function App() {
               placeholder="选择项目"
               value={projectId || undefined}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              onChange={setProjectId}
+              onChange={(id) => {
+                if (id !== projectId) leaveWorkflow(() => setProjectId(id));
+              }}
               popupMatchSelectWidth={240}
             />
             <Tag>开发环境</Tag>
@@ -824,6 +859,16 @@ export function App() {
                   tools={tools}
                   onChanged={() => void refresh()}
                 />
+              )}
+              {page === "workflows" && (
+                <Suspense fallback={<Spin />}>
+                  <Workflows
+                    key={projectId}
+                    projectId={projectId}
+                    models={models}
+                    registerGuard={registerWorkflowGuard}
+                  />
+                </Suspense>
               )}
               {page === "models" && (
                 <section className="panel">

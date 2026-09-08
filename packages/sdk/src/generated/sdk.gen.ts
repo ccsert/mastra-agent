@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client/index.js';
-import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateMcpServerData, CreateMcpServerErrors, CreateMcpServerResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, DiscoverMcpToolsData, DiscoverMcpToolsErrors, DiscoverMcpToolsResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, HealthData, HealthResponses, ImportMcpToolData, ImportMcpToolErrors, ImportMcpToolResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMcpDiscoveriesData, ListMcpDiscoveriesErrors, ListMcpDiscoveriesResponses, ListMcpServersData, ListMcpServersErrors, ListMcpServersResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UpdateMcpServerData, UpdateMcpServerErrors, UpdateMcpServerResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses } from './types.gen.js';
+import type { AcceptWorkflowGenerationData, AcceptWorkflowGenerationErrors, AcceptWorkflowGenerationResponses, CancelRunData, CancelRunErrors, CancelRunResponses, CancelWorkflowGenerationData, CancelWorkflowGenerationErrors, CancelWorkflowGenerationResponses, CancelWorkflowRunData, CancelWorkflowRunErrors, CancelWorkflowRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateMcpServerData, CreateMcpServerErrors, CreateMcpServerResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, CreateWorkflowData, CreateWorkflowErrors, CreateWorkflowResponses, CreateWorkflowRunData, CreateWorkflowRunErrors, CreateWorkflowRunResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, DiscoverMcpToolsData, DiscoverMcpToolsErrors, DiscoverMcpToolsResponses, GenerateWorkflowData, GenerateWorkflowErrors, GenerateWorkflowResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, GetWorkflowCatalogData, GetWorkflowCatalogErrors, GetWorkflowCatalogResponses, GetWorkflowData, GetWorkflowErrors, GetWorkflowGenerationData, GetWorkflowGenerationErrors, GetWorkflowGenerationResponses, GetWorkflowResponses, GetWorkflowRunData, GetWorkflowRunErrors, GetWorkflowRunResponses, HealthData, HealthResponses, ImportMcpToolData, ImportMcpToolErrors, ImportMcpToolResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMcpDiscoveriesData, ListMcpDiscoveriesErrors, ListMcpDiscoveriesResponses, ListMcpServersData, ListMcpServersErrors, ListMcpServersResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, ListWorkflowGenerationsData, ListWorkflowGenerationsErrors, ListWorkflowGenerationsResponses, ListWorkflowNodeRunsData, ListWorkflowNodeRunsErrors, ListWorkflowNodeRunsResponses, ListWorkflowReleasesData, ListWorkflowReleasesErrors, ListWorkflowReleasesResponses, ListWorkflowRunsData, ListWorkflowRunsErrors, ListWorkflowRunsResponses, ListWorkflowsData, ListWorkflowsErrors, ListWorkflowsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, PublishWorkflowData, PublishWorkflowErrors, PublishWorkflowResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UpdateMcpServerData, UpdateMcpServerErrors, UpdateMcpServerResponses, UpdateWorkflowData, UpdateWorkflowErrors, UpdateWorkflowResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses, ValidateWorkflowData, ValidateWorkflowErrors, ValidateWorkflowResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -269,6 +269,105 @@ export const discoverMcpTools = <ThrowOnError extends boolean = false>(options: 
 
 export const importMcpTool = <ThrowOnError extends boolean = false>(options: Options<ImportMcpToolData, ThrowOnError>): RequestResult<ImportMcpToolResponses, ImportMcpToolErrors, ThrowOnError> => (options.client ?? client).post<ImportMcpToolResponses, ImportMcpToolErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/mcp-servers/{id}/tools',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listWorkflows = <ThrowOnError extends boolean = false>(options: Options<ListWorkflowsData, ThrowOnError>): RequestResult<ListWorkflowsResponses, ListWorkflowsErrors, ThrowOnError> => (options.client ?? client).get<ListWorkflowsResponses, ListWorkflowsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows', ...options });
+
+export const createWorkflow = <ThrowOnError extends boolean = false>(options: Options<CreateWorkflowData, ThrowOnError>): RequestResult<CreateWorkflowResponses, CreateWorkflowErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkflowResponses, CreateWorkflowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getWorkflowCatalog = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowCatalogData, ThrowOnError>): RequestResult<GetWorkflowCatalogResponses, GetWorkflowCatalogErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowCatalogResponses, GetWorkflowCatalogErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows/catalog', ...options });
+
+export const getWorkflow = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowData, ThrowOnError>): RequestResult<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowResponses, GetWorkflowErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows/{id}', ...options });
+
+export const updateWorkflow = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkflowData, ThrowOnError>): RequestResult<UpdateWorkflowResponses, UpdateWorkflowErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkflowResponses, UpdateWorkflowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const validateWorkflow = <ThrowOnError extends boolean = false>(options: Options<ValidateWorkflowData, ThrowOnError>): RequestResult<ValidateWorkflowResponses, ValidateWorkflowErrors, ThrowOnError> => (options.client ?? client).post<ValidateWorkflowResponses, ValidateWorkflowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows/{id}/validate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const publishWorkflow = <ThrowOnError extends boolean = false>(options: Options<PublishWorkflowData, ThrowOnError>): RequestResult<PublishWorkflowResponses, PublishWorkflowErrors, ThrowOnError> => (options.client ?? client).post<PublishWorkflowResponses, PublishWorkflowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows/{id}/publish',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listWorkflowReleases = <ThrowOnError extends boolean = false>(options: Options<ListWorkflowReleasesData, ThrowOnError>): RequestResult<ListWorkflowReleasesResponses, ListWorkflowReleasesErrors, ThrowOnError> => (options.client ?? client).get<ListWorkflowReleasesResponses, ListWorkflowReleasesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows/{id}/releases', ...options });
+
+export const listWorkflowRuns = <ThrowOnError extends boolean = false>(options: Options<ListWorkflowRunsData, ThrowOnError>): RequestResult<ListWorkflowRunsResponses, ListWorkflowRunsErrors, ThrowOnError> => (options.client ?? client).get<ListWorkflowRunsResponses, ListWorkflowRunsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows/{id}/runs', ...options });
+
+export const createWorkflowRun = <ThrowOnError extends boolean = false>(options: Options<CreateWorkflowRunData, ThrowOnError>): RequestResult<CreateWorkflowRunResponses, CreateWorkflowRunErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkflowRunResponses, CreateWorkflowRunErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows/{id}/runs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getWorkflowRun = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowRunData, ThrowOnError>): RequestResult<GetWorkflowRunResponses, GetWorkflowRunErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowRunResponses, GetWorkflowRunErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflow-runs/{id}', ...options });
+
+export const listWorkflowNodeRuns = <ThrowOnError extends boolean = false>(options: Options<ListWorkflowNodeRunsData, ThrowOnError>): RequestResult<ListWorkflowNodeRunsResponses, ListWorkflowNodeRunsErrors, ThrowOnError> => (options.client ?? client).get<ListWorkflowNodeRunsResponses, ListWorkflowNodeRunsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflow-runs/{id}/nodes', ...options });
+
+export const cancelWorkflowRun = <ThrowOnError extends boolean = false>(options: Options<CancelWorkflowRunData, ThrowOnError>): RequestResult<CancelWorkflowRunResponses, CancelWorkflowRunErrors, ThrowOnError> => (options.client ?? client).post<CancelWorkflowRunResponses, CancelWorkflowRunErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflow-runs/{id}/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listWorkflowGenerations = <ThrowOnError extends boolean = false>(options: Options<ListWorkflowGenerationsData, ThrowOnError>): RequestResult<ListWorkflowGenerationsResponses, ListWorkflowGenerationsErrors, ThrowOnError> => (options.client ?? client).get<ListWorkflowGenerationsResponses, ListWorkflowGenerationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflows/{id}/generations', ...options });
+
+export const generateWorkflow = <ThrowOnError extends boolean = false>(options: Options<GenerateWorkflowData, ThrowOnError>): RequestResult<GenerateWorkflowResponses, GenerateWorkflowErrors, ThrowOnError> => (options.client ?? client).post<GenerateWorkflowResponses, GenerateWorkflowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflows/{id}/generations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getWorkflowGeneration = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowGenerationData, ThrowOnError>): RequestResult<GetWorkflowGenerationResponses, GetWorkflowGenerationErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowGenerationResponses, GetWorkflowGenerationErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/workflow-generations/{id}', ...options });
+
+export const acceptWorkflowGeneration = <ThrowOnError extends boolean = false>(options: Options<AcceptWorkflowGenerationData, ThrowOnError>): RequestResult<AcceptWorkflowGenerationResponses, AcceptWorkflowGenerationErrors, ThrowOnError> => (options.client ?? client).post<AcceptWorkflowGenerationResponses, AcceptWorkflowGenerationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflow-generations/{id}/accept',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const cancelWorkflowGeneration = <ThrowOnError extends boolean = false>(options: Options<CancelWorkflowGenerationData, ThrowOnError>): RequestResult<CancelWorkflowGenerationResponses, CancelWorkflowGenerationErrors, ThrowOnError> => (options.client ?? client).post<CancelWorkflowGenerationResponses, CancelWorkflowGenerationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/workflow-generations/{id}/cancel',
     ...options,
     headers: {
         'Content-Type': 'application/json',

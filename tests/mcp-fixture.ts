@@ -70,9 +70,13 @@ export async function mcpFixture(port = 0, enableJsonResponse = true) {
         throw new Error("Writes are disabled in the fixture");
       const data = {
         orderId: request.params.arguments?.orderId,
-        status: state.invalidOutput ? 7 : "待发货",
-        amount: 12800,
-        sku: "GPU-A5000-24",
+        status: state.invalidOutput
+          ? 7
+          : request.params.arguments?.orderId === "ORD-1001"
+            ? "待发货"
+            : "不存在",
+        amount: request.params.arguments?.orderId === "ORD-1001" ? 12800 : 0,
+        sku: request.params.arguments?.orderId === "ORD-1001" ? "GPU-A5000-24" : "",
       };
       return {
         content: state.media

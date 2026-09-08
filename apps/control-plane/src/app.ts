@@ -37,6 +37,9 @@ import { Mcp } from "./mcp.ts";
 import { registerMcpRoutes } from "./mcp-routes.ts";
 import { Queue } from "./queue.ts";
 import type { Store } from "./store.ts";
+import { WorkflowQueue } from "./workflow-queue.ts";
+import { registerWorkflowRoutes } from "./workflow-routes.ts";
+import { Workflows } from "./workflows.ts";
 
 const projectParams = z.object({ projectId: Id }),
   itemParams = projectParams.extend({ id: Id });
@@ -673,12 +676,15 @@ export function createApp(store: Store, config: AppConfig) {
   registerKnowledgeRoutes(app, knowledge);
   const mcp = new Mcp(store);
   registerMcpRoutes(app, mcp);
+  const workflows = new Workflows(store),
+    workflowQueue = new WorkflowQueue(workflows, knowledge);
+  registerWorkflowRoutes(app, workflows, workflowQueue);
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Agent Platform API", version: "0.1.0" },
     servers: [{ url: "http://127.0.0.1:4110" }],
   });
-  return { app, queue, knowledge, mcp };
+  return { app, queue, knowledge, mcp, workflows, workflowQueue };
 }
 function checkUrl(value: string) {
   let url: URL;

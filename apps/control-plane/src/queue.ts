@@ -10,6 +10,7 @@ import type { Database, Row } from "@platform/database";
 import { uiMessageChunkSchema, validateUIMessages } from "ai";
 import type { Vault } from "./crypto.ts";
 import { ApiError } from "./errors.ts";
+import { executionCredentials } from "./execution-credentials.ts";
 export class Queue {
   constructor(
     readonly db: Database,
@@ -43,25 +44,13 @@ export class Queue {
         "SELECT snapshot FROM releases WHERE id=$1 AND project_id=$2",
         [run.release_id, run.project_id],
       );
-      const snapshot = ReleaseSnapshot.parse(release.snapshot),
-        toolTokens: Record<string, string> = {};
-      const secret = async (id: string, kind: string) => {
-        const [r] = await tx.query(
-          "SELECT secret_enc FROM resources WHERE id=$1 AND tenant_id=$2 AND project_id=$3 AND kind=$4",
-          [id, run.tenant_id, run.project_id, kind],
-        );
-        if (!r) throw new ApiError(409, "DEPENDENCY_UNAVAILABLE", "固定发布依赖不可用");
-        return this.vault.decrypt(String(r.secret_enc));
-      };
-      const modelApiKey = await secret(snapshot.model.id, "model");
-      const knowledgeModelKeys: Record<string, string> = {};
-      for (const kb of snapshot.knowledgeBases) {
-        knowledgeModelKeys[kb.embeddingModel.id] = await secret(kb.embeddingModel.id, "model");
-        if (kb.rerankModel)
-          knowledgeModelKeys[kb.rerankModel.id] = await secret(kb.rerankModel.id, "model");
-      }
-      for (const tool of snapshot.tools)
-        if (tool.kind !== "mcp") toolTokens[tool.id] = await secret(tool.id, "tool");
+      const snapshot = ReleaseSnapshot.parse(release.snapshot);
+      const credentials = await executionCredentials(
+        tx,
+        this.vault,
+        { tenantId: String(run.tenant_id), projectId: String(run.project_id) },
+        snapshot,
+      );
       const messages = (
         await tx.query("SELECT data FROM messages WHERE conversation_id=$1 ORDER BY position", [
           run.conversation_id,
@@ -72,7 +61,7 @@ export class Queue {
         leaseToken,
         snapshot,
         messages,
-        credentials: { modelApiKey, toolTokens, knowledgeModelKeys },
+        credentials,
         deadline: new Date(String(run.deadline)).getTime(),
       });
     });
