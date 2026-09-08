@@ -149,15 +149,18 @@ export function scopedWorkflowVariables(ctx: FreeLayoutPluginContext, nodeId: st
   ) => {
     if (depth > 5 || options.length >= 200) return;
     const maybeMissing = optional || field.meta?.optional === true;
-    const type = field.type.kind === ASTKind.Any ? "未知" : field.type.kind.toLowerCase();
+    // A KeyPathExpression can be unresolved while its upstream node is disconnected.
+    const fieldType = field.type;
+    const type =
+      !fieldType || fieldType.kind === ASTKind.Any ? "未知" : fieldType.kind.toLowerCase();
     options.push({
       value: path,
       label: `${label} · ${type}${maybeMissing ? "（可能为空）" : ""}`,
       type,
       optional: maybeMissing,
     });
-    if (field.type instanceof ObjectType)
-      for (const child of field.type.properties)
+    if (fieldType instanceof ObjectType)
+      for (const child of fieldType.properties)
         walk(child, `${path}.${child.key}`, `${label}.${child.key}`, maybeMissing, depth + 1);
   };
   for (const field of scope?.available.variables ?? []) {

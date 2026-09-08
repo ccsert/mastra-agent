@@ -1,3 +1,4 @@
+import { CloseOutlined } from "@ant-design/icons";
 import {
   EditorRenderer,
   Field,
@@ -7,20 +8,27 @@ import {
   type FreeLayoutPluginContext,
   type FreeLayoutProps,
   type OperationMeta,
-  useNodeRender,
-  useWatchFormErrors,
   ValidateTrigger,
   type WorkflowJSON,
-  type WorkflowNodeEntity,
-  WorkflowNodeRenderer,
+  WorkflowLineEntity,
+  WorkflowNodeEntity,
   WorkflowOperationBaseService,
 } from "@flowgram.ai/free-layout-editor";
-import type { WorkflowAssetInput, WorkflowCapability, WorkflowNode } from "@platform/sdk";
-import { Drawer } from "antd";
+import { createFreeLinesPlugin } from "@flowgram.ai/free-lines-plugin";
 import {
-  createContext,
+  createFreeNodePanelPlugin,
+  WorkflowNodePanelService,
+} from "@flowgram.ai/free-node-panel-plugin";
+import {
+  createPanelManagerPlugin,
+  DockedPanelLayer,
+  PanelManager,
+} from "@flowgram.ai/panel-manager-plugin";
+import type { WorkflowAssetInput, WorkflowCapability, WorkflowNode } from "@platform/sdk";
+import { Button } from "antd";
+import {
   forwardRef,
-  useContext,
+  type ReactNode,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -28,6 +36,22 @@ import {
   useState,
 } from "react";
 import { WorkflowNodeFields } from "./WorkflowFields";
+import {
+  NODE_DRAG_TYPE,
+  NodeIcon,
+  WorkflowLineInsert,
+  WorkflowMaterialsContext,
+  WorkflowNodeCard,
+  WorkflowNodePanel,
+  WorkflowPanelContent,
+  WorkflowSidePanel,
+} from "./WorkflowMaterials";
+import {
+  type AddableNodeType,
+  insertWorkflowNode,
+  type NodePlacement,
+  pasteWorkflowNodes,
+} from "./workflow-editing";
 import { autoPositions, connectionIssue, nodeNames, objectSchema } from "./workflow-model";
 import {
   scopedWorkflowVariables,
@@ -39,7 +63,6 @@ import "@flowgram.ai/free-layout-editor/index.css";
 import { createFreeSnapPlugin } from "@flowgram.ai/free-snap-plugin";
 import { createMinimapPlugin, MinimapRender } from "@flowgram.ai/minimap-plugin";
 
-const SelectNode = createContext<(id: string) => void>(() => {});
 const formMeta: FormMeta = {
   validateTrigger: ValidateTrigger.onChange,
   // Match the API's label normalization at the document boundary, including undo/redo exports.
@@ -54,65 +77,28 @@ const registries = Object.keys(nodeNames).map((type) => ({
   type,
   formMeta,
   meta: {
+    size: { width: 280, height: type === "condition" ? 225 : 160 },
+    isStart: type === "start",
+    deleteDisable: type === "start",
+    copyDisable: type === "start",
+    nodePanelVisible: type !== "start",
     defaultPorts: [
       ...(type === "start" ? [] : [{ type: "input" as const, portID: "in" }]),
       ...(type === "end"
         ? []
         : type === "condition"
           ? [
-              { type: "output" as const, portID: "true", locationConfig: { right: 0, top: "62%" } },
+              { type: "output" as const, portID: "true", locationConfig: { right: 0, top: "72%" } },
               {
                 type: "output" as const,
                 portID: "false",
-                locationConfig: { right: 0, top: "84%" },
+                locationConfig: { right: 0, top: "90%" },
               },
             ]
           : [{ type: "output" as const, portID: "out" }]),
     ],
   },
 }));
-function Card({ node }: { node: WorkflowNodeEntity }) {
-  const select = useContext(SelectNode),
-    { form, selected } = useNodeRender(node);
-  const pointerStart = useRef({ x: 0, y: 0 });
-  const type = node.flowNodeType as WorkflowNode["type"];
-  const errors = useWatchFormErrors(node);
-  const errorCount = Object.values(errors ?? {}).flat().length;
-  return (
-    <WorkflowNodeRenderer node={node}>
-      <button
-        type="button"
-        className={`workflow-node workflow-node-${type} ${selected ? "selected" : ""}`}
-        onPointerDown={(event) => {
-          pointerStart.current = { x: event.clientX, y: event.clientY };
-        }}
-        onClick={(event) => {
-          if (
-            event.detail &&
-            Math.hypot(
-              event.clientX - pointerStart.current.x,
-              event.clientY - pointerStart.current.y,
-            ) > 5
-          )
-            return;
-          select(node.id);
-        }}
-        aria-label={`配置节点 ${String(form?.values.label ?? node.id)}`}
-      >
-        <span className="workflow-node-kind">{nodeNames[type]}</span>
-        {form?.render() ?? <strong>{node.id}</strong>}
-        <span className="workflow-node-id">{node.id}</span>
-        {!!errorCount && <span className="workflow-field-error">{errorCount} 项配置待修正</span>}
-        {type === "condition" && (
-          <span className="workflow-branch-labels">
-            <span>满足</span>
-            <span>不满足</span>
-          </span>
-        )}
-      </button>
-    </WorkflowNodeRenderer>
-  );
-}
 function documentFor(value: WorkflowAssetInput): WorkflowJSON {
   const positions = { ...autoPositions(value.definition), ...value.layout };
   return {
@@ -137,7 +123,10 @@ export interface WorkflowCanvasHandle {
   autoLayout(): Promise<void>;
   undo(): Promise<void>;
   redo(): Promise<void>;
-  zoom(direction: "in" | "out"): void;
+  zoom(direction: "in" | "out" | "reset"): void;
+  openNodePanel(position: { clientX: number; clientY: number }): void;
+  focus(id: string): void;
+  canLeaveNode(): boolean;
 }
 type CanvasProps = {
   initial: WorkflowAssetInput;
@@ -149,7 +138,9 @@ type CanvasProps = {
   selected?: string;
   inspector?: boolean;
   onCloseInspector?(): void;
-  onDeleteNode?(): void;
+  panel?: { title: string; content: ReactNode; onClose(): void };
+  onZoomChange?(zoom: number): void;
+  onValidityChange?(valid: boolean): void;
   readonly?: boolean;
 };
 type WorkflowMetadata = Pick<WorkflowAssetInput, "name" | "description"> &
@@ -162,7 +153,7 @@ const metadataOf = (value: WorkflowAssetInput): WorkflowMetadata => ({
 });
 export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
   function WorkflowCanvas(props, ref) {
-    const { initial, onSelect, readonly = false } = props;
+    const { initial, readonly = false } = props;
     const container = useRef<HTMLElement | null>(null);
     const context = useRef<FreeLayoutPluginContext | null>(null);
     const source = useRef(initial);
@@ -173,6 +164,13 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
     const [ready, setReady] = useState(false);
     const [options, setOptions] = useState<WorkflowVariableOption[]>([]);
     const [formValid, setFormValid] = useState(true);
+    const formValidRef = useRef(true);
+    formValidRef.current = formValid;
+    useEffect(() => {
+      live.current.onValidityChange?.(formValid);
+    }, [formValid]);
+    const clipboard = useRef<WorkflowAssetInput | null>(null);
+    const pasteOffset = useRef(48);
     const initialData = useMemo(() => documentFor(initial), [initial]);
     const nodeRegistries = useMemo(
       () =>
@@ -269,6 +267,11 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       if (!context.current || suppress.current) return;
       try {
         const value = capture();
+        if (
+          live.current.selected &&
+          !value.definition.nodes.some((n) => n.id === live.current.selected)
+        )
+          live.current.onCloseInspector?.();
         source.current = value;
         live.current.onChange(value);
         live.current.onHistoryChange?.({
@@ -317,9 +320,141 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       }
       notify();
     };
+    const focus = (id: string) => {
+      const ctx = context.current,
+        node = ctx?.document.getNode(id);
+      if (ctx && node)
+        void ctx.playground.scrollToView({
+          bounds: node.transform.bounds,
+          zoom: Math.max(ctx.playground.config.zoom, 0.85),
+          scrollToCenter: true,
+        });
+    };
+    const select = (id: string, updateSelection = false) => {
+      if (!formValidRef.current && live.current.inspector && id !== live.current.selected) {
+        live.current.onError?.("请先修正当前节点的无效输入");
+        return false;
+      }
+      const ctx = context.current,
+        node = ctx?.document.getNode(id);
+      if (updateSelection && ctx && node) ctx.selection.selection = [node];
+      live.current.onSelect(id);
+      queueMicrotask(() => ctx?.playground.node.focus());
+      return true;
+    };
+    const add = (type: AddableNodeType, placement: NodePlacement) => {
+      if (live.current.readonly || !formValidRef.current) return;
+      try {
+        const { next, id } = insertWorkflowNode(
+          capture(),
+          type,
+          placement,
+          live.current.catalog ?? [],
+        );
+        replace(next);
+        select(id, true);
+        requestAnimationFrame(() => focus(id));
+      } catch (e) {
+        live.current.onError?.(e instanceof Error ? e.message : "添加节点失败");
+      }
+    };
+    const openPanel = async (placement: NodePlacement, panelPosition = placement.position) => {
+      const ctx = context.current;
+      if (!ctx || live.current.readonly) return;
+      if (!formValidRef.current) {
+        live.current.onError?.("请先修正当前节点的无效输入");
+        return;
+      }
+      const result = await ctx
+        .get(WorkflowNodePanelService)
+        .singleSelectNodePanel({ position: panelPosition, panelProps: placement });
+      if (result && ["agent", "tool", "condition", "map", "end"].includes(result.nodeType))
+        add(result.nodeType as AddableNodeType, placement);
+    };
+    const remove = (id?: string) => {
+      const ctx = context.current;
+      if (!ctx || live.current.readonly) return;
+      const selection = id ? [ctx.document.getNode(id)] : [...ctx.selection.selection];
+      ctx.history.startTransaction();
+      try {
+        for (const entity of selection) {
+          if (
+            entity instanceof WorkflowNodeEntity &&
+            entity.flowNodeType !== "start" &&
+            ctx.document.canRemove(entity)
+          )
+            entity.dispose();
+          else if (
+            entity instanceof WorkflowLineEntity &&
+            ctx.document.linesManager.canRemove(entity)
+          )
+            entity.dispose();
+        }
+        ctx.selection.selection = ctx.selection.selection.filter((e) => !e.disposed);
+      } finally {
+        ctx.history.endTransaction();
+      }
+      notify();
+      if (live.current.selected && !ctx.document.getNode(live.current.selected))
+        live.current.onCloseInspector?.();
+    };
+    const copy = (id?: string) => {
+      const ctx = context.current;
+      if (!ctx) return;
+      const ids = id
+        ? [id]
+        : ctx.selection.selection.filter((e) => e instanceof WorkflowNodeEntity).map((e) => e.id);
+      const value = capture();
+      value.definition.nodes = value.definition.nodes.filter(
+        (n) => ids.includes(n.id) && n.type !== "start",
+      );
+      value.definition.edges = value.definition.edges.filter(
+        (e) =>
+          value.definition.nodes.some((n) => n.id === e.source) &&
+          value.definition.nodes.some((n) => n.id === e.target),
+      );
+      if (value.definition.nodes.length) {
+        clipboard.current = value;
+        pasteOffset.current = 48;
+      }
+    };
+    const paste = () => {
+      if (!clipboard.current || live.current.readonly || !formValidRef.current) return;
+      try {
+        const { next, ids } = pasteWorkflowNodes(capture(), clipboard.current, pasteOffset.current);
+        pasteOffset.current += 48;
+        replace(next);
+        const ctx = context.current;
+        if (ctx)
+          ctx.selection.selection = ids.flatMap((id) => {
+            const node = ctx.document.getNode(id);
+            return node ? [node] : [];
+          });
+      } catch (e) {
+        live.current.onError?.(e instanceof Error ? e.message : "粘贴失败");
+      }
+    };
     useImperativeHandle(ref, () => ({
       capture,
       replace,
+      focus,
+      canLeaveNode: () => {
+        if (!formValidRef.current) live.current.onError?.("请先修正当前节点的无效输入");
+        return formValidRef.current;
+      },
+      openNodePanel: (event) => {
+        const ctx = context.current;
+        if (!ctx) return;
+        const bounds = ctx.playground.node.getBoundingClientRect();
+        const center = ctx.playground.config.getPosFromMouseEvent({
+          clientX: bounds.left + bounds.width / 2,
+          clientY: bounds.top + bounds.height / 2,
+        });
+        void openPanel(
+          { position: { x: center.x - 140, y: center.y - 80 } },
+          ctx.playground.config.getPosFromMouseEvent(event),
+        );
+      },
       fit: () => {
         void context.current?.tools.fitView();
       },
@@ -342,7 +477,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       zoom: (direction) => {
         const config = context.current?.playground.config;
         if (direction === "in") config?.zoomin();
-        else config?.zoomout();
+        else if (direction === "out") config?.zoomout();
+        else config?.updateZoom(1, false);
       },
     }));
     useEffect(() => () => clearTimeout(timer.current), []);
@@ -364,27 +500,21 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       return () => subscription?.dispose();
     }, [ready, initial.definition, props.catalog, props.selected]);
     useEffect(() => {
-      let resizeTimer: ReturnType<typeof setTimeout>;
-      const observer = new ResizeObserver(([entry]) => {
-        clearTimeout(resizeTimer);
-        if (entry.contentRect.width && entry.contentRect.height)
-          resizeTimer = setTimeout(() => {
-            void context.current?.tools.fitView(false);
-          }, 180);
-      });
-      if (container.current) observer.observe(container.current);
-      return () => {
-        clearTimeout(resizeTimer);
-        observer.disconnect();
-      };
-    }, []);
-    const materials = useMemo(() => ({ renderDefaultNode: Card }), []);
+      if (!ready || !context.current) return;
+      const manager = context.current.get(PanelManager);
+      if ((props.inspector && props.selected) || props.panel) {
+        if (!manager.getPanels().some((p) => p.key === "workflow-side"))
+          manager.open("workflow-side", "docked-right");
+      } else manager.close("workflow-side");
+    }, [ready, props.inspector, props.selected, props.panel]);
+    const materials = useMemo(() => ({ renderDefaultNode: WorkflowNodeCard }), []);
     const editorProps: FreeLayoutProps = {
       initialData,
       nodeRegistries,
       materials,
       readonly,
       background: true,
+      playground: { preventGlobalGesture: true },
       nodeEngine: { enable: true },
       variableEngine: { enable: true, layout: "free" },
       history: {
@@ -392,7 +522,55 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         enableChangeNode: true,
         disableShortcuts: true,
       },
+      shortcuts: (registry, ctx) => {
+        const safe = (action: () => void) => () => {
+          if (
+            live.current.readonly ||
+            !container.current?.getClientRects().length ||
+            document.activeElement?.closest(
+              "input, textarea, select, [contenteditable=true], [role=dialog]",
+            )
+          )
+            return;
+          action();
+        };
+        registry.addHandlers(
+          {
+            commandId: "workflow.copy",
+            shortcuts: ["meta c", "ctrl c"],
+            execute: safe(() => copy()),
+          },
+          { commandId: "workflow.paste", shortcuts: ["meta v", "ctrl v"], execute: safe(paste) },
+          {
+            commandId: "workflow.select-all",
+            shortcuts: ["meta a", "ctrl a"],
+            execute: safe(() => {
+              ctx.selection.selection = ctx.document.getAllNodes();
+            }),
+          },
+          {
+            commandId: "workflow.delete",
+            shortcuts: ["backspace", "delete"],
+            execute: safe(() => remove()),
+          },
+        );
+      },
       plugins: () => [
+        createFreeLinesPlugin({ renderInsideLine: WorkflowLineInsert }),
+        createFreeNodePanelPlugin({ renderer: WorkflowNodePanel }),
+        createPanelManagerPlugin({
+          factories: [
+            {
+              key: "workflow-side",
+              defaultSize: 380,
+              minSize: 320,
+              maxSize: 560,
+              render: () => <WorkflowSidePanel />,
+            },
+          ],
+          autoResize: false,
+          getPopupContainer: (ctx) => ctx.playground.node.parentElement ?? document.body,
+        }),
         createFreeSnapPlugin({ enableGridSnapping: true, enableEdgeSnapping: true, gridSize: 16 }),
         createMinimapPlugin({
           disableLayer: true,
@@ -409,6 +587,20 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
         if (reason && !silent) live.current.onError?.(reason);
         return !reason;
       },
+      onDragLineEnd: async (_ctx, params) => {
+        if (
+          params.originLine ||
+          !params.line ||
+          params.toPort ||
+          params.fromPort?.portType !== "output"
+        )
+          return;
+        await openPanel({
+          position: params.mousePos,
+          source: params.fromPort.node.id,
+          port: params.fromPort.portID as NodePlacement["port"],
+        });
+      },
       onAllLayersRendered: (ctx) => {
         context.current = ctx;
         const registration = ctx.history.operationRegistry.registerOperationMeta(metadataOperation);
@@ -421,7 +613,20 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
           });
         });
         setReady(true);
-        void ctx.tools.fitView();
+        const zoomSubscription = ctx.playground.onZoom((zoom) => live.current.onZoomChange?.(zoom));
+        ctx.history.onWillDispose(() => zoomSubscription.dispose());
+        live.current.onZoomChange?.(ctx.playground.config.zoom);
+        void ctx.tools.fitView(false).then(() => {
+          if (!live.current.readonly && ctx.playground.config.zoom < 0.75) {
+            const start = ctx.document.getAllNodes().find((n) => n.flowNodeType === "start");
+            if (start)
+              void ctx.playground.scrollToView({
+                bounds: start.transform.bounds,
+                zoom: 0.85,
+                scrollToCenter: true,
+              });
+          }
+        });
       },
       onContentChange: (ctx) => {
         context.current = ctx;
@@ -440,43 +645,99 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, CanvasProps>(
       }
       props.onCloseInspector?.();
     };
+    const panelContent = props.panel ? (
+      <>
+        <div className="workflow-panel-heading">
+          <strong>{props.panel.title}</strong>
+          <Button
+            type="text"
+            aria-label="关闭侧栏"
+            icon={<CloseOutlined />}
+            onClick={props.panel.onClose}
+          />
+        </div>
+        {props.panel.content}
+      </>
+    ) : selectedEntity && context.current ? (
+      <>
+        <div className="workflow-panel-heading">
+          <NodeIcon type={selectedEntity.flowNodeType as WorkflowNode["type"]} />
+          <strong>节点配置</strong>
+          <Button
+            type="text"
+            aria-label="关闭节点配置"
+            icon={<CloseOutlined />}
+            onClick={closeInspector}
+          />
+        </div>
+        <WorkflowNodeFields
+          key={selectedEntity.id}
+          entity={selectedEntity}
+          definition={initial.definition}
+          catalog={props.catalog ?? []}
+          options={options}
+          context={context.current}
+          onClose={closeInspector}
+          onDelete={() => remove(selectedEntity.id)}
+          onValidity={setFormValid}
+        />
+      </>
+    ) : null;
     return (
-      <SelectNode.Provider value={onSelect}>
-        <section ref={container} className="workflow-canvas" aria-label="流程画布">
-          <FreeLayoutEditorProvider {...editorProps}>
-            <EditorRenderer style={{ width: "100%", height: "100%" }} />
-            <MinimapRender
-              containerStyles={{ position: "absolute", right: 12, bottom: 12, zIndex: 10000 }}
-              inactiveStyle={{ scale: 1, opacity: 0.9, translateX: 0, translateY: 0 }}
-            />
-            <Drawer
-              title={
-                selectedEntity
-                  ? `配置：${String(selectedEntity.form?.values.label ?? selectedEntity.id)}`
-                  : "节点配置"
-              }
-              open={!!props.inspector && !!selectedEntity}
-              size="min(440px, 100vw)"
-              onClose={closeInspector}
-              destroyOnHidden
-            >
-              {selectedEntity && context.current && (
-                <WorkflowNodeFields
-                  key={selectedEntity.id}
-                  entity={selectedEntity}
-                  definition={initial.definition}
-                  catalog={props.catalog ?? []}
-                  options={options}
-                  context={context.current}
-                  onClose={closeInspector}
-                  onDelete={() => props.onDeleteNode?.()}
-                  onValidity={setFormValid}
-                />
-              )}
-            </Drawer>
-          </FreeLayoutEditorProvider>
-        </section>
-      </SelectNode.Provider>
+      <WorkflowMaterialsContext.Provider
+        value={{
+          value: initial,
+          catalog: props.catalog ?? [],
+          readonly,
+          select,
+          remove,
+          duplicate: (id) => {
+            copy(id);
+            paste();
+          },
+          add: (placement) => {
+            void openPanel(placement);
+          },
+        }}
+      >
+        <WorkflowPanelContent.Provider value={panelContent}>
+          <section ref={container} className="workflow-canvas" aria-label="流程画布">
+            <FreeLayoutEditorProvider {...editorProps}>
+              <DockedPanelLayer style={{ width: "100%", height: "100%" }}>
+                <div
+                  className="workflow-playground"
+                  role="application"
+                  aria-label="工作流编辑画布"
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes(NODE_DRAG_TYPE)) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "copy";
+                    }
+                  }}
+                  onDrop={(e) => {
+                    const type = e.dataTransfer.getData(NODE_DRAG_TYPE);
+                    if (
+                      !["agent", "tool", "map", "condition", "end"].includes(type) ||
+                      !context.current
+                    )
+                      return;
+                    e.preventDefault();
+                    add(type as AddableNodeType, {
+                      position: context.current.playground.config.getPosFromMouseEvent(e),
+                    });
+                  }}
+                >
+                  <EditorRenderer style={{ width: "100%", height: "100%" }} />
+                  <MinimapRender
+                    containerStyles={{ position: "absolute", right: 16, bottom: 16, zIndex: 10000 }}
+                    inactiveStyle={{ scale: 1, opacity: 0.9, translateX: 0, translateY: 0 }}
+                  />
+                </div>
+              </DockedPanelLayer>
+            </FreeLayoutEditorProvider>
+          </section>
+        </WorkflowPanelContent.Provider>
+      </WorkflowMaterialsContext.Provider>
     );
   },
 );

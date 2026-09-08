@@ -51,7 +51,7 @@ export function autoPositions(definition: WorkflowDefinition) {
   const walk = (id: string, depth: number, y: number) => {
     if (visited.has(id)) return;
     visited.add(id);
-    positions[id] = { x: depth * 290 + 50, y: y * 175 + 90 };
+    positions[id] = { x: depth * 380 + 50, y: y * 280 + 90 };
     const edges = definition.edges
       .filter((e) => e.source === id)
       .sort((a, b) => b.port.localeCompare(a.port));
@@ -62,7 +62,7 @@ export function autoPositions(definition: WorkflowDefinition) {
   const start = definition.nodes.find((n) => n.type === "start");
   if (start) walk(start.id, 0, 0);
   definition.nodes.forEach((n) => {
-    if (!positions[n.id]) positions[n.id] = { x: 50, y: ++lane * 175 + 90 };
+    if (!positions[n.id]) positions[n.id] = { x: 50, y: ++lane * 280 + 90 };
   });
   return positions;
 }

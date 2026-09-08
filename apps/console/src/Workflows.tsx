@@ -308,6 +308,9 @@ function WorkflowEditor({
     [detailId, setDetailId] = useState<string>(),
     [detail, setDetail] = useState<WorkflowRun | null>(null),
     [nodeRuns, setNodeRuns] = useState<WorkflowNodeRun[]>([]);
+  const [nodeValid, setNodeValid] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false),
+    [zoom, setZoom] = useState(1);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const canvas = useRef<WorkflowCanvasHandle | null>(null),
     currentDraft = useRef(draft),
@@ -318,7 +321,7 @@ function WorkflowEditor({
       [asset.projectId, asset.id],
     ),
     projectPath = { projectId: asset.projectId };
-  const dirty = !same(draft, draftOf(asset)),
+  const dirty = !nodeValid || !same(draft, draftOf(asset)),
     generating = generations.some((g) => g.status === "queued" || g.status === "running");
   const guard = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -416,6 +419,7 @@ function WorkflowEditor({
     registerGuard(() => {
       if (busy || pendingSave.current) return "busy";
       try {
+        if (canvas.current && !canvas.current.canLeaveNode()) return "dirty";
         return same(canvas.current?.capture() ?? currentDraft.current, draftOf(asset))
           ? null
           : "dirty";
@@ -426,6 +430,8 @@ function WorkflowEditor({
     return () => registerGuard();
   }, [asset, busy, registerGuard]);
   const save = async () => {
+    if (canvas.current && !canvas.current.canLeaveNode())
+      throw new Error("请先修正节点中尚未完成的输入");
     const next = capture();
     remember(next, false);
     pendingSave.current = true;
@@ -456,7 +462,6 @@ function WorkflowEditor({
       if (
         busy ||
         tab !== "canvas" ||
-        inspector ||
         settings ||
         review ||
         runOpen ||
@@ -475,98 +480,7 @@ function WorkflowEditor({
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [busy, tab, inspector, settings, review, runOpen, detailId]);
-  const addNode = (type: Exclude<WorkflowNode["type"], "start">) => {
-    const current = capture(),
-      id = `${type}_${crypto.randomUUID().slice(0, 8)}`;
-    if (current.definition.nodes.length + (type === "condition" ? 2 : 1) > 24) {
-      message.error("当前流程最多 24 个节点");
-      return;
-    }
-    const entry = catalog.find((c) => c.kind === type);
-    if ((type === "tool" || type === "agent") && !entry) {
-      message.info(type === "agent" ? "请先发布一个 Agent" : "请先登记只读工具");
-      return;
-    }
-    const outputValues = Object.fromEntries(
-      Object.entries(objectSchema(current.definition.outputSchema.properties)).map(
-        ([key, schema]) => [
-          key,
-          {
-            kind: "literal" as const,
-            value:
-              objectSchema(schema).type === "string"
-                ? "条件不满足"
-                : objectSchema(schema).type === "boolean"
-                  ? false
-                  : objectSchema(schema).type === "array"
-                    ? []
-                    : objectSchema(schema).type === "object"
-                      ? {}
-                      : 0,
-          },
-        ],
-      ),
-    );
-    const node: WorkflowNode =
-      type === "tool"
-        ? { id, type, label: "调用业务工具", toolId: entry?.id ?? "", input: {} }
-        : type === "agent"
-          ? {
-              id,
-              type,
-              label: "Agent 处理",
-              releaseId: entry?.id ?? "",
-              prompt: { kind: "template", template: `处理以下输入：\${input}` },
-            }
-          : type === "condition"
-            ? {
-                id,
-                type,
-                label: "条件判断",
-                left: { kind: "literal", value: true },
-                operator: "eq",
-                right: { kind: "literal", value: true },
-              }
-            : {
-                id,
-                type,
-                label: nodeNames[type],
-                values: type === "end" ? outputValues : { value: { kind: "ref", path: "input" } },
-              };
-    const definition = structuredClone(current.definition);
-    definition.nodes.push(node);
-    const selectedNode = definition.nodes.find((n) => n.id === selected),
-      edge =
-        selectedNode?.type === "end"
-          ? definition.edges.find((e) => e.target === selected)
-          : definition.edges.find((e) => e.source === selected && e.port !== "false");
-    if (edge && type !== "end") {
-      definition.edges = definition.edges.filter((e) => e !== edge);
-      definition.edges.push(
-        { ...edge, target: id },
-        { source: id, target: edge.target, port: type === "condition" ? "true" : "out" },
-      );
-      if (type === "condition") {
-        const endId = `end_${crypto.randomUUID().slice(0, 8)}`;
-        definition.nodes.push({
-          id: endId,
-          type: "end",
-          label: "不满足时返回",
-          values: outputValues,
-        });
-        definition.edges.push({ source: id, target: endId, port: "false" });
-      }
-    }
-    remember({
-      ...current,
-      definition,
-      layout: { ...autoPositions(definition), ...current.layout },
-    });
-    setSelected(id);
-    setInspector(true);
-    setTimeout(() => canvas.current?.fit(), 50);
-  };
+  }, [busy, tab, settings, review, runOpen, detailId]);
   const latestGeneration = generations[0];
   const openRun = (release?: WorkflowRelease) => {
     const selected = release ?? releases[0];
@@ -575,6 +489,125 @@ function WorkflowEditor({
     setRunInput(JSON.stringify(initialInput(selected.snapshot.definition.inputSchema), null, 2));
     setRunOpen(true);
   };
+  const aiPanel = (
+    <aside className="workflow-ai-panel">
+      <p>描述希望完成的任务，或告诉我如何修改当前流程。</p>
+      <Form layout="vertical" component="div">
+        <Form.Item label="编排模型" htmlFor="workflow-author-model">
+          <Select
+            id="workflow-author-model"
+            value={modelId}
+            options={models
+              .filter((m) => m.kind === "chat")
+              .map((m) => ({ label: m.name, value: m.id }))}
+            onChange={setModelId}
+          />
+        </Form.Item>
+        <Form.Item label="业务需求" htmlFor="workflow-intent">
+          <Input.TextArea
+            id="workflow-intent"
+            value={intent}
+            autoSize={{ minRows: 5, maxRows: 10 }}
+            maxLength={8000}
+            placeholder="输入订单号，查询订单，结合知识库生成带来源的采购报告。"
+            onChange={(e) => setIntent(e.target.value)}
+          />
+        </Form.Item>
+        <Button
+          type="primary"
+          block
+          icon={<ThunderboltOutlined />}
+          loading={generating}
+          disabled={busy || dirty || !modelId || !intent.trim() || generating}
+          onClick={() =>
+            void guard(async () => {
+              const generation = await unwrap(
+                api.generateWorkflow({
+                  path,
+                  body: {
+                    baseRevision: asset.revision,
+                    modelId: modelId ?? "",
+                    intent,
+                    requestId: crypto.randomUUID(),
+                  },
+                }),
+              );
+              setGenerations((items) => [generation, ...items]);
+            })
+          }
+        >
+          生成完整候选
+        </Button>
+      </Form>
+      {dirty && <p className="workflow-hint">先保存当前修改，再让 AI 基于最新草稿编排。</p>}
+      <p className="workflow-hint">
+        AI 只使用当前项目已有的能力。候选需由你接受，发布后才成为可调用版本。
+      </p>
+      {latestGeneration && (
+        <div className="workflow-generation-card">
+          <div>
+            <strong>最近一次编排</strong>
+            <Status value={latestGeneration.status} />
+          </div>
+          <p className="workflow-generation-intent">{latestGeneration.intent}</p>
+          {latestGeneration.candidate && (
+            <details>
+              <summary>编排说明</summary>
+              <p>{latestGeneration.candidate.explanation}</p>
+            </details>
+          )}
+          {latestGeneration.issues.map((i) => (
+            <p className="workflow-error" key={`${i.nodeId}-${i.message}`}>
+              {i.message}
+            </p>
+          ))}
+          {latestGeneration.errorCode && !latestGeneration.issues.length && (
+            <p className="workflow-error">{latestGeneration.errorCode}</p>
+          )}
+          {latestGeneration.candidate && (
+            <Button block onClick={() => setReview(structuredClone(latestGeneration))}>
+              预览候选与修改
+            </Button>
+          )}
+          {["queued", "running"].includes(latestGeneration.status) && (
+            <Button
+              block
+              onClick={() =>
+                void guard(async () => {
+                  await unwrap(
+                    api.cancelWorkflowGeneration({
+                      path: { ...projectPath, id: latestGeneration.id },
+                      body: {},
+                    }),
+                  );
+                  await load();
+                })
+              }
+            >
+              取消生成
+            </Button>
+          )}
+        </div>
+      )}
+      {generations.length > 1 && (
+        <details>
+          <summary>历史编排记录（{generations.length}）</summary>
+          {generations.slice(1).map((g) => (
+            <div className="workflow-history-row" key={g.id}>
+              <Status value={g.status} />
+              <Button
+                type="link"
+                disabled={!g.candidate}
+                onClick={() => setReview(structuredClone(g))}
+              >
+                {timestamp(g.createdAt)} · 修订 {g.baseRevision}
+              </Button>
+            </div>
+          ))}
+        </details>
+      )}
+    </aside>
+  );
   return (
     <div className="workflow-editor">
       <div className="workflow-editor-heading">
@@ -584,7 +617,7 @@ function WorkflowEditor({
             aria-label="返回工作流列表"
             disabled={busy}
             onClick={() =>
-              dirty
+              dirty || !canvas.current?.canLeaveNode()
                 ? modal.confirm({
                     title: "离开未保存的草稿？",
                     content: "当前修改尚未保存，可以先保存后再返回。",
@@ -598,7 +631,7 @@ function WorkflowEditor({
           <div>
             <h2>{draft.name}</h2>
             <span className="muted">
-              草稿修订 {asset.revision} · {dirty ? "有未保存修改" : "已保存"} ·{" "}
+              {dirty ? "未保存" : "已保存"} · 修订 {asset.revision} ·{" "}
               {asset.publishedVersion ? `已发布 v${asset.publishedVersion}` : "尚未发布"}
             </span>
           </div>
@@ -636,6 +669,7 @@ function WorkflowEditor({
             disabled={busy || dirty}
             onClick={() =>
               void guard(async () => {
+                if (!canvas.current?.canLeaveNode()) return;
                 const release = await unwrap(
                   api.publishWorkflow({ path, body: { baseRevision: asset.revision } }),
                 );
@@ -653,7 +687,7 @@ function WorkflowEditor({
             disabled={busy || !releases.length}
             onClick={() => openRun()}
           >
-            运行
+            运行已发布版本
           </Button>
         </div>
       </div>
@@ -670,9 +704,11 @@ function WorkflowEditor({
                     type="button"
                     className="workflow-issue-link"
                     onClick={() => {
-                      if (issue.nodeId) {
+                      if (issue.nodeId && canvas.current?.canLeaveNode()) {
+                        setAiOpen(false);
                         setSelected(issue.nodeId);
                         setInspector(true);
+                        canvas.current.focus(issue.nodeId);
                       }
                     }}
                   >
@@ -698,16 +734,30 @@ function WorkflowEditor({
                 <div className="workflow-canvas-area">
                   <div className="workflow-canvas-toolbar">
                     <div className="workflow-actions">
-                      {(["tool", "agent", "map", "condition", "end"] as const).map((type) => (
-                        <Button
-                          size="small"
-                          key={type}
-                          disabled={busy}
-                          onClick={() => addNode(type)}
-                        >
-                          {nodeNames[type]} +
-                        </Button>
-                      ))}
+                      <Button
+                        icon={<PlusOutlined />}
+                        disabled={busy}
+                        onClick={(event) => {
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          canvas.current?.openNodePanel({
+                            clientX: rect.left,
+                            clientY: rect.bottom + 12,
+                          });
+                        }}
+                      >
+                        添加节点
+                      </Button>
+                      <Button
+                        icon={<ThunderboltOutlined />}
+                        type={aiOpen ? "primary" : "default"}
+                        onClick={() => {
+                          if (!canvas.current?.canLeaveNode()) return;
+                          setInspector(false);
+                          setAiOpen(!aiOpen);
+                        }}
+                      >
+                        AI 编排
+                      </Button>
                     </div>
                     <div className="workflow-actions">
                       <Button
@@ -747,6 +797,14 @@ function WorkflowEditor({
                       />
                       <Button
                         size="small"
+                        className="workflow-zoom-value"
+                        aria-label="恢复 100% 缩放"
+                        onClick={() => canvas.current?.zoom("reset")}
+                      >
+                        {Math.round(zoom * 100)}%
+                      </Button>
+                      <Button
+                        size="small"
                         icon={<ExpandOutlined />}
                         aria-label="适应流程画布"
                         onClick={() => canvas.current?.fit()}
@@ -776,156 +834,32 @@ function WorkflowEditor({
                     selected={selected}
                     inspector={inspector}
                     onCloseInspector={() => setInspector(false)}
-                    onDeleteNode={() => {
-                      const current = capture();
-                      const layout = { ...current.layout };
-                      delete layout[selected];
-                      remember({
-                        ...current,
-                        layout,
-                        definition: {
-                          ...current.definition,
-                          nodes: current.definition.nodes.filter((n) => n.id !== selected),
-                          edges: current.definition.edges.filter(
-                            (e) => e.source !== selected && e.target !== selected,
-                          ),
-                        },
-                      });
-                      setInspector(false);
-                    }}
+                    onZoomChange={setZoom}
+                    onValidityChange={setNodeValid}
+                    panel={
+                      aiOpen
+                        ? {
+                            title: "AI 编排助手",
+                            content: aiPanel,
+                            onClose: () => setAiOpen(false),
+                          }
+                        : undefined
+                    }
                     onChange={(next) => remember(next, false)}
                     onSelect={(id) => {
                       setSelected(id);
                       setInspector(true);
+                      setAiOpen(false);
                     }}
                   />
                   <div className="workflow-canvas-foot">
-                    拖动节点调整布局 · 从端口拖出连线 · 点击节点配置 · 条件的两条路径独立结束
+                    <span>
+                      {draft.definition.nodes.length} 个节点 · {draft.definition.edges.length}{" "}
+                      条连线
+                    </span>
+                    <span>空格拖动画布 · ⌘ / Ctrl + C、V 复制粘贴 · Delete 删除</span>
                   </div>
                 </div>
-                <aside className="workflow-ai-panel">
-                  <div className="workflow-ai-title">
-                    <ThunderboltOutlined />
-                    <h3>AI 编排助手</h3>
-                  </div>
-                  <p>描述希望完成的任务，或告诉我如何修改当前流程。</p>
-                  <Form layout="vertical" component="div">
-                    <Form.Item label="编排模型" htmlFor="workflow-author-model">
-                      <Select
-                        id="workflow-author-model"
-                        value={modelId}
-                        options={models
-                          .filter((m) => m.kind === "chat")
-                          .map((m) => ({ label: m.name, value: m.id }))}
-                        onChange={setModelId}
-                      />
-                    </Form.Item>
-                    <Form.Item label="业务需求" htmlFor="workflow-intent">
-                      <Input.TextArea
-                        id="workflow-intent"
-                        value={intent}
-                        autoSize={{ minRows: 5, maxRows: 10 }}
-                        maxLength={8000}
-                        placeholder="输入订单号，查询订单，结合知识库生成带来源的采购报告。"
-                        onChange={(e) => setIntent(e.target.value)}
-                      />
-                    </Form.Item>
-                    <Button
-                      type="primary"
-                      block
-                      icon={<ThunderboltOutlined />}
-                      loading={generating}
-                      disabled={busy || dirty || !modelId || !intent.trim() || generating}
-                      onClick={() =>
-                        void guard(async () => {
-                          const generation = await unwrap(
-                            api.generateWorkflow({
-                              path,
-                              body: {
-                                baseRevision: asset.revision,
-                                modelId: modelId ?? "",
-                                intent,
-                                requestId: crypto.randomUUID(),
-                              },
-                            }),
-                          );
-                          setGenerations((items) => [generation, ...items]);
-                        })
-                      }
-                    >
-                      生成完整候选
-                    </Button>
-                  </Form>
-                  {dirty && (
-                    <p className="workflow-hint">先保存当前修改，再让 AI 基于最新草稿编排。</p>
-                  )}
-                  <p className="workflow-hint">
-                    AI 只使用当前项目已有的能力。候选需由你接受，发布后才成为可调用版本。
-                  </p>
-                  {latestGeneration && (
-                    <div className="workflow-generation-card">
-                      <div>
-                        <strong>最近一次编排</strong>
-                        <Status value={latestGeneration.status} />
-                      </div>
-                      <p className="workflow-generation-intent">{latestGeneration.intent}</p>
-                      {latestGeneration.candidate && (
-                        <details>
-                          <summary>编排说明</summary>
-                          <p>{latestGeneration.candidate.explanation}</p>
-                        </details>
-                      )}
-                      {latestGeneration.issues.map((i) => (
-                        <p className="workflow-error" key={`${i.nodeId}-${i.message}`}>
-                          {i.message}
-                        </p>
-                      ))}
-                      {latestGeneration.errorCode && !latestGeneration.issues.length && (
-                        <p className="workflow-error">{latestGeneration.errorCode}</p>
-                      )}
-                      {latestGeneration.candidate && (
-                        <Button block onClick={() => setReview(structuredClone(latestGeneration))}>
-                          预览候选与修改
-                        </Button>
-                      )}
-                      {["queued", "running"].includes(latestGeneration.status) && (
-                        <Button
-                          block
-                          onClick={() =>
-                            void guard(async () => {
-                              await unwrap(
-                                api.cancelWorkflowGeneration({
-                                  path: { ...projectPath, id: latestGeneration.id },
-                                  body: {},
-                                }),
-                              );
-                              await load();
-                            })
-                          }
-                        >
-                          取消生成
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  {generations.length > 1 && (
-                    <details>
-                      <summary>历史编排记录（{generations.length}）</summary>
-                      {generations.slice(1).map((g) => (
-                        <div className="workflow-history-row" key={g.id}>
-                          <Status value={g.status} />
-                          <Button
-                            type="link"
-                            disabled={!g.candidate}
-                            onClick={() => setReview(structuredClone(g))}
-                          >
-                            {timestamp(g.createdAt)} · 修订 {g.baseRevision}
-                          </Button>
-                        </div>
-                      ))}
-                    </details>
-                  )}
-                </aside>
               </div>
             ),
           },
