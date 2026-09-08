@@ -1,3 +1,11 @@
+import {
+  Field,
+  Form as FlowForm,
+  type FreeLayoutPluginContext,
+  useInitializedFormModel,
+  useWatchFormValues,
+  type WorkflowNodeEntity,
+} from "@flowgram.ai/free-layout-editor";
 import type {
   WorkflowBinding,
   WorkflowCapability,
@@ -5,8 +13,9 @@ import type {
   WorkflowNode,
 } from "@platform/sdk";
 import { Alert, Button, Form, Input, Select, Space } from "antd";
-import { useState } from "react";
-import { nodeNames, objectSchema, variables } from "./workflow-model";
+import { useEffect, useRef, useState } from "react";
+import { nodeNames, objectSchema } from "./workflow-model";
+import type { WorkflowVariableOption } from "./workflow-variables";
 
 function BindingEditor({
   label,
@@ -17,7 +26,7 @@ function BindingEditor({
 }: {
   label: string;
   value: WorkflowBinding;
-  options: ReturnType<typeof variables>;
+  options: WorkflowVariableOption[];
   onChange(value: WorkflowBinding): void;
   onValidity(valid: boolean): void;
 }) {
@@ -33,6 +42,23 @@ function BindingEditor({
         : JSON.stringify(value.value)
       : "",
   );
+  const validity = useRef(onValidity);
+  validity.current = onValidity;
+  const canonicalValue = JSON.stringify(value);
+  useEffect(() => {
+    const current: WorkflowBinding = JSON.parse(canonicalValue);
+    if (current.kind === "literal") {
+      setRaw(typeof current.value === "string" ? current.value : JSON.stringify(current.value));
+      setLiteralType(
+        ["string", "number", "boolean"].includes(typeof current.value)
+          ? typeof current.value
+          : "json",
+      );
+    }
+    setInvalid(false);
+    validity.current(true);
+  }, [canonicalValue]);
+  useEffect(() => () => validity.current(true), []);
   const valid = (next: boolean) => {
     setInvalid(!next);
     onValidity(next);
@@ -151,37 +177,83 @@ function BindingEditor({
     </div>
   );
 }
-export function WorkflowNodeFields({
-  initial,
-  definition,
-  catalog,
-  onApply,
-  onDelete,
-}: {
-  initial: WorkflowNode;
+export function WorkflowNodeFields(props: {
+  entity: WorkflowNodeEntity;
   definition: WorkflowDefinition;
   catalog: WorkflowCapability[];
-  onApply(node: WorkflowNode): void;
+  options: WorkflowVariableOption[];
+  context: FreeLayoutPluginContext;
+  onClose(): void;
   onDelete(): void;
+  onValidity(valid: boolean): void;
 }) {
-  const [node, setNode] = useState(initial),
-    [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({}),
-    [newField, setNewField] = useState("");
-  const options = variables(definition, node.id, catalog);
-  const binding = (
-    label: string,
-    value: WorkflowBinding,
-    update: (v: WorkflowBinding) => void,
-    allowOptional = false,
-  ) => (
-    <BindingEditor
-      key={`${node.id}-${label}`}
-      label={label}
-      value={value}
-      options={allowOptional ? options.map((v) => ({ ...v, optional: false })) : options}
-      onChange={update}
-      onValidity={(valid) => setInvalidFields((previous) => ({ ...previous, [label]: !valid }))}
-    />
+  const model = useInitializedFormModel(props.entity);
+  if (!model.formControl) return null;
+  return (
+    <FlowForm control={model.formControl} keepModelOnUnMount>
+      <NodeFields {...props} />
+    </FlowForm>
+  );
+}
+function NodeFields({
+  entity,
+  definition,
+  catalog,
+  options,
+  context,
+  onClose,
+  onDelete,
+  onValidity,
+}: Parameters<typeof WorkflowNodeFields>[0]) {
+  const node = useWatchFormValues<WorkflowNode>(entity);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>({});
+  const [newField, setNewField] = useState("");
+  const valid = !!node?.label.trim() && !Object.values(invalidFields).some(Boolean);
+  useEffect(() => {
+    onValidity(valid);
+  }, [valid, onValidity]);
+  if (!node) return null;
+  const setNode = (update: WorkflowNode | ((current: WorkflowNode) => WorkflowNode)) => {
+    const model = entity.form;
+    if (!model) return;
+    const current = model.values as WorkflowNode;
+    const next = typeof update === "function" ? update(current) : update;
+    context.history.startTransaction();
+    try {
+      for (const key of new Set([...Object.keys(current), ...Object.keys(next)])) {
+        const value = (next as unknown as Record<string, unknown>)[key];
+        if (
+          JSON.stringify(value) !==
+          JSON.stringify((current as unknown as Record<string, unknown>)[key])
+        )
+          model.setValueIn(key, value);
+      }
+    } finally {
+      context.history.endTransaction();
+    }
+  };
+  const binding = (name: string, label: string, value: WorkflowBinding, allowOptional = false) => (
+    <Field<WorkflowBinding> name={name}>
+      {({ field, fieldState }) => (
+        <div>
+          <BindingEditor
+            key={`${node.id}-${label}`}
+            label={label}
+            value={field.value ?? value}
+            options={allowOptional ? options.map((v) => ({ ...v, optional: false })) : options}
+            onChange={field.onChange}
+            onValidity={(valid) =>
+              setInvalidFields((previous) => ({ ...previous, [label]: !valid }))
+            }
+          />
+          {fieldState.errors?.map((error) => (
+            <small className="workflow-field-error" role="alert" key={String(error.message)}>
+              {error.message}
+            </small>
+          ))}
+        </div>
+      )}
+    </Field>
   );
   const entry = catalog.find(
     (c) =>
@@ -217,17 +289,28 @@ export function WorkflowNodeFields({
   return (
     <div className="workflow-node-fields">
       <p className="muted">
-        {nodeNames[node.type]} · {node.id}
+        {nodeNames[node.type]} · {node.id} · 修改即时进入草稿，可撤销
       </p>
       <Form layout="vertical" component="div">
-        <Form.Item label="节点名称" htmlFor="workflow-node-label" required>
-          <Input
-            id="workflow-node-label"
-            value={node.label}
-            maxLength={80}
-            onChange={(e) => setNode({ ...node, label: e.target.value })}
-          />
-        </Form.Item>
+        <Field<string> name="label">
+          {({ field, fieldState }) => (
+            <Form.Item
+              label="节点名称"
+              htmlFor="workflow-node-label"
+              required
+              validateStatus={fieldState.errors?.length ? "error" : undefined}
+              help={fieldState.errors?.map((e) => e.message).join("；")}
+            >
+              <Input
+                id="workflow-node-label"
+                value={field.value}
+                maxLength={80}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+              />
+            </Form.Item>
+          )}
+        </Field>
         {node.type === "start" && (
           <Alert
             type="info"
@@ -261,19 +344,12 @@ export function WorkflowNodeFields({
           </>
         )}
         {node.type === "agent" && (
-          <Form.Item label="交给 Agent 的任务">
-            {binding("任务", node.prompt, (prompt) => setNode({ ...node, prompt }))}
-          </Form.Item>
+          <Form.Item label="交给 Agent 的任务">{binding("prompt", "任务", node.prompt)}</Form.Item>
         )}
         {node.type === "condition" && (
           <>
             <Form.Item label="判断对象">
-              {binding(
-                "判断对象",
-                node.left,
-                (left) => setNode({ ...node, left }),
-                node.operator === "exists",
-              )}
+              {binding("left", "判断对象", node.left, node.operator === "exists")}
             </Form.Item>
             <Form.Item label="判断方式" htmlFor="workflow-condition-op">
               <Select
@@ -302,9 +378,7 @@ export function WorkflowNodeFields({
             </Form.Item>
             {node.operator !== "exists" && (
               <Form.Item label="比较值">
-                {binding("比较值", node.right ?? { kind: "literal", value: "" }, (right) =>
-                  setNode({ ...node, right }),
-                )}
+                {binding("right", "比较值", node.right ?? { kind: "literal", value: "" })}
               </Form.Item>
             )}
             <Alert
@@ -320,8 +394,10 @@ export function WorkflowNodeFields({
               key={key}
               label={`${key}${Array.isArray(schema?.required) && schema.required.includes(key) ? " · 必填" : ""}`}
             >
-              {binding(key, fieldValues[key] ?? { kind: "literal", value: "" }, (value) =>
-                setBinding(key, value),
+              {binding(
+                `${node.type === "tool" ? "input" : "values"}.${key}`,
+                key,
+                fieldValues[key] ?? { kind: "literal", value: "" },
               )}
               {fieldValues[key] && (
                 <Button
@@ -364,12 +440,8 @@ export function WorkflowNodeFields({
           </Space.Compact>
         )}
         <div className="workflow-field-actions">
-          <Button
-            type="primary"
-            disabled={!node.label.trim() || Object.values(invalidFields).some(Boolean)}
-            onClick={() => onApply(node)}
-          >
-            应用配置
+          <Button type="primary" disabled={!valid} onClick={onClose}>
+            完成配置
           </Button>
           {node.type !== "start" && (
             <Button danger onClick={onDelete}>

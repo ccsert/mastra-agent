@@ -1,7 +1,6 @@
 import type {
   WorkflowAssetInput,
   WorkflowBinding,
-  WorkflowCapability,
   WorkflowDefinition,
   WorkflowNode,
 } from "@platform/sdk";
@@ -71,67 +70,34 @@ export const objectSchema = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
-export function variables(
+export function connectionIssue(
   definition: WorkflowDefinition,
-  nodeId: string,
-  catalog: WorkflowCapability[],
+  source: string,
+  target: string,
+  port: string,
 ) {
-  const items: { label: string; value: string; type: string; optional: boolean }[] = [];
-  const add = (
-    schema: Record<string, unknown>,
-    path: string,
-    label: string,
-    optional = false,
-    depth = 0,
-  ) => {
-    if (depth > 5 || items.length > 200) return;
-    items.push({
-      label: `${label} · ${String(schema.type ?? "未知")}${optional ? "（可能为空）" : ""}`,
-      value: path,
-      type: String(schema.type ?? "unknown"),
-      optional,
-    });
-    for (const [k, child] of Object.entries(objectSchema(schema.properties)))
-      add(
-        objectSchema(child),
-        `${path}.${k}`,
-        `${label}.${k}`,
-        optional || !Array.isArray(schema.required) || !schema.required.includes(k),
-        depth + 1,
-      );
-  };
-  add(definition.inputSchema, "input", "流程输入");
-  const seen = new Set<string>();
-  let current = definition.edges.find((e) => e.target === nodeId)?.source;
-  while (current && !seen.has(current)) {
-    seen.add(current);
-    const node = definition.nodes.find((n) => n.id === current);
-    if (!node) break;
-    const entry = catalog.find(
-      (c) =>
-        (node.type === "tool" && c.kind === "tool" && c.id === node.toolId) ||
-        (node.type === "agent" && c.kind === "agent" && c.id === node.releaseId),
-    );
-    if (entry) add(entry.outputSchema, `nodes.${node.id}`, node.label);
-    if (node.type === "condition")
-      add(
-        { type: "object", properties: { matched: { type: "boolean" } }, required: ["matched"] },
-        `nodes.${node.id}`,
-        node.label,
-      );
-    if (node.type === "map")
-      add(
-        {
-          type: "object",
-          properties: Object.fromEntries(Object.keys(node.values).map((k) => [k, {}])),
-          required: Object.keys(node.values),
-        },
-        `nodes.${node.id}`,
-        node.label,
-      );
-    current = definition.edges.find((e) => e.target === current)?.source;
+  const from = definition.nodes.find((n) => n.id === source);
+  const to = definition.nodes.find((n) => n.id === target);
+  if (!from || !to || source === target) return "不能连接到自身或不存在的节点";
+  if (from.type === "end" || to.type === "start")
+    return "开始节点不能接收入线，结束节点不能引出连线";
+  if (!(from.type === "condition" ? ["true", "false"] : ["out"]).includes(port))
+    return "连线端口不匹配";
+  if (definition.edges.some((e) => e.source === source && e.port === port))
+    return "此出口已有连线，请先删除原连线";
+  if (definition.edges.some((e) => e.target === target))
+    return "当前执行器尚不支持路径汇合，请连接到独立分支";
+  const pending = [target],
+    seen = new Set<string>();
+  while (pending.length) {
+    const id = pending.pop();
+    if (id === undefined) break;
+    if (id === source) return "这条连线会形成循环，当前流程不支持循环";
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pending.push(...definition.edges.filter((e) => e.source === id).map((e) => e.target));
   }
-  return items;
+  return undefined;
 }
 export function bindingText(binding: WorkflowBinding) {
   return binding.kind === "ref"

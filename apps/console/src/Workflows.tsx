@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   ArrowLeftOutlined,
   BranchesOutlined,
   CheckOutlined,
@@ -11,6 +12,8 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
   UndoOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
 } from "@ant-design/icons";
 import type {
   Model,
@@ -44,7 +47,6 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { timestamp, unwrap } from "./api";
 import { WorkflowCanvas, type WorkflowCanvasHandle } from "./WorkflowCanvas";
-import { WorkflowNodeFields } from "./WorkflowFields";
 import {
   autoPositions,
   describeChanges,
@@ -306,8 +308,7 @@ function WorkflowEditor({
     [detailId, setDetailId] = useState<string>(),
     [detail, setDetail] = useState<WorkflowRun | null>(null),
     [nodeRuns, setNodeRuns] = useState<WorkflowNodeRun[]>([]);
-  const [past, setPast] = useState<WorkflowAssetInput[]>([]),
-    [future, setFuture] = useState<WorkflowAssetInput[]>([]);
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const canvas = useRef<WorkflowCanvasHandle | null>(null),
     currentDraft = useRef(draft),
     pendingSave = useRef(false);
@@ -405,12 +406,10 @@ function WorkflowEditor({
   }, [dirty]);
   const remember = (next: WorkflowAssetInput, replaceCanvas = true) => {
     if (pendingSave.current || same(next, currentDraft.current)) return;
-    setPast((p) => [...p.slice(-29), structuredClone(currentDraft.current)]);
-    setFuture([]);
+    if (replaceCanvas) canvas.current?.replace(next);
     setDraft(next);
     currentDraft.current = next;
     setIssues([]);
-    if (replaceCanvas) canvas.current?.replace(next);
   };
   const capture = () => canvas.current?.capture() ?? currentDraft.current;
   useEffect(() => {
@@ -439,27 +438,15 @@ function WorkflowEditor({
       const draft = same(latest, next) ? draftOf(saved) : latest;
       setDraft(draft);
       currentDraft.current = draft;
-      canvas.current?.replace(draft);
       return saved;
     } finally {
       pendingSave.current = false;
     }
   };
   const history = (direction: "undo" | "redo") => {
-    const values = direction === "undo" ? past : future,
-      target = values.at(-1);
-    if (!target) return;
-    const current = capture();
-    if (direction === "undo") {
-      setPast(values.slice(0, -1));
-      setFuture((items) => [...items, current]);
-    } else {
-      setFuture(values.slice(0, -1));
-      setPast((items) => [...items, current]);
-    }
-    setDraft(target);
-    currentDraft.current = target;
-    canvas.current?.replace(target);
+    void canvas.current?.[direction]().catch((e) =>
+      setError(e instanceof Error ? e.message : "历史操作失败"),
+    );
     setIssues([]);
   };
   const historyAction = useRef(history);
@@ -571,12 +558,15 @@ function WorkflowEditor({
         definition.edges.push({ source: id, target: endId, port: "false" });
       }
     }
-    remember({ ...current, definition, layout: autoPositions(definition) });
+    remember({
+      ...current,
+      definition,
+      layout: { ...autoPositions(definition), ...current.layout },
+    });
     setSelected(id);
     setInspector(true);
     setTimeout(() => canvas.current?.fit(), 50);
   };
-  const node = draft.definition.nodes.find((n) => n.id === selected);
   const latestGeneration = generations[0];
   const openRun = (release?: WorkflowRelease) => {
     const selected = release ?? releases[0];
@@ -724,15 +714,36 @@ function WorkflowEditor({
                         size="small"
                         icon={<UndoOutlined />}
                         aria-label="撤销流程修改"
-                        disabled={busy || !past.length}
+                        disabled={busy || !historyState.canUndo}
                         onClick={() => history("undo")}
                       />
                       <Button
                         size="small"
                         icon={<RedoOutlined />}
                         aria-label="重做流程修改"
-                        disabled={busy || !future.length}
+                        disabled={busy || !historyState.canRedo}
                         onClick={() => history("redo")}
+                      />
+                      <Button
+                        size="small"
+                        icon={<ApartmentOutlined />}
+                        aria-label="自动布局流程"
+                        disabled={busy}
+                        onClick={() => {
+                          void canvas.current?.autoLayout().catch((e) => setError(e.message));
+                        }}
+                      />
+                      <Button
+                        size="small"
+                        icon={<ZoomInOutlined />}
+                        aria-label="放大流程画布"
+                        onClick={() => canvas.current?.zoom("in")}
+                      />
+                      <Button
+                        size="small"
+                        icon={<ZoomOutOutlined />}
+                        aria-label="缩小流程画布"
+                        onClick={() => canvas.current?.zoom("out")}
                       />
                       <Button
                         size="small"
@@ -760,6 +771,28 @@ function WorkflowEditor({
                     initial={draft}
                     readonly={busy}
                     onError={setError}
+                    onHistoryChange={setHistoryState}
+                    catalog={catalog}
+                    selected={selected}
+                    inspector={inspector}
+                    onCloseInspector={() => setInspector(false)}
+                    onDeleteNode={() => {
+                      const current = capture();
+                      const layout = { ...current.layout };
+                      delete layout[selected];
+                      remember({
+                        ...current,
+                        layout,
+                        definition: {
+                          ...current.definition,
+                          nodes: current.definition.nodes.filter((n) => n.id !== selected),
+                          edges: current.definition.edges.filter(
+                            (e) => e.source !== selected && e.target !== selected,
+                          ),
+                        },
+                      });
+                      setInspector(false);
+                    }}
                     onChange={(next) => remember(next, false)}
                     onSelect={(id) => {
                       setSelected(id);
@@ -945,40 +978,6 @@ function WorkflowEditor({
           },
         ]}
       />
-      <Drawer
-        title={node ? `配置：${node.label}` : "节点配置"}
-        open={inspector && !!node}
-        size="min(440px, 100vw)"
-        onClose={() => setInspector(false)}
-        destroyOnHidden
-      >
-        {node && (
-          <WorkflowNodeFields
-            key={`${node.id}-${inspector}`}
-            initial={node}
-            definition={draft.definition}
-            catalog={catalog}
-            onApply={(next) => {
-              canvas.current?.patchNode(next);
-              setInspector(false);
-            }}
-            onDelete={() => {
-              const current = capture(),
-                definition = {
-                  ...current.definition,
-                  nodes: current.definition.nodes.filter((n) => n.id !== node.id),
-                  edges: current.definition.edges.filter(
-                    (e) => e.source !== node.id && e.target !== node.id,
-                  ),
-                },
-                layout = { ...current.layout };
-              delete layout[node.id];
-              remember({ ...current, definition, layout });
-              setInspector(false);
-            }}
-          />
-        )}
-      </Drawer>
       <Modal
         title="流程设置"
         open={settings}
@@ -1059,7 +1058,6 @@ function WorkflowEditor({
         onOk={() =>
           void guard(async () => {
             if (!review) return;
-            const before = capture();
             const saved = await unwrap(
               api.acceptWorkflowGeneration({
                 path: { ...projectPath, id: review.id },
@@ -1068,8 +1066,6 @@ function WorkflowEditor({
             );
             setAsset(saved);
             const next = draftOf(saved);
-            setPast((items) => [...items.slice(-29), before]);
-            setFuture([]);
             setDraft(next);
             currentDraft.current = next;
             canvas.current?.replace(next);
@@ -1104,6 +1100,7 @@ function WorkflowEditor({
               }}
               onChange={() => {}}
               onSelect={() => {}}
+              catalog={catalog}
               readonly
             />
             <details>

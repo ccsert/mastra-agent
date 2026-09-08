@@ -116,6 +116,7 @@
 .workflow-canvas {
   height: 560px;
   position: relative;
+  isolation: isolate;
   background-image: radial-gradient(#d2ded7 1px, transparent 1px);
   background-size: 20px 20px;
 }
@@ -472,4 +473,11 @@
   font-size: 12px;
   color: #476d5e;
   cursor: pointer;
+}
+
+.workflow-field-error {
+  display: block;
+  color: #ba3c34;
+  font-size: 12px;
+  line-height: 1.6;
 }
