@@ -1,4 +1,5 @@
 import type { WorkflowAssetInput, WorkflowCapability, WorkflowNode } from "@platform/sdk";
+import { v4 as uuid } from "uuid";
 import { nodeNames, objectSchema } from "./workflow-model";
 
 export type AddableNodeType = Exclude<WorkflowNode["type"], "start">;
@@ -15,7 +16,7 @@ export function insertWorkflowNode(
   type: AddableNodeType,
   placement: NodePlacement,
   catalog: WorkflowCapability[],
-  newId: () => string = () => crypto.randomUUID().slice(0, 8),
+  newId: () => string = () => uuid().slice(0, 8),
 ) {
   const next = structuredClone(current);
   const { definition } = next;
@@ -120,9 +121,7 @@ export function pasteWorkflowNodes(
   const nodes = copied.definition.nodes.filter((n) => n.type !== "start");
   if (current.definition.nodes.length + nodes.length > 24)
     throw new Error("当前流程最多 24 个节点");
-  const ids = Object.fromEntries(
-    nodes.map((n) => [n.id, `${n.type}_${crypto.randomUUID().slice(0, 8)}`]),
-  );
+  const ids = Object.fromEntries(nodes.map((n) => [n.id, `${n.type}_${uuid().slice(0, 8)}`]));
   const remapPath = (path: string) =>
     path.replace(/^nodes\.([^.]+)/, (prefix, id: string) =>
       ids[id] ? `nodes.${ids[id]}` : prefix,

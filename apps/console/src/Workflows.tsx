@@ -45,6 +45,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { v4 as uuid } from "uuid";
 import { timestamp, unwrap } from "./api";
 import { WorkflowCanvas, type WorkflowCanvasHandle } from "./WorkflowCanvas";
 import { describeChanges, emptyWorkflow, nodeNames, objectSchema } from "./workflow-model";
@@ -521,7 +522,7 @@ function WorkflowEditor({
                     baseRevision: asset.revision,
                     modelId: modelId ?? "",
                     intent,
-                    requestId: crypto.randomUUID(),
+                    requestId: uuid(),
                   },
                 }),
               );
@@ -1067,7 +1068,7 @@ function WorkflowEditor({
             const run = await unwrap(
               api.createWorkflowRun({
                 path,
-                body: { releaseId: releaseId ?? "", input, requestId: crypto.randomUUID() },
+                body: { releaseId: releaseId ?? "", input, requestId: uuid() },
               }),
             );
             setRunOpen(false);

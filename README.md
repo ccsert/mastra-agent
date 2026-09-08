@@ -20,6 +20,14 @@ pnpm dev
 
 `setup:local` 生成 `.env` 与只包含 Runtime 设置的 `.env.runtime`，均不会覆盖已有文件。配置与本地数据不提交到 Git。需要保留 PostgreSQL 数据卷与 `ENCRYPTION_KEY` 才能恢复加密凭据。普通停止用 `docker compose stop`，不要删除数据卷。
 
+### 局域网访问
+
+`pnpm dev` 与 `pnpm preview` 默认在 `0.0.0.0:5179` 提供控制台，启动日志打印本机访问地址。其他电脑使用 `http://服务器的局域网IP:5179`，并使用已有账号登录。页面、API 和会话流均通过同一个 5179 入口；API 进程和 Runtime 默认仍监听本机，由控制台代理 API 请求。
+
+启动器自动将本机当前 IPv4 地址对应的控制台来源加入登录与写入允许列表，同时保留 `CONSOLE_ORIGIN`。IP 地址变化后重启 `pnpm dev` / `pnpm preview`。`.env` 中可设置 `CONSOLE_HOST=127.0.0.1` 改为仅本机监听，或通过 `CONSOLE_ADDITIONAL_ORIGINS` 添加逗号分隔的精确访问来源；直接启动控制面时也需明确配置这些来源。其他机器的浏览器通过服务器地址访问即可，不需要把客户端 IP 加入允许列表。
+
+HTTP 局域网环境的工作流 ID 使用支持 `crypto.getRandomValues` 回退的 UUID 实现，覆盖插入/复制节点、AI 编排和发起工作流。OpenAPI 使用相对服务器地址 `/`，可从当前访问入口调用。生产部署继续使用 HTTPS 和 `COOKIE_SECURE=true`。
+
 ## 模型与验收
 
 模型管理支持对话、向量和重排。对话采用 OpenAI 兼容 Chat Completions：在「模型服务」填写 Base URL、模型 ID 和 API Key；密钥加密保存，创建 Agent 时绑定模型。通过对话验证流式响应和模型的工具调用兼容性。

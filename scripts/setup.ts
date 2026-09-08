@@ -5,7 +5,7 @@ if (!existsSync(".env")) {
   const password = randomBytes(24).toString("hex");
   writeFileSync(
     ".env",
-    `POSTGRES_PASSWORD=${password}\nDATABASE_URL=postgres://agent_platform:${password}@127.0.0.1:5442/agent_platform\nENCRYPTION_KEY=${randomBytes(32).toString("hex")}\nRUNTIME_TOKEN=${randomBytes(32).toString("hex")}\nRUNTIME_ID=hosted-local\nCONTROL_PLANE_URL=http://127.0.0.1:4110\nCONSOLE_ORIGIN=http://127.0.0.1:5179\nCONSOLE_PORT=5179\nAPI_PORT=4110\nRUNTIME_PORT=4112\n`,
+    `POSTGRES_PASSWORD=${password}\nDATABASE_URL=postgres://agent_platform:${password}@127.0.0.1:5442/agent_platform\nENCRYPTION_KEY=${randomBytes(32).toString("hex")}\nRUNTIME_TOKEN=${randomBytes(32).toString("hex")}\nRUNTIME_ID=hosted-local\nCONTROL_PLANE_URL=http://127.0.0.1:4110\nCONSOLE_ORIGIN=http://127.0.0.1:5179\nCONSOLE_HOST=0.0.0.0\nCONSOLE_PORT=5179\nAPI_PORT=4110\nRUNTIME_PORT=4112\n`,
     { mode: 0o600, flag: "wx" },
   );
 }

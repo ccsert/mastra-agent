@@ -14,7 +14,7 @@ const { app } = createApp(new Store(db, new Vault("00".repeat(32))), {
 const document = app.getOpenAPI31Document({
   openapi: "3.1.0",
   info: { title: "Agent Platform API", version: "0.1.0" },
-  servers: [{ url: "http://127.0.0.1:4110" }],
+  servers: [{ url: "/" }],
 });
 const output = process.env.PLATFORM_OPENAPI_OUTPUT ?? "packages/contracts/openapi/platform.json";
 mkdirSync(dirname(output), { recursive: true });

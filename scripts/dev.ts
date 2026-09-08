@@ -1,6 +1,7 @@
 import "./env.ts";
 import { type ChildProcess, spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { networkInterfaces } from "node:os";
 import { required } from "./env.ts";
 
 required("DATABASE_URL");
@@ -9,11 +10,36 @@ const ports = [
   Number(process.env.RUNTIME_PORT ?? 4112),
   Number(process.env.CONSOLE_PORT ?? 5179),
 ];
-for (const port of ports) {
+const consoleHost = process.env.CONSOLE_HOST ?? "0.0.0.0";
+const consoleAddresses =
+  consoleHost === "0.0.0.0"
+    ? [
+        "127.0.0.1",
+        "localhost",
+        ...Object.values(networkInterfaces())
+          .flatMap((addresses) => addresses ?? [])
+          .filter((address) => address.family === "IPv4" && !address.internal)
+          .map((address) => address.address),
+      ]
+    : [consoleHost];
+const consoleOrigins = consoleAddresses.map((address) => `http://${address}:${ports[2]}`);
+// Trust only this machine's concrete console addresses, never arbitrary private-network origins.
+process.env.CONSOLE_ADDITIONAL_ORIGINS = [
+  ...new Set([
+    ...(process.env.CONSOLE_ADDITIONAL_ORIGINS ?? "").split(",").filter(Boolean),
+    ...consoleOrigins,
+  ]),
+].join(",");
+const hosts = [
+  process.env.API_HOST ?? "127.0.0.1",
+  process.env.RUNTIME_HOST ?? "127.0.0.1",
+  consoleHost,
+];
+for (const [index, port] of ports.entries()) {
   await new Promise<void>((resolve, reject) => {
     const server = createServer();
     server.once("error", () => reject(new Error(`Port ${port} is already in use`)));
-    server.listen(port, "127.0.0.1", () => server.close(() => resolve()));
+    server.listen(port, hosts[index], () => server.close(() => resolve()));
   });
 }
 const children: ChildProcess[] = [];
@@ -62,21 +88,10 @@ start(
 start(
   "Console",
   process.argv.includes("--preview")
-    ? [
-        "--filter",
-        "@platform/console",
-        "exec",
-        "vite",
-        "preview",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        String(ports[2]),
-        "--strictPort",
-      ]
+    ? ["--filter", "@platform/console", "exec", "vite", "preview"]
     : ["--filter", "@platform/console", "dev"],
-  ["CONTROL_PLANE_URL", "CONSOLE_PORT"],
+  ["CONTROL_PLANE_URL", "CONSOLE_HOST", "CONSOLE_PORT"],
 );
-console.log(`Agent Platform console: http://127.0.0.1:${ports[2]}`);
+for (const origin of new Set(consoleOrigins)) console.log(`Agent Platform console: ${origin}`);
 process.once("SIGINT", () => stop());
 process.once("SIGTERM", () => stop());

@@ -14,6 +14,9 @@ const store = new Store(
 await store.initialize();
 const { app, queue, knowledge, mcp, workflowQueue } = createApp(store, {
   origin: required("CONSOLE_ORIGIN"),
+  additionalOrigins: process.env.CONSOLE_ADDITIONAL_ORIGINS?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   runtimeToken: required("RUNTIME_TOKEN"),
   secureCookie: process.env.COOKIE_SECURE === "true",
 });

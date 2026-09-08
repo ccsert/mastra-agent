@@ -25,6 +25,7 @@ test("generated SDK → authenticated control plane → HTTP worker → Mastra t
   await store.initialize();
   const { app, queue } = createApp(store, {
     origin: "http://127.0.0.1:5173",
+    additionalOrigins: ["http://192.168.1.100:5179", "http://localhost:5179"],
     runtimeToken: "integration-runtime-token",
   });
   const server = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" });
@@ -49,6 +50,36 @@ test("generated SDK → authenticated control plane → HTTP worker → Mastra t
     const cookie = setup.response?.headers.get("set-cookie")?.split(";")[0];
     assert.ok(cookie);
     client.setConfig({ headers: { cookie } });
+    for (const origin of [
+      "http://127.0.0.1:5173",
+      "http://192.168.1.100:5179",
+      "http://localhost:5179",
+    ]) {
+      const login = await fetch(`${baseUrl}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({ username: "test-owner", password: "test-password-123" }),
+      });
+      assert.equal(login.status, 200, origin);
+      assert.match(login.headers.get("set-cookie") ?? "", /HttpOnly/i);
+      assert.match(login.headers.get("set-cookie") ?? "", /SameSite=Strict/i);
+    }
+    for (const origin of [
+      "http://192.168.1.101:5179",
+      "http://192.168.1.100:5180",
+      "http://192.168.1.100.evil.invalid:5179",
+      "null",
+    ]) {
+      const denied: Response = await fetch(`${baseUrl}/api/v1/projects`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin, cookie },
+        body: JSON.stringify({ name: "Must not be created" }),
+      });
+      assert.equal(denied.status, 403, origin);
+      assert.equal((await denied.json()).code, "ORIGIN_DENIED");
+    }
+    const spec = await fetch(`${baseUrl}/openapi.json`);
+    assert.deepEqual((await spec.json()).servers, [{ url: "/" }]);
     const project = defined(
       (await sdk.createProject({ client, body: { name: "Integration project", description: "" } }))
         .data,

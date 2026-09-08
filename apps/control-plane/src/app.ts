@@ -71,10 +71,12 @@ const loginInput = z
   .strict();
 export interface AppConfig {
   origin: string;
+  additionalOrigins?: string[];
   runtimeToken: string;
   secureCookie?: boolean;
 }
 export function createApp(store: Store, config: AppConfig) {
+  const allowedOrigins = new Set([config.origin, ...(config.additionalOrigins ?? [])]);
   const app = new OpenAPIHono<{ Variables: { principal: Principal } }>({
     defaultHook: (result, c) => {
       if (!result.success)
@@ -109,7 +111,7 @@ export function createApp(store: Store, config: AppConfig) {
     c.header("X-Content-Type-Options", "nosniff");
     if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
       const origin = c.req.header("origin");
-      if (origin && origin !== config.origin)
+      if (origin && !allowedOrigins.has(origin))
         throw new ApiError(403, "ORIGIN_DENIED", "请求来源不被允许");
       if (!(c.req.header("content-type") ?? "").startsWith("application/json"))
         throw new ApiError(400, "CONTENT_TYPE", "请求必须使用 JSON");
@@ -682,7 +684,7 @@ export function createApp(store: Store, config: AppConfig) {
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Agent Platform API", version: "0.1.0" },
-    servers: [{ url: "http://127.0.0.1:4110" }],
+    servers: [{ url: "/" }],
   });
   return { app, queue, knowledge, mcp, workflows, workflowQueue };
 }
