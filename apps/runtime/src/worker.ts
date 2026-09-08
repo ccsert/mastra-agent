@@ -1,6 +1,7 @@
-import { ExecutionJob, Message } from "@platform/contracts";
+import { ExecutionJob, McpErrorCode, Message } from "@platform/contracts";
 import { executeJob } from "./execute.ts";
 import { runKnowledgeWorker } from "./knowledge-worker.ts";
+import { runMcpWorker } from "./mcp-worker.ts";
 export interface WorkerConfig {
   controlPlaneUrl: string;
   runtimeId: string;
@@ -36,7 +37,7 @@ export function runtimeClient(config: WorkerConfig) {
   };
 }
 export async function runWorker(config: WorkerConfig) {
-  await Promise.all([runAgentWorker(config), runKnowledgeWorker(config)]);
+  await Promise.all([runAgentWorker(config), runKnowledgeWorker(config), runMcpWorker(config)]);
 }
 async function runAgentWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
@@ -102,14 +103,17 @@ async function runAgentWorker(config: WorkerConfig) {
         status: "succeeded",
         message: Message.parse(message),
       });
-    } catch {
+    } catch (error) {
       controller.abort();
+      const mcpError = McpErrorCode.safeParse(error instanceof Error ? error.message : "");
       const errorCode =
         cancelled || config.signal.aborted
           ? "CANCELLED"
           : Date.now() >= current.deadline
             ? "TIMEOUT"
-            : "MODEL_ERROR";
+            : mcpError.success
+              ? mcpError.data
+              : "MODEL_ERROR";
       try {
         await post(
           `/internal/runtime/runs/${current.runId}/finish`,

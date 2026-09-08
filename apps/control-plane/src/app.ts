@@ -33,6 +33,8 @@ import { secureEqual } from "./crypto.ts";
 import { ApiError } from "./errors.ts";
 import { Knowledge } from "./knowledge.ts";
 import { registerKnowledgeRoutes } from "./knowledge-routes.ts";
+import { Mcp } from "./mcp.ts";
+import { registerMcpRoutes } from "./mcp-routes.ts";
 import { Queue } from "./queue.ts";
 import type { Store } from "./store.ts";
 
@@ -669,12 +671,14 @@ export function createApp(store: Store, config: AppConfig) {
     return c.json({ ok: true });
   });
   registerKnowledgeRoutes(app, knowledge);
+  const mcp = new Mcp(store);
+  registerMcpRoutes(app, mcp);
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Agent Platform API", version: "0.1.0" },
     servers: [{ url: "http://127.0.0.1:4110" }],
   });
-  return { app, queue, knowledge };
+  return { app, queue, knowledge, mcp };
 }
 function checkUrl(value: string) {
   let url: URL;

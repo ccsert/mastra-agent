@@ -60,7 +60,8 @@ export class Queue {
         if (kb.rerankModel)
           knowledgeModelKeys[kb.rerankModel.id] = await secret(kb.rerankModel.id, "model");
       }
-      for (const tool of snapshot.tools) toolTokens[tool.id] = await secret(tool.id, "tool");
+      for (const tool of snapshot.tools)
+        if (tool.kind !== "mcp") toolTokens[tool.id] = await secret(tool.id, "tool");
       const messages = (
         await tx.query("SELECT data FROM messages WHERE conversation_id=$1 ORDER BY position", [
           run.conversation_id,

@@ -3,7 +3,7 @@ import { toAISdkStream } from "@mastra/ai-sdk";
 import { Agent, type ToolsInput } from "@mastra/core/agent";
 import { Mastra } from "@mastra/core/mastra";
 import { createTool } from "@mastra/core/tools";
-import { type ExecutionJob, z } from "@platform/contracts";
+import { compileMcpSchema, type ExecutionJob, z } from "@platform/contracts";
 import {
   convertToModelMessages,
   readUIMessageStream,
@@ -13,6 +13,7 @@ import {
 } from "ai";
 import Ajv from "ajv";
 import { type RuntimePost, retrieve } from "./knowledge.ts";
+import { callMcpTool } from "./mcp.ts";
 
 export async function executeJob(
   job: ExecutionJob,
@@ -21,9 +22,13 @@ export async function executeJob(
   post?: RuntimePost,
 ) {
   const ajv = new Ajv({ strict: false, allErrors: true, addUsedSchema: false });
+  let mcpFailure: Error | undefined;
   const tools: ToolsInput = Object.fromEntries(
     job.snapshot.tools.map((definition) => {
-      const validateInput = ajv.compile(definition.inputSchema),
+      const validateInput =
+          definition.kind === "mcp"
+            ? compileMcpSchema(definition.inputSchema)
+            : ajv.compile(definition.inputSchema),
         validateOutput = ajv.compile(definition.outputSchema);
       const tool = createTool({
         id: `${definition.id}:v1`,
@@ -37,6 +42,40 @@ export async function executeJob(
           if (definition.kind === "sum") {
             const values = (input as { values: number[] }).values;
             output = { total: values.reduce((a, b) => a + b, 0) };
+          } else if (definition.kind === "mcp") {
+            try {
+              if (!definition.mcp || !post) throw new Error("MCP_AUTH_DENIED");
+              const authorize = async () => {
+                try {
+                  return z
+                    .object({ url: z.string(), bearerToken: z.string() })
+                    .parse(
+                      await post(
+                        `/internal/runtime/runs/${job.runId}/mcp`,
+                        { leaseToken: job.leaseToken, toolId: definition.id },
+                        signal,
+                      ),
+                    );
+                } catch {
+                  throw new Error("MCP_AUTH_DENIED");
+                }
+              };
+              const binding = await authorize();
+              output = await callMcpTool(
+                binding,
+                definition.mcp.descriptor,
+                input,
+                signal,
+                async () => {
+                  const current = await authorize();
+                  if (current.url !== binding.url || current.bearerToken !== binding.bearerToken)
+                    throw new Error("MCP_AUTH_DENIED");
+                },
+              );
+            } catch (error) {
+              mcpFailure = error instanceof Error ? error : new Error("MCP_ERROR");
+              throw mcpFailure;
+            }
           } else {
             const url = new URL(definition.url);
             for (const [key, value] of Object.entries(input as Record<string, unknown>))
@@ -135,7 +174,7 @@ export async function executeJob(
     from: "agent",
     version: "v7",
     sendReasoning: false,
-    onError: () => "模型或工具调用失败，请检查配置与运行记录",
+    onError: () => mcpFailure?.message ?? "模型或工具调用失败，请检查配置与运行记录",
   });
   const [events, assembled] = stream.tee();
   let finalMessage: UIMessage | undefined,
@@ -159,6 +198,7 @@ export async function executeJob(
     await assembled.cancel().catch(() => {});
     throw error;
   }
+  if (mcpFailure) throw mcpFailure;
   if (streamFailed || !finalMessage) throw new Error("MODEL_ERROR");
   signal.throwIfAborted();
   return finalMessage;

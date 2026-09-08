@@ -30,3 +30,5 @@ const { data: status } = await getRun({ client, path: { ...path, id: run.id }, t
 AK/SK 仅可用于业务服务端；浏览器使用会话 Cookie。应用只能访问所属项目，自己的会话与平台用户会话分离。SDK 需要支持 Fetch/Web Streams 的运行环境；签名辅助函数需要 Node.js。项目在 Node 24 上验证。
 
 开发构建：仓库根目录执行 `pnpm sdk:generate`、`pnpm sdk:build`。打包：`pnpm --dir packages/sdk pack --out ../../.local/platform-sdk.tgz`。生成目录不手工修改。
+
+MCP 管理接口包括 `listMcpServers`、`createMcpServer`、`updateMcpServer`、`listMcpDiscoveries`、`discoverMcpTools` 和 `importMcpTool`，仅限平台用户会话。发现是异步任务，读取发现记录直到成功后才能按 `discoveryId` 审阅导入；`confirmedReadOnly: true` 表达维护者明确确认。业务应用继续通过已发布 Agent 间接调用获准 MCP 工具。

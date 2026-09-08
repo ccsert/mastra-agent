@@ -4,7 +4,7 @@ import { required } from "./env.ts";
 const db = new Database(required("DATABASE_URL"));
 try {
   await db.migrate();
-  console.log("Database migrations applied (Agent platform and knowledge storage).");
+  console.log("Database migrations applied.");
 } finally {
   await db.close();
 }

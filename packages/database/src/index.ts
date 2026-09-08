@@ -40,11 +40,14 @@ export class Database implements Queryable {
   async migrate() {
     const sql = await readFile(new URL("./schema.sql", import.meta.url), "utf8");
     const knowledge = await readFile(new URL("./knowledge.sql", import.meta.url), "utf8");
+    const mcp = await readFile(new URL("./mcp.sql", import.meta.url), "utf8");
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
       const [applied] = await tx.query("SELECT version FROM schema_migrations WHERE version=2");
       if (!applied) await tx.query(knowledge);
+      const [mcpApplied] = await tx.query("SELECT version FROM schema_migrations WHERE version=3");
+      if (!mcpApplied) await tx.query(mcp);
     });
   }
   async close() {

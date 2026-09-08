@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 /** Deterministic OpenAI protocol fixture. Never a production model or AI quality evaluation. */
-export async function startModelFixture(port = 0) {
+export async function startModelFixture(
+  port = 0,
+  options: { toolArguments?: Record<string, unknown>; answer?: string } = {},
+) {
   let calls = 0;
   const server = createServer(async (req, res) => {
     if (req.url === "/health") {
@@ -47,14 +50,19 @@ export async function startModelFixture(port = 0) {
             index: 0,
             id: `fixture-call-${calls}`,
             type: "function",
-            function: { name: tool, arguments: '{"values":[40,80]}' },
+            function: {
+              name: tool,
+              arguments: JSON.stringify(options.toolArguments ?? { values: [40, 80] }),
+            },
           },
         ],
       });
       emit({}, "tool_calls");
     } else {
       emit({ role: "assistant", content: "" });
-      for (const word of ["这是协议验收服务。", "已完成", "工具调用，", "计算结果为 120。"])
+      for (const word of options.answer
+        ? [options.answer]
+        : ["这是协议验收服务。", "已完成", "工具调用，", "计算结果为 120。"])
         emit({ content: word });
       emit({}, "stop");
     }

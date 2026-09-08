@@ -54,10 +54,15 @@ export type ModelInput = {
 export type Tool = {
     name: string;
     description: string;
-    kind: 'sum' | 'http_get';
+    kind: 'sum' | 'http_get' | 'mcp';
     url?: string;
     inputSchema: JsonSchema;
     outputSchema: JsonSchema;
+    mcp?: {
+        serverId: string;
+        descriptor: McpDescriptor;
+        contractDigest: string;
+    };
     id: string;
     projectId: string;
     hasCredential: boolean;
@@ -67,6 +72,20 @@ export type Tool = {
 
 export type JsonSchema = {
     [key: string]: unknown;
+};
+
+export type McpDescriptor = {
+    name: string;
+    title?: string;
+    description?: string;
+    inputSchema: JsonSchema;
+    outputSchema?: JsonSchema;
+    annotations?: {
+        [key: string]: unknown;
+    };
+    execution?: {
+        [key: string]: unknown;
+    };
 };
 
 export type ToolInput = {
@@ -257,6 +276,45 @@ export type SearchHit = KnowledgeChunk & {
 export type SearchInput = {
     query: string;
     topK?: number;
+};
+
+export type McpServer = {
+    name: string;
+    url: string;
+    id: string;
+    projectId: string;
+    enabled: boolean;
+    hasCredential: boolean;
+    transport: 'streamable-http';
+    createdAt: string;
+};
+
+export type McpServerInput = {
+    name: string;
+    url: string;
+    bearerToken?: string;
+};
+
+export type McpServerUpdate = {
+    enabled?: boolean;
+    bearerToken?: string;
+};
+
+export type McpDiscovery = {
+    id: string;
+    serverId: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    tools: Array<McpDescriptor>;
+    errorCode: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+};
+
+export type McpImport = {
+    discoveryId: string;
+    remoteName: string;
+    name: string;
+    confirmedReadOnly: true;
 };
 
 export type HealthData = {
@@ -2257,3 +2315,315 @@ export type GetKnowledgeSearchResponses = {
 };
 
 export type GetKnowledgeSearchResponse = GetKnowledgeSearchResponses[keyof GetKnowledgeSearchResponses];
+
+export type ListMcpServersData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers';
+};
+
+export type ListMcpServersErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListMcpServersError = ListMcpServersErrors[keyof ListMcpServersErrors];
+
+export type ListMcpServersResponses = {
+    /**
+     * 成功
+     */
+    200: Array<McpServer>;
+};
+
+export type ListMcpServersResponse = ListMcpServersResponses[keyof ListMcpServersResponses];
+
+export type CreateMcpServerData = {
+    body: McpServerInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers';
+};
+
+export type CreateMcpServerErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CreateMcpServerError = CreateMcpServerErrors[keyof CreateMcpServerErrors];
+
+export type CreateMcpServerResponses = {
+    /**
+     * 成功
+     */
+    200: McpServer;
+};
+
+export type CreateMcpServerResponse = CreateMcpServerResponses[keyof CreateMcpServerResponses];
+
+export type UpdateMcpServerData = {
+    body: McpServerUpdate;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}';
+};
+
+export type UpdateMcpServerErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateMcpServerError = UpdateMcpServerErrors[keyof UpdateMcpServerErrors];
+
+export type UpdateMcpServerResponses = {
+    /**
+     * 成功
+     */
+    200: McpServer;
+};
+
+export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpServerResponses];
+
+export type ListMcpDiscoveriesData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}/discoveries';
+};
+
+export type ListMcpDiscoveriesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListMcpDiscoveriesError = ListMcpDiscoveriesErrors[keyof ListMcpDiscoveriesErrors];
+
+export type ListMcpDiscoveriesResponses = {
+    /**
+     * 成功
+     */
+    200: Array<McpDiscovery>;
+};
+
+export type ListMcpDiscoveriesResponse = ListMcpDiscoveriesResponses[keyof ListMcpDiscoveriesResponses];
+
+export type DiscoverMcpToolsData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}/discoveries';
+};
+
+export type DiscoverMcpToolsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DiscoverMcpToolsError = DiscoverMcpToolsErrors[keyof DiscoverMcpToolsErrors];
+
+export type DiscoverMcpToolsResponses = {
+    /**
+     * 成功
+     */
+    200: McpDiscovery;
+};
+
+export type DiscoverMcpToolsResponse = DiscoverMcpToolsResponses[keyof DiscoverMcpToolsResponses];
+
+export type ImportMcpToolData = {
+    body: McpImport;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}/tools';
+};
+
+export type ImportMcpToolErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ImportMcpToolError = ImportMcpToolErrors[keyof ImportMcpToolErrors];
+
+export type ImportMcpToolResponses = {
+    /**
+     * 成功
+     */
+    200: Tool;
+};
+
+export type ImportMcpToolResponse = ImportMcpToolResponses[keyof ImportMcpToolResponses];

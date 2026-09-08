@@ -12,14 +12,14 @@ const store = new Store(
   process.env.RUNTIME_ID ?? "hosted-local",
 );
 await store.initialize();
-const { app, queue, knowledge } = createApp(store, {
+const { app, queue, knowledge, mcp } = createApp(store, {
   origin: required("CONSOLE_ORIGIN"),
   runtimeToken: required("RUNTIME_TOKEN"),
   secureCookie: process.env.COOKIE_SECURE === "true",
 });
 const timer = setInterval(
   () =>
-    void Promise.all([queue.reap(), knowledge.reap()]).catch(() =>
+    void Promise.all([queue.reap(), knowledge.reap(), mcp.reap()]).catch(() =>
       console.error("Job cleanup failed"),
     ),
   5000,

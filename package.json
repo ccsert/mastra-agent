@@ -20,6 +20,7 @@
     "setup:local": "tsx scripts/setup.ts",
     "sdk:build": "pnpm --filter @platform/sdk build",
     "fixture": "tsx scripts/fixture.ts",
+    "fixture:mcp": "tsx scripts/mcp-fixture.ts",
     "sdk:check": "tsx scripts/sdk-check.ts",
     "preview": "tsx scripts/dev.ts --preview"
   },
@@ -27,6 +28,7 @@
     "@biomejs/biome": "2.5.12",
     "@hey-api/openapi-ts": "0.99.0",
     "@hono/node-server": "2.1.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@platform/database": "workspace:*",
     "@types/node": "24.3.0",
     "@types/pg": "8.23.1",

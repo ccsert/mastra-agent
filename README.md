@@ -2,7 +2,7 @@
 
 面向业务团队的 Agent、知识库、工具/MCP、标准 Agent Skills 和 AI 工作流平台。目标支持平台内使用，以及 OpenAPI、生成 SDK、React 组件与 iframe 接入；集中控制面管理平台托管和客户私有 Runtime。
 
-**当前交付 M2：真实模型与托管知识库。** 已有正式前后端、PostgreSQL + pgvector 存储，以及项目、三类模型、工具、Agent 发布、聊天、知识库、运行记录和应用凭据。支持文档分段入库、向量检索与重排、Agent 自主检索及来源查看。Skills、FlowGram AI 编排、私网连接与嵌入组件尚未接入正式平台。
+**当前交付 M3：远程 MCP 业务工具。** 在真实模型、托管知识库及 Agent 闭环上，增加 MCP 服务登记、能力发现、只读审阅导入、凭据轮换及停用。Agent 可联合调用 MCP 订单工具与知识库，并通过平台和生成 SDK 使用。Skills、FlowGram AI 编排、私网连接与嵌入组件尚未接入正式平台。
 
 ## 本地启动
 
@@ -62,3 +62,5 @@ SDK 请求与类型由 Hey API 从 OpenAPI 生成；`pnpm sdk:generate` 更新�
 已有技术证据：[Skill 隔离原型](docs/research/skill-sandbox-prototype-2026-09-07.md)、[工作流持久化](docs/research/workflow-persistence-probe-2026-09-07.md)、[发布契约](docs/research/release-contract-probe-2026-09-07.md)、[FlowGram 往返](docs/research/flowgram-roundtrip-probe-2026-09-07.md)。原实验工作区保留在 `.scratch/`，正式平台与它们独立启动。
 
 知识库使用与升级说明见 [M2 开发验收](docs/development/m2.md)。向量模型可配置 `dimensions`，绑定知识库后入库和查询使用同一模型及维度。
+
+MCP 使用与边界见 [M3 开发验收](docs/development/m3.md)。在「MCP 服务」登记 Streamable HTTP 地址，发现能力并审阅导入后，到 Agent 编辑页绑定工具并发布。`pnpm fixture:mcp` 启动合成订单样例，地址 `http://127.0.0.1:4201/mcp`，测试凭据 `mcp-fixture-key`，订单号 `ORD-1001`；该服务没有真实业务数据，也不会执行写入。

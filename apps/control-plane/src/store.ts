@@ -354,6 +354,15 @@ export class Store {
     for (const id of knowledgeIds) await this.knowledgeSnapshot(actor, projectId, id, tx);
     for (const id of input.toolIds) {
       const tool = await this.resource(actor, projectId, id, "tool", tx);
+      const definition = toolDto(tool);
+      if (definition.kind === "mcp") {
+        const [service] = await tx.query(
+          "SELECT s.enabled FROM mcp_servers s JOIN mcp_imports i ON i.server_id=s.id WHERE i.tool_id=$1 AND s.project_id=$2",
+          [id, projectId],
+        );
+        if (!service?.enabled)
+          throw new ApiError(409, "MCP_DISABLED", "Agent 绑定的 MCP 服务已停用");
+      }
       const name = data(tool).name;
       if (name === "knowledge_search")
         throw new ApiError(400, "RESERVED_TOOL_NAME", "knowledge_search 是平台知识检索工具名称");

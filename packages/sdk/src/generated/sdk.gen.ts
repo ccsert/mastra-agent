@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client/index.js';
-import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, HealthData, HealthResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses } from './types.gen.js';
+import type { CancelRunData, CancelRunErrors, CancelRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateMcpServerData, CreateMcpServerErrors, CreateMcpServerResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, DiscoverMcpToolsData, DiscoverMcpToolsErrors, DiscoverMcpToolsResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, HealthData, HealthResponses, ImportMcpToolData, ImportMcpToolErrors, ImportMcpToolResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMcpDiscoveriesData, ListMcpDiscoveriesErrors, ListMcpDiscoveriesResponses, ListMcpServersData, ListMcpServersErrors, ListMcpServersResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListToolsData, ListToolsErrors, ListToolsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UpdateMcpServerData, UpdateMcpServerErrors, UpdateMcpServerResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -235,3 +235,43 @@ export const searchKnowledge = <ThrowOnError extends boolean = false>(options: O
 });
 
 export const getKnowledgeSearch = <ThrowOnError extends boolean = false>(options: Options<GetKnowledgeSearchData, ThrowOnError>): RequestResult<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError> => (options.client ?? client).get<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches/{id}', ...options });
+
+export const listMcpServers = <ThrowOnError extends boolean = false>(options: Options<ListMcpServersData, ThrowOnError>): RequestResult<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/mcp-servers', ...options });
+
+export const createMcpServer = <ThrowOnError extends boolean = false>(options: Options<CreateMcpServerData, ThrowOnError>): RequestResult<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError> => (options.client ?? client).post<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/mcp-servers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const updateMcpServer = <ThrowOnError extends boolean = false>(options: Options<UpdateMcpServerData, ThrowOnError>): RequestResult<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError> => (options.client ?? client).patch<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listMcpDiscoveries = <ThrowOnError extends boolean = false>(options: Options<ListMcpDiscoveriesData, ThrowOnError>): RequestResult<ListMcpDiscoveriesResponses, ListMcpDiscoveriesErrors, ThrowOnError> => (options.client ?? client).get<ListMcpDiscoveriesResponses, ListMcpDiscoveriesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/mcp-servers/{id}/discoveries', ...options });
+
+export const discoverMcpTools = <ThrowOnError extends boolean = false>(options: Options<DiscoverMcpToolsData, ThrowOnError>): RequestResult<DiscoverMcpToolsResponses, DiscoverMcpToolsErrors, ThrowOnError> => (options.client ?? client).post<DiscoverMcpToolsResponses, DiscoverMcpToolsErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}/discoveries',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const importMcpTool = <ThrowOnError extends boolean = false>(options: Options<ImportMcpToolData, ThrowOnError>): RequestResult<ImportMcpToolResponses, ImportMcpToolErrors, ThrowOnError> => (options.client ?? client).post<ImportMcpToolResponses, ImportMcpToolErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/mcp-servers/{id}/tools',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

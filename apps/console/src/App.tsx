@@ -54,6 +54,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { timestamp, unwrap } from "./api";
 import { Editor, type EditorKind } from "./Editors";
 import { KnowledgeWorkspace } from "./Knowledge";
+import { McpWorkspace } from "./Mcp";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
 type Page =
@@ -63,6 +64,7 @@ type Page =
   | "knowledge"
   | "models"
   | "tools"
+  | "mcp"
   | "runs"
   | "applications"
   | "runtimes";
@@ -73,6 +75,7 @@ const navigation: [Page, string, React.ReactNode][] = [
   ["knowledge", "知识库", <BookOutlined key="knowledge" />],
   ["models", "模型服务", <ApiOutlined key="ApiOutlined" />],
   ["tools", "工具", <ToolOutlined key="ToolOutlined" />],
+  ["mcp", "MCP 服务", <ApiOutlined key="mcp" />],
   ["runs", "运行记录", <DeploymentUnitOutlined key="DeploymentUnitOutlined" />],
   ["applications", "应用接入", <CodeOutlined key="CodeOutlined" />],
   ["runtimes", "Runtime", <CloudServerOutlined key="CloudServerOutlined" />],
@@ -84,6 +87,7 @@ const pageTitles: Record<Page, [string, string]> = {
   knowledge: ["知识库", "将团队资料转为可检索的知识，供 Agent 按需引用。"],
   models: ["模型服务", "登记团队使用的模型服务，并管理调用凭据。"],
   tools: ["工具", "让 Agent 使用经过登记的业务能力。"],
+  mcp: ["MCP 服务", "连接业务服务，发现并审阅可供 Agent 使用的工具。"],
   runs: ["运行记录", "查看任务状态、发布版本与工具执行结果。"],
   applications: ["应用接入", "通过 OpenAPI 和生成 SDK，将 Agent 接入业务后端。"],
   runtimes: ["Runtime", "查看承接 Agent 执行的运行服务及连接状态。"],
@@ -813,6 +817,14 @@ export function App() {
                   onConfigureModels={() => navigate("models")}
                 />
               )}
+              {page === "mcp" && (
+                <McpWorkspace
+                  key={projectId}
+                  projectId={projectId}
+                  tools={tools}
+                  onChanged={() => void refresh()}
+                />
+              )}
               {page === "models" && (
                 <section className="panel">
                   <Table<Model>
@@ -903,7 +915,8 @@ export function App() {
                       {
                         title: "执行方式",
                         dataIndex: "kind",
-                        render: (v) => (v === "sum" ? "内置求和" : "HTTP GET"),
+                        render: (v) =>
+                          v === "sum" ? "内置求和" : v === "mcp" ? "MCP" : "HTTP GET",
                       },
                       { title: "能力范围", render: () => <Tag>只读 / 无业务写入</Tag> },
                       { title: "版本", render: () => <code>v1</code> },
