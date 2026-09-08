@@ -18,7 +18,9 @@ import {
 import type { Queryable, Row } from "@platform/database";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
-import type { Store } from "./store.ts";
+import type { ExecutionContext } from "./execution-context.ts";
+import type { Projects } from "./projects.ts";
+import { requireUser } from "./projects.ts";
 
 const date = (v: unknown) => new Date(String(v)).toISOString();
 const serverDto = (r: Row) =>
@@ -53,16 +55,16 @@ const toolDto = (r: Row) =>
   });
 
 export class Mcp {
-  constructor(readonly store: Store) {}
+  constructor(readonly deps: ExecutionContext & { projects: Projects }) {}
   private async server(
     actor: Principal,
     projectId: string,
     id: string,
-    tx: Queryable = this.store.db,
+    tx: Queryable = this.deps.db,
     lock = false,
   ) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId, tx);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId, tx);
     const [r] = await tx.query(
       `SELECT * FROM mcp_servers WHERE id=$1 AND project_id=$2 ${lock ? "FOR UPDATE" : ""}`,
       [id, projectId],
@@ -71,18 +73,18 @@ export class Mcp {
     return r;
   }
   async list(actor: Principal, projectId: string) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     return (
-      await this.store.db.query(
+      await this.deps.db.query(
         "SELECT * FROM mcp_servers WHERE project_id=$1 ORDER BY created_at DESC",
         [projectId],
       )
     ).map(serverDto);
   }
   async create(actor: Principal, projectId: string, input: z.infer<typeof McpServerInput>) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     const url = new URL(input.url);
     if (
       !["http:", "https:"].includes(url.protocol) ||
@@ -96,7 +98,7 @@ export class Mcp {
         "INVALID_ENDPOINT",
         "服务地址必须为 HTTP(S)，不能包含凭据、查询参数或片段",
       );
-    const [r] = await this.store.db.query(
+    const [r] = await this.deps.db.query(
       "INSERT INTO mcp_servers(id,tenant_id,project_id,name,url,secret_enc) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
       [
         randomUUID(),
@@ -104,7 +106,7 @@ export class Mcp {
         projectId,
         input.name,
         url.href,
-        this.store.vault.encrypt(input.bearerToken),
+        this.deps.vault.encrypt(input.bearerToken),
       ],
     );
     return serverDto(r);
@@ -115,7 +117,7 @@ export class Mcp {
     id: string,
     input: z.infer<typeof McpServerUpdate>,
   ) {
-    return this.store.db.transaction(async (tx) => {
+    return this.deps.db.transaction(async (tx) => {
       const r = await this.server(actor, projectId, id, tx, true);
       const [updated] = await tx.query(
         "UPDATE mcp_servers SET enabled=$2,secret_enc=$3 WHERE id=$1 RETURNING *",
@@ -124,7 +126,7 @@ export class Mcp {
           input.enabled ?? r.enabled,
           input.bearerToken === undefined
             ? r.secret_enc
-            : this.store.vault.encrypt(input.bearerToken),
+            : this.deps.vault.encrypt(input.bearerToken),
         ],
       );
       if (input.enabled === false)
@@ -138,14 +140,14 @@ export class Mcp {
   async discoveries(actor: Principal, projectId: string, id: string) {
     await this.server(actor, projectId, id);
     return (
-      await this.store.db.query(
+      await this.deps.db.query(
         "SELECT * FROM mcp_discoveries WHERE server_id=$1 ORDER BY created_at DESC LIMIT 10",
         [id],
       )
     ).map(discoveryDto);
   }
   async discover(actor: Principal, projectId: string, id: string) {
-    return this.store.db.transaction(async (tx) => {
+    return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);
       if (!server.enabled) throw new ApiError(409, "MCP_DISABLED", "请先启用 MCP 服务");
       const [pending] = await tx.query(
@@ -155,7 +157,7 @@ export class Mcp {
       if (pending) return discoveryDto(pending);
       const [r] = await tx.query(
         "INSERT INTO mcp_discoveries(id,server_id,runtime_id,status,deadline) VALUES($1,$2,$3,'queued',clock_timestamp()+interval '60 seconds') RETURNING *",
-        [randomUUID(), id, this.store.runtimeId],
+        [randomUUID(), id, this.deps.runtimeId],
       );
       return discoveryDto(r);
     });
@@ -166,7 +168,7 @@ export class Mcp {
     id: string,
     input: z.infer<typeof McpImport>,
   ) {
-    return this.store.db.transaction(async (tx) => {
+    return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);
       if (!server.enabled) throw new ApiError(409, "MCP_DISABLED", "MCP 服务已停用");
       if (!input.confirmedReadOnly)
@@ -233,10 +235,10 @@ export class Mcp {
     });
   }
   async claim() {
-    return this.store.db.transaction(async (tx) => {
+    return this.deps.db.transaction(async (tx) => {
       const [d] = await tx.query(
         "SELECT d.* FROM mcp_discoveries d JOIN mcp_servers s ON s.id=d.server_id WHERE d.runtime_id=$1 AND d.status='queued' AND d.deadline>clock_timestamp() AND s.enabled=true ORDER BY d.created_at FOR UPDATE OF d SKIP LOCKED LIMIT 1",
-        [this.store.runtimeId],
+        [this.deps.runtimeId],
       );
       if (!d) return null;
       const leaseToken = randomUUID();
@@ -250,7 +252,7 @@ export class Mcp {
         serverId: s.id,
         leaseToken,
         url: s.url,
-        bearerToken: this.store.vault.decrypt(String(s.secret_enc)),
+        bearerToken: this.deps.vault.decrypt(String(s.secret_enc)),
         deadline: new Date(String(d.deadline)).getTime(),
       });
     });
@@ -263,7 +265,7 @@ export class Mcp {
     );
     const [d] = await tx.query(
       "SELECT * FROM mcp_discoveries WHERE id=$1 AND runtime_id=$2 FOR UPDATE",
-      [id, this.store.runtimeId],
+      [id, this.deps.runtimeId],
     );
     const [clock] = await tx.query("SELECT clock_timestamp() AS current_time");
     const now = new Date(String(clock.current_time)).getTime();
@@ -278,7 +280,7 @@ export class Mcp {
     return d;
   }
   async renew(id: string, leaseToken: string) {
-    await this.store.db.transaction(async (tx) => {
+    await this.deps.db.transaction(async (tx) => {
       await this.active(tx, id, leaseToken);
       await tx.query(
         "UPDATE mcp_discoveries SET lease_until=clock_timestamp()+interval '20 seconds' WHERE id=$1",
@@ -287,7 +289,7 @@ export class Mcp {
     });
   }
   async finish(id: string, input: z.infer<typeof McpFinish>) {
-    await this.store.db.transaction(async (tx) => {
+    await this.deps.db.transaction(async (tx) => {
       await this.active(tx, id, input.leaseToken);
       const tools = input.tools ?? [];
       if (
@@ -309,15 +311,15 @@ export class Mcp {
     });
   }
   async reap() {
-    await this.store.db.query(
+    await this.deps.db.query(
       "UPDATE mcp_discoveries SET status='failed',error_code=CASE WHEN status='queued' THEN 'RUNTIME_UNAVAILABLE' ELSE 'TIMEOUT' END,finished_at=clock_timestamp() WHERE (status='queued' AND deadline<clock_timestamp()) OR (status='running' AND (deadline<clock_timestamp() OR lease_until<clock_timestamp()))",
     );
   }
   async authorize(runId: string, leaseToken: string, toolId: string) {
-    return this.store.db.transaction(async (tx) => {
+    return this.deps.db.transaction(async (tx) => {
       const [run] = await tx.query("SELECT * FROM runs WHERE id=$1 AND runtime_id=$2 FOR UPDATE", [
         runId,
-        this.store.runtimeId,
+        this.deps.runtimeId,
       ]);
       if (!run) throw notFound();
       const [release] = await tx.query(
@@ -352,7 +354,7 @@ export class Mcp {
         throw new ApiError(409, "LEASE_EXPIRED", "运行租约已失效或运行已取消");
       return {
         url: String(server.url),
-        bearerToken: this.store.vault.decrypt(String(server.secret_enc)),
+        bearerToken: this.deps.vault.decrypt(String(server.secret_enc)),
       };
     });
   }

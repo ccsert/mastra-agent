@@ -4,20 +4,20 @@ import { after, before, test } from "node:test";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
 import { hashPassword, Vault } from "../apps/control-plane/src/crypto.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { Queue } from "../apps/control-plane/src/queue.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
 import type { Principal } from "../packages/contracts/src/index.ts";
 import { required } from "../scripts/env.ts";
 
 const schema = `test_store_${process.pid}`,
   admin = new Database(required("DATABASE_URL")),
   db = new Database(required("DATABASE_URL"), schema),
-  store = new Store(db, new Vault("ab".repeat(32)));
+  store = new Platform(db, new Vault("ab".repeat(32)));
 let actor: Principal, other: Principal;
 before(async () => {
   await admin.query(`CREATE SCHEMA ${schema}`);
   await store.initialize();
-  const ids = await store.setup("test-owner", "test-password-123", "Test workspace");
+  const ids = await store.identity.setup("test-owner", "test-password-123", "Test workspace");
   actor = {
     id: ids.userId,
     tenantId: ids.tenantId,
@@ -40,8 +40,8 @@ after(async () => {
   await admin.close();
 });
 test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
-  const project = await store.createProject(actor, { name: "Orders", description: "" });
-  const model = await store.createModel(actor, project.id, {
+  const project = await store.projects.create(actor, { name: "Orders", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
     name: "Development",
     baseUrl: "http://127.0.0.1:9999/v1",
     modelId: "test",
@@ -49,7 +49,7 @@ test("published revisions and conversation ownership are durable, secrets never 
   });
   assert.equal(model.hasCredential, true);
   assert.ok(!JSON.stringify(model).includes("sensitive-test-key"));
-  const agent = await store.createAgent(actor, project.id, {
+  const agent = await store.agents.create(actor, project.id, {
     name: "Orders agent",
     description: "",
     instructions: "Version one",
@@ -57,11 +57,11 @@ test("published revisions and conversation ownership are durable, secrets never 
     toolIds: [],
     maxSteps: 3,
   });
-  const v1 = await store.publish(actor, project.id, agent.id, 1);
+  const v1 = await store.agents.publish(actor, project.id, agent.id, 1);
   assert.equal(v1.version, 1);
   assert.ok(!JSON.stringify(v1).includes("sensitive-test-key"));
-  const thread = await store.createConversation(actor, project.id, agent.id, "First");
-  const updated = await store.updateAgent(
+  const thread = await store.conversations.create(actor, project.id, agent.id, "First");
+  const updated = await store.agents.update(
     actor,
     project.id,
     agent.id,
@@ -75,50 +75,59 @@ test("published revisions and conversation ownership are durable, secrets never 
     },
     1,
   );
-  await assert.rejects(() => store.publish(actor, project.id, agent.id, 1), {
+  await assert.rejects(() => store.agents.publish(actor, project.id, agent.id, 1), {
     code: "DRAFT_CONFLICT",
   });
-  const v2 = await store.publish(actor, project.id, agent.id, updated.draftRevision);
+  const v2 = await store.agents.publish(actor, project.id, agent.id, updated.draftRevision);
   assert.equal(v2.version, 2);
   assert.notEqual(v1.digest, v2.digest);
-  assert.equal((await store.conversation(actor, project.id, thread.id)).releaseId, v1.id);
+  assert.equal((await store.conversations.get(actor, project.id, thread.id)).releaseId, v1.id);
   assert.equal(
-    (await store.releases(actor, project.id, agent.id))[1].snapshot.agent.instructions,
+    (await store.agents.releases(actor, project.id, agent.id))[1].snapshot.agent.instructions,
     "Version one",
   );
-  await assert.rejects(() => store.project(other, project.id), { code: "NOT_FOUND" });
+  await assert.rejects(() => store.projects.get(other, project.id), { code: "NOT_FOUND" });
   const otherUser = { ...actor, id: randomUUID() };
-  await assert.rejects(() => store.messages(otherUser, project.id, thread.id), {
+  await assert.rejects(() => store.conversations.messages(otherUser, project.id, thread.id), {
     code: "NOT_FOUND",
   });
-  const run = await store.createRun(actor, project.id, thread.id, "Hello", "request-1");
+  const run = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "Hello",
+    "request-1",
+  );
   assert.equal(run.releaseId, v1.id);
   assert.equal(
-    (await store.createRun(actor, project.id, thread.id, "Hello", "request-1")).id,
+    (await store.conversations.createRun(actor, project.id, thread.id, "Hello", "request-1")).id,
     run.id,
   );
   await assert.rejects(
-    () => store.createRun(actor, project.id, thread.id, "Changed", "request-1"),
+    () => store.conversations.createRun(actor, project.id, thread.id, "Changed", "request-1"),
     { code: "IDEMPOTENCY_CONFLICT" },
   );
-  await assert.rejects(() => store.createRun(actor, project.id, thread.id, "Next", "request-2"), {
-    code: "CONVERSATION_BUSY",
-  });
-  assert.equal((await store.cancel(actor, project.id, run.id)).status, "cancelled");
+  await assert.rejects(
+    () => store.conversations.createRun(actor, project.id, thread.id, "Next", "request-2"),
+    {
+      code: "CONVERSATION_BUSY",
+    },
+  );
+  assert.equal((await store.conversations.cancel(actor, project.id, run.id)).status, "cancelled");
   const reconnect = new Database(required("DATABASE_URL"), schema);
   try {
-    const reopened = new Store(reconnect, store.vault);
-    assert.equal((await reopened.messages(actor, project.id, thread.id)).length, 1);
-    assert.equal((await reopened.runs(actor, project.id)).length, 1);
+    const reopened = new Platform(reconnect, store.vault);
+    assert.equal((await reopened.conversations.messages(actor, project.id, thread.id)).length, 1);
+    assert.equal((await reopened.conversations.runs(actor, project.id)).length, 1);
   } finally {
     await reconnect.close();
   }
 });
 
 test("leases fence late workers, events are ordered and deduplicated, failed jobs are not replayed", async () => {
-  const project = await store.createProject(actor, { name: "Lease tests", description: "" });
-  const foreign = await store.createProject(actor, { name: "Foreign project", description: "" });
-  const model = await store.createModel(actor, project.id, {
+  const project = await store.projects.create(actor, { name: "Lease tests", description: "" });
+  const foreign = await store.projects.create(actor, { name: "Foreign project", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
     name: "Model",
     baseUrl: "http://127.0.0.1:9999/v1",
     modelId: "test",
@@ -126,7 +135,7 @@ test("leases fence late workers, events are ordered and deduplicated, failed job
   });
   await assert.rejects(
     () =>
-      store.createAgent(actor, foreign.id, {
+      store.agents.create(actor, foreign.id, {
         name: "Foreign",
         description: "",
         instructions: "Test",
@@ -136,7 +145,7 @@ test("leases fence late workers, events are ordered and deduplicated, failed job
       }),
     { code: "NOT_FOUND" },
   );
-  const agent = await store.createAgent(actor, project.id, {
+  const agent = await store.agents.create(actor, project.id, {
     name: "Lease agent",
     description: "",
     instructions: "Test",
@@ -145,12 +154,18 @@ test("leases fence late workers, events are ordered and deduplicated, failed job
     maxSteps: 3,
   });
   const releases = await Promise.all([
-    store.publish(actor, project.id, agent.id, 1),
-    store.publish(actor, project.id, agent.id, 1),
+    store.agents.publish(actor, project.id, agent.id, 1),
+    store.agents.publish(actor, project.id, agent.id, 1),
   ]);
   assert.equal(releases[0].id, releases[1].id);
-  const thread = await store.createConversation(actor, project.id, agent.id, "Lease");
-  const run = await store.createRun(actor, project.id, thread.id, "Hello", "lease-test");
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Lease");
+  const run = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "Hello",
+    "lease-test",
+  );
   const queue = new Queue(db, store.vault, "hosted-local"),
     job = await queue.claim();
   assert.equal(job?.runId, run.id);
@@ -171,7 +186,10 @@ test("leases fence late workers, events are ordered and deduplicated, failed job
   await assert.rejects(() => queue.renew(run.id, randomUUID()), { code: "LEASE_EXPIRED" });
   await db.query("UPDATE runs SET lease_until=now()-interval '1 second' WHERE id=$1", [run.id]);
   await queue.reap();
-  assert.equal((await store.run(actor, project.id, run.id)).errorCode, "RUNTIME_LOST");
+  assert.equal(
+    (await store.conversations.run(actor, project.id, run.id)).errorCode,
+    "RUNTIME_LOST",
+  );
   assert.equal(await queue.claim(), null);
   await assert.rejects(
     () =>
@@ -183,21 +201,21 @@ test("leases fence late workers, events are ordered and deduplicated, failed job
     { code: "LEASE_EXPIRED" },
   );
   assert.equal(
-    (await store.createRun(actor, project.id, thread.id, "Hello", "lease-test")).id,
+    (await store.conversations.createRun(actor, project.id, thread.id, "Hello", "lease-test")).id,
     run.id,
   );
-  assert.equal((await store.messages(actor, project.id, thread.id)).length, 1);
+  assert.equal((await store.conversations.messages(actor, project.id, thread.id)).length, 1);
 });
 
 test("chat drains committed tail events when completion races an event poll", async () => {
-  const project = await store.createProject(actor, { name: "Stream race", description: "" });
-  const model = await store.createModel(actor, project.id, {
+  const project = await store.projects.create(actor, { name: "Stream race", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
     name: "Race",
     baseUrl: "http://127.0.0.1:9999/v1",
     modelId: "test",
     apiKey: "",
   });
-  const agent = await store.createAgent(actor, project.id, {
+  const agent = await store.agents.create(actor, project.id, {
     name: "Race",
     description: "",
     instructions: "Test",
@@ -205,16 +223,16 @@ test("chat drains committed tail events when completion races an event poll", as
     toolIds: [],
     maxSteps: 3,
   });
-  await store.publish(actor, project.id, agent.id, 1);
-  const thread = await store.createConversation(actor, project.id, agent.id, "Race");
-  const token = await store.login("test-owner", "test-password-123");
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Race");
+  const token = await store.identity.login("test-owner", "test-password-123");
   const { app, queue } = createApp(store, {
     origin: "http://127.0.0.1:5173",
     runtimeToken: "test-token",
   });
-  const originalEvents = store.events.bind(store);
+  const originalEvents = store.conversations.events.bind(store.conversations);
   let completed = false;
-  store.events = async (...args) => {
+  store.conversations.events = async (...args) => {
     const polled = await originalEvents(...args);
     if (!completed) {
       completed = true;
@@ -249,10 +267,56 @@ test("chat drains committed tail events when completion races an event poll", as
       },
     );
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
     const body = await response.text();
     assert.ok(body.includes("tail-marker"), body);
     assert.ok(body.includes('"type":"finish"'), body);
   } finally {
-    store.events = originalEvents;
+    store.conversations.events = originalEvents;
   }
+});
+
+test("resource invariants apply to in-process calls and authenticated responses cannot be cached", async () => {
+  const project = await store.projects.create(actor, {
+    name: "Resource boundaries",
+    description: "",
+  });
+  await assert.rejects(
+    () =>
+      store.resources.createModel(actor, project.id, {
+        name: "Invalid",
+        baseUrl: "http://user:password@model.test/v1",
+        modelId: "model",
+      }),
+    { code: "INVALID_ENDPOINT" },
+  );
+  const input = {
+    name: "sum_boundary",
+    description: "Total",
+    kind: "sum" as const,
+    url: "",
+    bearerToken: "",
+    inputSchema: { type: "object" },
+    outputSchema: { type: "object" },
+  };
+  const tool = await store.resources.createTool(actor, project.id, input);
+  assert.deepEqual(tool.inputSchema.required, ["values"]);
+  assert.deepEqual(tool.outputSchema.required, ["total"]);
+  assert.deepEqual(
+    input.inputSchema,
+    { type: "object" },
+    "Domain operations do not mutate caller data",
+  );
+  const { app } = createApp(store, {
+    origin: "http://console.test",
+    runtimeToken: "test-runtime-token",
+  });
+  const token = await store.identity.login("test-owner", "test-password-123");
+  const response = await app.request(`/api/v1/projects/${project.id}/tools`, {
+    headers: { cookie: `platform_session=${token}` },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const tools = await response.json();
+  assert.deepEqual(tools[0].inputSchema, tool.inputSchema);
 });

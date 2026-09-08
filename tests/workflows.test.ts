@@ -6,7 +6,7 @@ import { serve } from "@hono/node-server";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { runWorker } from "../apps/runtime/src/worker.ts";
 import { WorkflowAssetInput, WorkflowDefinition } from "../packages/contracts/src/index.ts";
 import { applicationSigner } from "../packages/sdk/src/auth.ts";
@@ -35,7 +35,7 @@ test("SDK → durable workflow → MCP + published Agent → Mastra branch; AI r
     admin = new Database(required("DATABASE_URL"));
   await admin.query(`CREATE SCHEMA ${schema}`);
   const db = new Database(required("DATABASE_URL"), schema),
-    store = new Store(db, new Vault("f3".repeat(32)));
+    store = new Platform(db, new Vault("f3".repeat(32)));
   await store.initialize();
   const { app, workflowQueue } = createApp(store, {
     origin: "http://console.invalid",

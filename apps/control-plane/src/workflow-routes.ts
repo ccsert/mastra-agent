@@ -1,6 +1,5 @@
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import {
-  ErrorBody,
   Id,
   type Principal,
   VectorQuery,
@@ -19,26 +18,11 @@ import {
   WorkflowRuntimeFinish,
   z,
 } from "@platform/contracts";
+import { body, errors, json } from "./http.ts";
+import { requireUser } from "./projects.ts";
 import type { WorkflowQueue } from "./workflow-queue.ts";
 import type { Workflows } from "./workflows.ts";
 
-const json = <T extends z.ZodType>(schema: T) => ({
-  description: "成功",
-  content: { "application/json": { schema } },
-});
-const body = <T extends z.ZodType>(schema: T) => ({
-  required: true,
-  content: { "application/json": { schema } },
-});
-const errors = {
-  400: json(ErrorBody),
-  401: json(ErrorBody),
-  403: json(ErrorBody),
-  404: json(ErrorBody),
-  409: json(ErrorBody),
-  429: json(ErrorBody),
-  503: json(ErrorBody),
-};
 const project = z.object({ projectId: Id }),
   item = project.extend({ id: Id });
 const revision = z.object({ baseRevision: z.number().int().positive() }).strict();
@@ -100,7 +84,7 @@ export function registerWorkflowRoutes(
       responses: { 200: json(WorkflowAsset), ...errors },
     }),
     async (c) => {
-      service.store.requireUser(c.get("principal"));
+      requireUser(c.get("principal"));
       const p = c.req.valid("param");
       return c.json(await service.asset(c.get("principal"), p.projectId, p.id), 200);
     },

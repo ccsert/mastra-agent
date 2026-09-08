@@ -20,7 +20,10 @@ import {
 import type { Queryable, Row } from "@platform/database";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
-import { modelDto, type Store } from "./store.ts";
+import type { ExecutionContext } from "./execution-context.ts";
+import type { Projects } from "./projects.ts";
+import { requireUser } from "./projects.ts";
+import { modelDto, type Resources } from "./resources.ts";
 
 const date = (v: unknown) => new Date(String(v)).toISOString();
 const documentDto = (r: Row) =>
@@ -58,9 +61,9 @@ const expired = () => new ApiError(409, "LEASE_EXPIRED", "任务租约已失效"
 
 /** Hosted knowledge lifecycle. All model I/O remains in the assigned Runtime. */
 export class Knowledge {
-  constructor(readonly store: Store) {}
+  constructor(readonly deps: ExecutionContext & { projects: Projects; resources: Resources }) {}
   get db() {
-    return this.store.db;
+    return this.deps.db;
   }
   private async scope(
     actor: Principal,
@@ -69,8 +72,8 @@ export class Knowledge {
     tx: Queryable = this.db,
     lock = false,
   ) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId, tx);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId, tx);
     const [r] = await tx.query(
       `SELECT * FROM knowledge_bases WHERE id=$1 AND project_id=$2 ${lock ? "FOR UPDATE" : ""}`,
       [id, projectId],
@@ -79,8 +82,8 @@ export class Knowledge {
     return r;
   }
   async list(actor: Principal, projectId: string) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     const rows = await this.db.query(
       `SELECT k.*, count(d.id)::int AS document_count,
       count(d.id) FILTER(WHERE d.status='ready')::int AS ready_count,
@@ -103,15 +106,15 @@ export class Knowledge {
     );
   }
   async create(actor: Principal, projectId: string, input: z.infer<typeof KnowledgeInput>) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     const embedding = modelDto(
-      await this.store.resource(actor, projectId, input.embeddingModelId, "model"),
+      await this.deps.resources.get(actor, projectId, input.embeddingModelId, "model"),
     );
     if (embedding.kind !== "embedding") throw new ApiError(400, "MODEL_KIND", "请选择向量模型");
     if (
       input.rerankModelId &&
-      modelDto(await this.store.resource(actor, projectId, input.rerankModelId, "model")).kind !==
-        "rerank"
+      modelDto(await this.deps.resources.get(actor, projectId, input.rerankModelId, "model"))
+        .kind !== "rerank"
     )
       throw new ApiError(400, "MODEL_KIND", "请选择重排模型");
     const id = randomUUID();
@@ -151,10 +154,10 @@ export class Knowledge {
     docId: string | null,
     id = randomUUID(),
   ) {
-    const snapshot = await this.store.knowledgeSnapshot(actor, projectId, kbId, tx);
+    const snapshot = await this.deps.resources.knowledgeSnapshot(actor, projectId, kbId, tx);
     const [r] = await tx.query(
       `INSERT INTO knowledge_jobs(id,knowledge_base_id,actor_id,entry,runtime_id,kind,document_id,input,snapshot,status,deadline) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',now()+interval '5 minutes') RETURNING *`,
-      [id, kbId, actor.id, actor.entry, this.store.runtimeId, kind, docId, input, snapshot],
+      [id, kbId, actor.id, actor.entry, this.deps.runtimeId, kind, docId, input, snapshot],
     );
     return r;
   }
@@ -256,7 +259,7 @@ export class Knowledge {
     return this.db.transaction(async (tx) => {
       const [r] = await tx.query(
         "SELECT j.*,k.project_id,k.tenant_id FROM knowledge_jobs j JOIN knowledge_bases k ON k.id=j.knowledge_base_id WHERE j.runtime_id=$1 AND j.status='queued' AND j.deadline>now() ORDER BY j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1",
-        [this.store.runtimeId],
+        [this.deps.runtimeId],
       );
       if (!r) return null;
       const leaseToken = randomUUID(),
@@ -270,7 +273,7 @@ export class Knowledge {
           [model.id, r.project_id, r.tenant_id],
         );
         if (!resource) throw new ApiError(409, "DEPENDENCY_UNAVAILABLE", "知识库模型不可用");
-        credentials[model.id] = this.store.vault.decrypt(String(resource.secret_enc));
+        credentials[model.id] = this.deps.vault.decrypt(String(resource.secret_enc));
       }
       await tx.query(
         "UPDATE knowledge_jobs SET status='running',lease_token=$1,lease_until=now()+interval '20 seconds' WHERE id=$2",
@@ -300,7 +303,7 @@ export class Knowledge {
   private async active(tx: Queryable, id: string, token: string) {
     const [r] = await tx.query(
       "SELECT * FROM knowledge_jobs WHERE id=$1 AND runtime_id=$2 FOR UPDATE",
-      [id, this.store.runtimeId],
+      [id, this.deps.runtimeId],
     );
     await this.checkLease(tx, r, token);
     return r;
@@ -323,7 +326,7 @@ export class Knowledge {
       );
     });
     await this.db.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [
-      this.store.runtimeId,
+      this.deps.runtimeId,
     ]);
   }
   async batch(id: string, input: z.infer<typeof KnowledgeBatch>) {
@@ -400,7 +403,7 @@ export class Knowledge {
     return this.db.transaction(async (tx) => {
       const [r] = await tx.query(
         "SELECT r.*,v.snapshot FROM runs r JOIN releases v ON v.id=r.release_id AND v.project_id=r.project_id WHERE r.id=$1 AND r.runtime_id=$2 FOR UPDATE OF r",
-        [id, this.store.runtimeId],
+        [id, this.deps.runtimeId],
       );
       await this.checkLease(tx, r, input.leaseToken);
       if (r.cancel_requested) throw expired();

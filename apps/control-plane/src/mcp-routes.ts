@@ -1,6 +1,5 @@
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import {
-  ErrorBody,
   Id,
   McpDiscovery,
   McpFinish,
@@ -12,25 +11,9 @@ import {
   Tool,
   z,
 } from "@platform/contracts";
+import { body, errors, json } from "./http.ts";
 import type { Mcp } from "./mcp.ts";
 
-const json = <T extends z.ZodType>(schema: T) => ({
-  description: "成功",
-  content: { "application/json": { schema } },
-});
-const body = <T extends z.ZodType>(schema: T) => ({
-  required: true,
-  content: { "application/json": { schema } },
-});
-const errors = {
-  400: json(ErrorBody),
-  401: json(ErrorBody),
-  403: json(ErrorBody),
-  404: json(ErrorBody),
-  409: json(ErrorBody),
-  429: json(ErrorBody),
-  503: json(ErrorBody),
-};
 const project = z.object({ projectId: Id }),
   item = project.extend({ id: Id });
 const root = "/api/v1/projects/{projectId}/mcp-servers";

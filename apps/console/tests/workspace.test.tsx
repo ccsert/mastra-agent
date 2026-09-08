@@ -281,3 +281,66 @@ test("logout unmounts project requests and logging in starts a clean workspace",
   assert.ok(screen.getByRole("heading", { name: "工作台", level: 1 }));
   assert.equal(screen.queryByText("上一会话内容"), null);
 });
+
+test("leaving the Agent page cancels conversation creation even within the same project", async (t) => {
+  const pending = deferred();
+  let started: Request | undefined;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (request.method === "POST" && request.url.endsWith("/A/conversations")) {
+      started = request;
+      return pending.promise;
+    }
+    return fixture(request);
+  });
+  mount();
+  await screen.findByRole("heading", { name: "A项目助手" });
+  fireEvent.click(screen.getAllByRole("button", { name: /^对话/ }).at(-1) as HTMLElement);
+  await waitFor(() => assert.ok(started));
+  fireEvent.click(screen.getByRole("button", { name: /^工具$/ }));
+  await screen.findByRole("heading", { name: "工具", level: 1 });
+  assert.equal(started?.signal.aborted, true);
+  await act(async () => pending.resolve(json({ id: "late", projectId: "A", title: "迟到的会话" })));
+  assert.ok(screen.getByRole("heading", { name: "工具", level: 1 }));
+  assert.ok(screen.queryByText("迟到的会话") === null);
+});
+
+test("conversation history errors are local and leaving the page cancels retry", async (t) => {
+  const pending = deferred();
+  let reads = 0,
+    started: Request | undefined;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (request.url.endsWith("/A/conversations"))
+      return json([
+        {
+          id: "thread",
+          projectId: "A",
+          title: "订单讨论",
+          releaseVersion: 1,
+          createdAt: "2026-09-08T00:00:00Z",
+        },
+      ]);
+    if (request.url.endsWith("/thread/messages")) {
+      if (++reads === 1) return Response.json({ message: "历史读取失败" }, { status: 503 });
+      started = request;
+      return pending.promise;
+    }
+    return fixture(request);
+  });
+  mount();
+  await screen.findByRole("heading", { name: "A项目助手" });
+  fireEvent.click(screen.getAllByRole("button", { name: /^对话/ })[0]);
+  fireEvent.click(await screen.findByRole("button", { name: /订单讨论/ }));
+  await screen.findByText("会话历史加载失败");
+  fireEvent.click(screen.getByRole("button", { name: "重试会话历史" }));
+  await waitFor(() => assert.ok(started));
+  fireEvent.click(screen.getByRole("button", { name: /^工具$/ }));
+  assert.equal(started?.signal.aborted, true);
+  await act(async () =>
+    pending.resolve(
+      json([{ id: "old", role: "assistant", parts: [{ type: "text", text: "已关闭会话的正文" }] }]),
+    ),
+  );
+  assert.ok(screen.queryByText("已关闭会话的正文") === null);
+});

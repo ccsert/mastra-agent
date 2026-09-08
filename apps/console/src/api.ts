@@ -1,8 +1,12 @@
 import { client } from "@platform/sdk";
 
 client.setConfig({ baseUrl: window.location.origin, credentials: "include" });
-export async function unwrap<T>(request: Promise<{ data?: T; error?: unknown }>): Promise<T> {
+export async function unwrap<T>(
+  request: Promise<{ data?: T; error?: unknown }>,
+  signal?: AbortSignal,
+): Promise<T> {
   const result = await request;
+  signal?.throwIfAborted();
   if (result.error || result.data === undefined) {
     const error = result.error;
     throw new Error(

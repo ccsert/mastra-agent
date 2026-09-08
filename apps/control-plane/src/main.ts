@@ -3,16 +3,16 @@ import { Database } from "@platform/database";
 import { required } from "../../../scripts/env.ts";
 import { createApp } from "./app.ts";
 import { Vault } from "./crypto.ts";
-import { Store } from "./store.ts";
+import { Platform } from "./platform.ts";
 
 const db = new Database(required("DATABASE_URL"), process.env.DATABASE_SCHEMA ?? "public");
-const store = new Store(
+const platform = new Platform(
   db,
   new Vault(required("ENCRYPTION_KEY")),
   process.env.RUNTIME_ID ?? "hosted-local",
 );
-await store.initialize();
-const { app, queue, knowledge, mcp, workflowQueue } = createApp(store, {
+await platform.initialize();
+const { app, queue, knowledge, mcp, workflowQueue } = createApp(platform, {
   origin: required("CONSOLE_ORIGIN"),
   additionalOrigins: process.env.CONSOLE_ADDITIONAL_ORIGINS?.split(",")
     .map((origin) => origin.trim())

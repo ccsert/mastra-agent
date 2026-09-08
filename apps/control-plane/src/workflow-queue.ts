@@ -19,8 +19,10 @@ import {
 } from "@platform/contracts";
 import type { Queryable, Row } from "@platform/database";
 import { ApiError, notFound } from "./errors.ts";
+import type { ExecutionContext } from "./execution-context.ts";
 import { executionCredentials, resourceCredential } from "./execution-credentials.ts";
 import type { Knowledge } from "./knowledge.ts";
+import { requireUser } from "./projects.ts";
 import { type Workflows, workflowDate } from "./workflows.ts";
 
 const knownErrors = new Set([
@@ -59,12 +61,10 @@ export class WorkflowQueue {
   constructor(
     readonly workflows: Workflows,
     readonly knowledge: Knowledge,
+    readonly execution: ExecutionContext,
   ) {}
-  get store() {
-    return this.workflows.store;
-  }
   get db() {
-    return this.store.db;
+    return this.execution.db;
   }
   private async live(tx: Queryable, job: Row, leaseToken: string, access = true) {
     const [clock] = await tx.query("SELECT clock_timestamp() AS t");
@@ -87,7 +87,7 @@ export class WorkflowQueue {
   private async active(tx: Queryable, id: string, leaseToken: string, access = true) {
     const [job] = await tx.query(
       "SELECT * FROM workflow_jobs WHERE id=$1 AND runtime_id=$2 FOR UPDATE",
-      [id, this.store.runtimeId],
+      [id, this.execution.runtimeId],
     );
     if (!job) throw notFound();
     await this.live(tx, job, leaseToken, access);
@@ -96,7 +96,7 @@ export class WorkflowQueue {
   private secret(tx: Queryable, job: Row, id: string, kind: "tool" | "model") {
     return resourceCredential(
       tx,
-      this.store.vault,
+      this.execution.vault,
       { tenantId: String(job.tenant_id), projectId: String(job.project_id) },
       id,
       kind,
@@ -104,10 +104,12 @@ export class WorkflowQueue {
   }
   async claim() {
     return this.db.transaction(async (tx) => {
-      await tx.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [this.store.runtimeId]);
+      await tx.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [
+        this.execution.runtimeId,
+      ]);
       const [job] = await tx.query(
         "SELECT * FROM workflow_jobs WHERE runtime_id=$1 AND status='queued' AND deadline>clock_timestamp() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
-        [this.store.runtimeId],
+        [this.execution.runtimeId],
       );
       if (!job) return null;
       const leaseToken = randomUUID(),
@@ -154,7 +156,9 @@ export class WorkflowQueue {
         "UPDATE workflow_jobs SET lease_until=clock_timestamp()+interval '20 seconds' WHERE id=$1",
         [id],
       );
-      await tx.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [this.store.runtimeId]);
+      await tx.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [
+        this.execution.runtimeId,
+      ]);
       return { ok: true };
     });
   }
@@ -247,7 +251,7 @@ export class WorkflowQueue {
             ],
             credentials: await executionCredentials(
               tx,
-              this.store.vault,
+              this.execution.vault,
               { tenantId: String(job.tenant_id), projectId: String(job.project_id) },
               release.snapshot,
             ),
@@ -327,7 +331,7 @@ export class WorkflowQueue {
       await this.live(tx, job, leaseToken);
       return {
         url: String(server.url),
-        bearerToken: this.store.vault.decrypt(String(server.secret_enc)),
+        bearerToken: this.execution.vault.decrypt(String(server.secret_enc)),
       };
     });
   }
@@ -389,7 +393,7 @@ export class WorkflowQueue {
     );
   }
   async cancel(actor: Principal, projectId: string, id: string, kind: "execute" | "generate") {
-    if (kind === "generate") this.store.requireUser(actor);
+    if (kind === "generate") requireUser(actor);
     await this.db.transaction(async (tx) => {
       const job = await this.workflows.ownedJob(actor, projectId, id, kind, tx, true);
       if (!["queued", "running"].includes(String(job.status))) return;

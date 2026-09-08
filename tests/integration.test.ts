@@ -6,7 +6,7 @@ import { serve } from "@hono/node-server";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { runWorker } from "../apps/runtime/src/worker.ts";
 import { applicationSigner } from "../packages/sdk/src/auth.ts";
 import { createClient } from "../packages/sdk/src/generated/client/index.ts";
@@ -21,7 +21,7 @@ test("generated SDK → authenticated control plane → HTTP worker → Mastra t
     admin = new Database(required("DATABASE_URL"));
   await admin.query(`CREATE SCHEMA ${schema}`);
   const db = new Database(required("DATABASE_URL"), schema),
-    store = new Store(db, new Vault("cd".repeat(32)));
+    store = new Platform(db, new Vault("cd".repeat(32)));
   await store.initialize();
   const { app, queue } = createApp(store, {
     origin: "http://127.0.0.1:5173",

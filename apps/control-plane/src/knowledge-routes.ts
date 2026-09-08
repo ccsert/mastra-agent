@@ -1,7 +1,6 @@
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import {
   DocumentInput,
-  ErrorBody,
   Id,
   KnowledgeBase,
   KnowledgeBatch,
@@ -15,25 +14,9 @@ import {
   VectorQuery,
   z,
 } from "@platform/contracts";
+import { body, errors, json } from "./http.ts";
 import type { Knowledge } from "./knowledge.ts";
 
-const json = <T extends z.ZodType>(schema: T) => ({
-  description: "成功",
-  content: { "application/json": { schema } },
-});
-const body = <T extends z.ZodType>(schema: T) => ({
-  required: true,
-  content: { "application/json": { schema } },
-});
-const errors = {
-  400: json(ErrorBody),
-  401: json(ErrorBody),
-  403: json(ErrorBody),
-  404: json(ErrorBody),
-  409: json(ErrorBody),
-  429: json(ErrorBody),
-  503: json(ErrorBody),
-};
 const project = z.object({ projectId: Id }),
   kb = project.extend({ kbId: Id }),
   item = kb.extend({ id: Id }),

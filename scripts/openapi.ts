@@ -3,11 +3,11 @@ import { dirname } from "node:path";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 
 // Schema export builds route definitions only; it neither connects nor migrates the database.
 const db = new Database("postgres://unused:unused@127.0.0.1:1/unused");
-const { app } = createApp(new Store(db, new Vault("00".repeat(32))), {
+const { app } = createApp(new Platform(db, new Vault("00".repeat(32))), {
   origin: "http://127.0.0.1:5173",
   runtimeToken: "schema-export-only",
 });

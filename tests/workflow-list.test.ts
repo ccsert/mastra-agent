@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { Database } from "@platform/database";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { Workflows } from "../apps/control-plane/src/workflows.ts";
 import { type Principal, WorkflowAssetInput } from "../packages/contracts/src/index.ts";
 import { required } from "../scripts/env.ts";
@@ -14,10 +14,10 @@ test("workflow lists use a constant query budget and preserve scope, draft and r
     db = new Database(required("DATABASE_URL"), schema);
   await admin.query(`CREATE SCHEMA ${schema}`);
   try {
-    const store = new Store(db, new Vault("ac".repeat(32))),
+    const store = new Platform(db, new Vault("ac".repeat(32))),
       workflows = new Workflows(store);
     await store.initialize();
-    const ids = await store.setup("owner", "test-password-123", "Lists");
+    const ids = await store.identity.setup("owner", "test-password-123", "Lists");
     const actor: Principal = {
       id: ids.userId,
       tenantId: ids.tenantId,
@@ -25,8 +25,8 @@ test("workflow lists use a constant query budget and preserve scope, draft and r
       kind: "user",
       entry: "console",
     };
-    const project = await store.createProject(actor, { name: "Lists", description: "" });
-    const otherProject = await store.createProject(actor, { name: "Other", description: "" });
+    const project = await store.projects.create(actor, { name: "Lists", description: "" });
+    const otherProject = await store.projects.create(actor, { name: "Other", description: "" });
     const input = WorkflowAssetInput.parse({
       name: "Draft",
       definition: {
@@ -69,7 +69,7 @@ test("workflow lists use a constant query budget and preserve scope, draft and r
     const tenantId = randomUUID();
     await db.query("INSERT INTO tenants(id,name) VALUES($1,'Other tenant')", [tenantId]);
     const other: Principal = { ...actor, id: randomUUID(), tenantId };
-    const foreignProject = await store.createProject(other, { name: "Foreign", description: "" });
+    const foreignProject = await store.projects.create(other, { name: "Foreign", description: "" });
     await workflows.create(other, foreignProject.id, { ...input, name: "Other tenant private" });
     await assert.rejects(workflows.list(other, project.id), { status: 404 });
     await assert.rejects(

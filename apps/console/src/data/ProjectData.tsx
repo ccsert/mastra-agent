@@ -3,14 +3,17 @@ import type {
   Application,
   Conversation,
   KnowledgeBase,
+  McpServer,
   Model,
   Run,
   RuntimeInfo,
   Tool,
+  WorkflowAsset,
+  WorkflowCapability,
 } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { unwrap } from "../api";
 
 type Resources = {
@@ -22,6 +25,9 @@ type Resources = {
   runs: Run[];
   runtimes: RuntimeInfo[];
   tools: Tool[];
+  mcpServers: McpServer[];
+  workflows: WorkflowAsset[];
+  workflowCatalog: WorkflowCapability[];
 };
 type Resource = keyof Resources;
 const loaders: {
@@ -38,41 +44,55 @@ const loaders: {
   runs: (projectId, signal) => unwrap(api.listRuns({ path: { projectId }, signal })),
   runtimes: (_projectId, signal) => unwrap(api.listRuntimes({ signal })),
   tools: (projectId, signal) => unwrap(api.listTools({ path: { projectId }, signal })),
+  mcpServers: (projectId, signal) => unwrap(api.listMcpServers({ path: { projectId }, signal })),
+  workflows: (projectId, signal) => unwrap(api.listWorkflows({ path: { projectId }, signal })),
+  workflowCatalog: (projectId, signal) =>
+    unwrap(api.getWorkflowCatalog({ path: { projectId }, signal })),
 };
 const ProjectContext = createContext<string | null>(null);
-const key = (projectId: string, resource: Resource) => ["project", projectId, resource] as const;
+export const projectKey = (projectId: string, resource: Resource, ...ids: string[]) =>
+  ["project", projectId, resource, ...ids] as const;
 
 /** Mount beneath the authenticated workspace, keyed by project. No cache survives that boundary. */
 export function ProjectData({ projectId, children }: { projectId: string; children: ReactNode }) {
   const [client] = useState(
     () =>
       new QueryClient({
-        // This cache has a project lifetime; its owner clears it instead of a second GC timer.
-        defaultOptions: { queries: { staleTime: 30_000, gcTime: Infinity, retry: false } },
+        defaultOptions: { queries: { staleTime: 30_000, gcTime: 300_000, retry: false } },
       }),
   );
-  useEffect(() => () => client.clear(), [client]);
+  const lifetime = useRef(0);
+  useEffect(() => {
+    const current = ++lifetime.current;
+    return () => {
+      // Cancel immediately; clear after child observers detach and cancellation settles.
+      // A StrictMode re-mount owns the same client and must not be cleared by the old cleanup.
+      void client.cancelQueries().then(() => {
+        if (lifetime.current === current) client.clear();
+      });
+    };
+  }, [client]);
   return (
     <ProjectContext.Provider value={projectId}>
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     </ProjectContext.Provider>
   );
 }
-function useProjectId() {
+export function useProjectId() {
   const projectId = useContext(ProjectContext);
   if (projectId === null) throw new Error("ProjectData provider required");
   return projectId;
 }
 export function useProjectQuery<K extends Resource>(
   resource: K,
-  { enabled = true, poll = false }: { enabled?: boolean; poll?: boolean } = {},
+  { enabled = true, poll = false }: { enabled?: boolean; poll?: boolean | number } = {},
 ) {
   const projectId = useProjectId();
   return useQuery({
-    queryKey: key(projectId, resource),
+    queryKey: projectKey(projectId, resource),
     queryFn: ({ signal }) => loaders[resource](projectId, signal),
     enabled: !!projectId && enabled,
-    refetchInterval: poll ? 5000 : false,
+    refetchInterval: typeof poll === "number" ? poll : poll ? 5000 : false,
   });
 }
 export function useProjectRefresh() {
@@ -82,7 +102,7 @@ export function useProjectRefresh() {
     resources.length
       ? Promise.all(
           resources.map((resource) =>
-            client.invalidateQueries({ queryKey: key(projectId, resource) }),
+            client.invalidateQueries({ queryKey: projectKey(projectId, resource) }),
           ),
         )
       : client.refetchQueries({ type: "active" }, { cancelRefetch: false });

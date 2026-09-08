@@ -22,9 +22,13 @@ import {
   type z,
 } from "@platform/contracts";
 import type { Queryable, Row } from "@platform/database";
+import type { Agents } from "./agents.ts";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
-import { modelDto, type Store } from "./store.ts";
+import type { ExecutionContext } from "./execution-context.ts";
+import type { Projects } from "./projects.ts";
+import { requireUser } from "./projects.ts";
+import { modelDto, type Resources } from "./resources.ts";
 
 export const workflowDate = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 export const workflowTool = (r: Row) =>
@@ -97,9 +101,11 @@ const agentCapability = (release: z.infer<typeof Release>): WorkflowCapability =
   outputSchema: agentWorkflowOutput,
 });
 export class Workflows {
-  constructor(readonly store: Store) {}
+  constructor(
+    readonly deps: ExecutionContext & { projects: Projects; resources: Resources; agents: Agents },
+  ) {}
   get db() {
-    return this.store.db;
+    return this.deps.db;
   }
   async asset(
     actor: Principal,
@@ -108,7 +114,7 @@ export class Workflows {
     tx: Queryable = this.db,
     lock = false,
   ) {
-    await this.store.project(actor, projectId, tx);
+    await this.deps.projects.get(actor, projectId, tx);
     const [row] = await tx.query(
       `SELECT w.*,r.version FROM workflows w LEFT JOIN workflow_releases r ON r.id=w.current_release_id WHERE w.id=$1 AND w.project_id=$2 AND w.tenant_id=$3 ${lock ? "FOR UPDATE OF w" : ""}`,
       [id, projectId, actor.tenantId],
@@ -117,8 +123,8 @@ export class Workflows {
     return assetDto(row);
   }
   async list(actor: Principal, projectId: string) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     const rows = await this.db.query(
       `SELECT w.*,r.version FROM workflows w
        LEFT JOIN workflow_releases r ON r.id=w.current_release_id
@@ -136,8 +142,8 @@ export class Workflows {
       throw new ApiError(400, "WORKFLOW_LAYOUT", "布局必须引用当前节点，草稿不能超过大小限制");
   }
   async create(actor: Principal, projectId: string, input: z.infer<typeof WorkflowAssetInput>) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     this.checkLayout(input);
     const id = randomUUID();
     await this.db.query("INSERT INTO workflows(id,tenant_id,project_id,data) VALUES($1,$2,$3,$4)", [
@@ -155,7 +161,7 @@ export class Workflows {
     input: z.infer<typeof WorkflowAssetInput>,
     baseRevision: number,
   ) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     await this.asset(actor, projectId, id);
     this.checkLayout(input);
     const rows = await this.db.query(
@@ -176,8 +182,8 @@ export class Workflows {
       throw new ApiError(409, "DEPENDENCY_UNAVAILABLE", "流程引用的 MCP 服务已停用或绑定失效");
   }
   async catalog(actor: Principal, projectId: string) {
-    this.store.requireUser(actor);
-    await this.store.project(actor, projectId);
+    requireUser(actor);
+    await this.deps.projects.get(actor, projectId);
     const tools = (
       await this.db.query(
         "SELECT * FROM resources WHERE project_id=$1 AND kind='tool' ORDER BY created_at DESC LIMIT 100",
@@ -201,7 +207,7 @@ export class Workflows {
     ).map(workflowAgentRelease);
     for (const release of releases) {
       try {
-        await this.store.validateAgent(actor, projectId, release.snapshot.agent);
+        await this.deps.agents.validate(actor, projectId, release.snapshot.agent);
         entries.push(agentCapability(release));
       } catch (e) {
         if (!(e instanceof ApiError && ["MCP_DISABLED", "DEPENDENCY_UNAVAILABLE"].includes(e.code)))
@@ -221,7 +227,7 @@ export class Workflows {
     for (const node of definition.nodes) {
       if (node.type === "tool" && !tools.some((t) => t.id === node.toolId)) {
         const tool = workflowTool(
-          await this.store.resource(actor, projectId, node.toolId, "tool", tx),
+          await this.deps.resources.get(actor, projectId, node.toolId, "tool", tx),
         );
         await this.checkTool(tx, projectId, actor.tenantId, tool);
         tools.push(tool);
@@ -233,7 +239,7 @@ export class Workflows {
         );
         if (!row) throw notFound();
         const release = workflowAgentRelease(row);
-        await this.store.validateAgent(actor, projectId, release.snapshot.agent, tx);
+        await this.deps.agents.validate(actor, projectId, release.snapshot.agent, tx);
         agents.push(release);
       }
     }
@@ -248,7 +254,7 @@ export class Workflows {
     });
   }
   async validate(actor: Principal, projectId: string, id: string, baseRevision: number) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     const asset = await this.asset(actor, projectId, id);
     if (asset.revision !== baseRevision)
       throw new ApiError(409, "DRAFT_CONFLICT", "请校验最新草稿");
@@ -256,7 +262,7 @@ export class Workflows {
     return { issues: validateWorkflow(snapshot.definition, snapshot.catalog) };
   }
   async publish(actor: Principal, projectId: string, id: string, baseRevision: number) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     return this.db.transaction(async (tx) => {
       const asset = await this.asset(actor, projectId, id, tx, true);
       if (asset.revision !== baseRevision)
@@ -293,7 +299,7 @@ export class Workflows {
     });
   }
   async releases(actor: Principal, projectId: string, id: string) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     await this.asset(actor, projectId, id);
     return (
       await this.db.query(
@@ -310,7 +316,7 @@ export class Workflows {
     tx: Queryable = this.db,
     lock = false,
   ) {
-    await this.store.project(actor, projectId, tx);
+    await this.deps.projects.get(actor, projectId, tx);
     const [r] = await tx.query(
       `SELECT * FROM workflow_jobs WHERE id=$1 AND project_id=$2 AND actor_id=$3 AND entry=$4 AND kind=$5 ${lock ? "FOR UPDATE" : ""}`,
       [id, projectId, actor.id, actor.entry, kind],
@@ -390,7 +396,7 @@ export class Workflows {
         input,
         requestId,
         hash,
-        this.store.runtimeId,
+        this.deps.runtimeId,
       ],
     );
     return id;
@@ -431,7 +437,7 @@ export class Workflows {
     return this.run(actor, projectId, id);
   }
   async generation(actor: Principal, projectId: string, id: string) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     const r = await this.ownedJob(actor, projectId, id, "generate");
     const input = r.input as z.infer<typeof WorkflowGenerationInput>;
     return WorkflowGeneration.parse({
@@ -451,7 +457,7 @@ export class Workflows {
     });
   }
   async generations(actor: Principal, projectId: string, workflowId: string) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     await this.asset(actor, projectId, workflowId);
     const rows = await this.db.query(
       "SELECT id FROM workflow_jobs WHERE workflow_id=$1 AND actor_id=$2 AND entry=$3 AND kind='generate' ORDER BY created_at DESC LIMIT 20",
@@ -465,7 +471,7 @@ export class Workflows {
     workflowId: string,
     input: z.infer<typeof WorkflowGenerationInput>,
   ) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     const catalog = await this.catalog(actor, projectId);
     if (JSON.stringify(catalog).length > 160000)
       throw new ApiError(
@@ -478,7 +484,7 @@ export class Workflows {
       if (asset.revision !== input.baseRevision)
         throw new ApiError(409, "DRAFT_CONFLICT", "请基于最新草稿生成候选");
       const model = Model.parse(
-        modelDto(await this.store.resource(actor, projectId, input.modelId, "model", tx)),
+        modelDto(await this.deps.resources.get(actor, projectId, input.modelId, "model", tx)),
       );
       if (model.kind !== "chat") throw new ApiError(400, "MODEL_KIND", "编排需要对话模型");
       return this.enqueue(
@@ -497,7 +503,7 @@ export class Workflows {
     return this.generation(actor, projectId, id);
   }
   async accept(actor: Principal, projectId: string, id: string, baseRevision: number) {
-    this.store.requireUser(actor);
+    requireUser(actor);
     return this.db.transaction(async (tx) => {
       // Use the same asset-before-job order as enqueue and publishing.
       const initial = await this.ownedJob(actor, projectId, id, "generate", tx);

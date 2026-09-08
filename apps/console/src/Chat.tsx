@@ -141,12 +141,13 @@ export function Chat({
   messages: UIMessage[];
   onFinish: () => void;
 }) {
+  const [initialMessages] = useState(() => messages);
   const [error, setError] = useState(""),
     runId = useRef<string | null>(null),
     pendingCancel = useRef(false);
   const runtime = useChatRuntime({
     id: conversationId,
-    messages,
+    messages: initialMessages,
     transport: new AssistantChatTransport({
       api: `/api/v1/projects/${projectId}/conversations/${conversationId}/chat`,
       credentials: "include",

@@ -4,8 +4,8 @@ import { test } from "node:test";
 import { Database } from "@platform/database";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
 import { Knowledge } from "../apps/control-plane/src/knowledge.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { Queue } from "../apps/control-plane/src/queue.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
 import { DocumentInput, KnowledgeInput, type Principal } from "../packages/contracts/src/index.ts";
 import { required } from "../scripts/env.ts";
 
@@ -14,11 +14,11 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
     admin = new Database(required("DATABASE_URL"));
   await admin.query(`CREATE SCHEMA ${schema}`);
   const db = new Database(required("DATABASE_URL"), schema),
-    store = new Store(db, new Vault("ab".repeat(32))),
+    store = new Platform(db, new Vault("ab".repeat(32))),
     knowledge = new Knowledge(store);
   try {
     await store.initialize();
-    const ids = await store.setup("owner", "test-password-123", "Knowledge");
+    const ids = await store.identity.setup("owner", "test-password-123", "Knowledge");
     const actor: Principal = {
       id: ids.userId,
       tenantId: ids.tenantId,
@@ -26,8 +26,8 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
       entry: "console",
       displayName: "Owner",
     };
-    const project = await store.createProject(actor, { name: "Knowledge", description: "" });
-    const embedding = await store.createModel(actor, project.id, {
+    const project = await store.projects.create(actor, { name: "Knowledge", description: "" });
+    const embedding = await store.resources.createModel(actor, project.id, {
       name: "Embedding",
       kind: "embedding",
       dimensions: 3,
@@ -37,7 +37,7 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
     });
     await assert.rejects(
       () =>
-        store.createAgent(actor, project.id, {
+        store.agents.create(actor, project.id, {
           name: "Wrong model",
           instructions: "test",
           modelId: embedding.id,
@@ -94,27 +94,33 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
     });
     assert.equal((await knowledge.documents(actor, project.id, kb.id))[0].status, "ready");
     assert.equal((await knowledge.chunks(actor, project.id, kb.id, doc.id)).length, 1);
-    const chat = await store.createModel(actor, project.id, {
+    const chat = await store.resources.createModel(actor, project.id, {
       name: "Chat",
       baseUrl: "http://localhost:9999/v1",
       modelId: "chat",
     });
-    const agent = await store.createAgent(actor, project.id, {
+    const agent = await store.agents.create(actor, project.id, {
       name: "Knowledge agent",
       instructions: "检索资料",
       modelId: chat.id,
       toolIds: [],
       knowledgeBaseIds: [kb.id],
     });
-    const release = await store.publish(actor, project.id, agent.id, 1);
+    const release = await store.agents.publish(actor, project.id, agent.id, 1);
     assert.equal(release.snapshot.knowledgeBases[0].embeddingModel.dimensions, 3);
-    const conversation = await store.createConversation(
+    const conversation = await store.conversations.create(
       actor,
       project.id,
       agent.id,
       "Pinned knowledge",
     );
-    const run = await store.createRun(actor, project.id, conversation.id, "query", randomUUID());
+    const run = await store.conversations.createRun(
+      actor,
+      project.id,
+      conversation.id,
+      "query",
+      randomUUID(),
+    );
     const queue = new Queue(db, store.vault, store.runtimeId),
       agentJob = await queue.claim();
     assert.ok(agentJob);
@@ -134,7 +140,7 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
         }),
       { code: "NOT_FOUND" },
     );
-    await store.cancel(actor, project.id, run.id);
+    await store.conversations.cancel(actor, project.id, run.id);
     await assert.rejects(
       () =>
         knowledge.queryAgent(run.id, {

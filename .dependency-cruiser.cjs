@@ -1,5 +1,11 @@
 module.exports = {
   forbidden: [
+    {
+      name: "domains-do-not-import-composition-root",
+      severity: "error",
+      from: { path: "^apps/control-plane/src/(?!app\\.ts$|main\\.ts$|platform\\.ts$)" },
+      to: { path: "^apps/control-plane/src/platform\\.ts$" },
+    },
     { name: "no-unresolved-imports", severity: "error", from: {}, to: { couldNotResolve: true } },
     {
       name: "no-runtime-cycles",

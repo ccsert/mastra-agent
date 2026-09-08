@@ -6,7 +6,7 @@ import { serve } from "@hono/node-server";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
 import { Vault } from "../apps/control-plane/src/crypto.ts";
-import { Store } from "../apps/control-plane/src/store.ts";
+import { Platform } from "../apps/control-plane/src/platform.ts";
 import { runWorker } from "../apps/runtime/src/worker.ts";
 import { applicationSigner } from "../packages/sdk/src/auth.ts";
 import { createClient } from "../packages/sdk/src/generated/client/index.ts";
@@ -35,7 +35,7 @@ test("generated SDK → MCP discovery → explicit read-only import → publishe
     admin = new Database(required("DATABASE_URL"));
   await admin.query(`CREATE SCHEMA ${schema}`);
   const db = new Database(required("DATABASE_URL"), schema),
-    store = new Store(db, new Vault("f1".repeat(32)));
+    store = new Platform(db, new Vault("f1".repeat(32)));
   await store.initialize();
   const { app, mcp, queue } = createApp(store, {
     origin: "http://console.invalid",
@@ -272,10 +272,10 @@ test("generated SDK → MCP discovery → explicit read-only import → publishe
     // Stop auto-claiming so lease and policy boundaries can be tested deterministically.
     controller.abort();
     await worker;
-    const next = await store.createRun(
+    const next = await store.conversations.createRun(
       actor,
       project.id,
-      (await store.createConversation(actor, project.id, agent.id, "Lease")).id,
+      (await store.conversations.create(actor, project.id, agent.id, "Lease")).id,
       "query",
       randomUUID(),
     );
@@ -292,9 +292,9 @@ test("generated SDK → MCP discovery → explicit read-only import → publishe
     assert.equal((await mcp.authorize(next.id, job.leaseToken, tool.id)).bearerToken, "rotated");
     await mcp.update(actor, project.id, registered.id, { enabled: false });
     await assert.rejects(() => mcp.authorize(next.id, job.leaseToken, tool.id), /停用/);
-    await assert.rejects(() => store.publish(actor, project.id, agent.id, 1), /停用/);
+    await assert.rejects(() => store.agents.publish(actor, project.id, agent.id, 1), /停用/);
     await mcp.update(actor, project.id, registered.id, { enabled: true });
-    await store.cancel(actor, project.id, next.id);
+    await store.conversations.cancel(actor, project.id, next.id);
     await assert.rejects(() => mcp.authorize(next.id, job.leaseToken, tool.id), /取消/);
     await mcp.discover(actor, project.id, registered.id);
     const discoveryJob = await mcp.claim();
