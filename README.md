@@ -38,6 +38,8 @@ HTTP 局域网环境的工作流 ID 使用支持 `crypto.getRandomValues` 回退
 
 ## 验证与 SDK
 
+统一检查入口为 `pnpm check`，依次检查代码规范、模块依赖、类型与构建、生成 SDK 一致性、后端/领域测试及 React 组件回归。依赖检查阻止跨应用源码引用、循环依赖和 Runtime 数据库依赖；详细问题与本轮边界见 [工程质量审查](docs/development/engineering-quality.md)。需要单独调试时使用下列命令，前端组件回归使用 `pnpm test:console`。
+
 ```sh
 pnpm typecheck
 pnpm test

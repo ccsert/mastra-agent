@@ -1,21 +1,10 @@
 import { canonicalJson, ExecutionJob, Tool, WorkflowRuntimeJob, z } from "@platform/contracts";
+import { runtimeClient, type WorkerConfig, waitForPoll } from "./control-client.ts";
 import { executeJob } from "./execute.ts";
 import { executePlatformTool } from "./tool-execute.ts";
-import { runtimeClient, type WorkerConfig } from "./worker.ts";
 import { executeWorkflow } from "./workflow-execute.ts";
 import { generateWorkflowCandidate } from "./workflow-generate.ts";
 
-const pause = (signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) return resolve();
-    const done = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", done);
-      resolve();
-    };
-    const timer = setTimeout(done, 500);
-    signal.addEventListener("abort", done, { once: true });
-  });
 export async function runWorkflowWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
   while (!config.signal.aborted) {
@@ -23,12 +12,12 @@ export async function runWorkflowWorker(config: WorkerConfig) {
     try {
       const result = await post("/internal/runtime/workflows/claim", {});
       if (!result.job) {
-        await pause(config.signal);
+        await waitForPoll(500, config.signal);
         continue;
       }
       job = WorkflowRuntimeJob.parse(result.job);
     } catch {
-      await pause(config.signal);
+      await waitForPoll(500, config.signal);
       continue;
     }
     const stop = new AbortController(),

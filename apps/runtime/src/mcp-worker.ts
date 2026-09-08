@@ -1,6 +1,6 @@
 import { McpJob } from "@platform/contracts";
+import { runtimeClient, type WorkerConfig, waitForPoll } from "./control-client.ts";
 import { discoverMcp } from "./mcp.ts";
-import { runtimeClient, type WorkerConfig } from "./worker.ts";
 
 export async function runMcpWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
@@ -13,16 +13,7 @@ export async function runMcpWorker(config: WorkerConfig) {
       /* Agent worker reports shared control-connection failures. */
     }
     if (!job) {
-      await new Promise<void>((resolve) => {
-        const done = () => {
-          clearTimeout(timer);
-          config.signal.removeEventListener("abort", done);
-          resolve();
-        };
-        const timer = setTimeout(done, 750);
-        if (config.signal.aborted) done();
-        else config.signal.addEventListener("abort", done, { once: true });
-      });
+      await waitForPoll(750, config.signal);
       continue;
     }
     const current = job,

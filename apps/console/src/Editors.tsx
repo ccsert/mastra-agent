@@ -3,6 +3,7 @@ import * as api from "@platform/sdk";
 import { Alert, Button, Drawer, Form, Input, InputNumber, Select } from "antd";
 import { useEffect, useState } from "react";
 import { unwrap } from "./api";
+import { useLifetime } from "./useLifetime";
 export type EditorKind = "project" | "model" | "tool" | "agent" | "application";
 type Values = {
   name: string;
@@ -50,6 +51,7 @@ export function Editor({
   onSaved: () => void;
   onCredential: (value: Application & { secretKey: string }) => void;
 }) {
+  const lifetime = useLifetime();
   const [form] = Form.useForm<Values>(),
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
@@ -73,17 +75,22 @@ export function Editor({
     }
   }, [kind, agent, form]);
   async function submit(values: Values) {
+    const signal = lifetime();
     setSaving(true);
     setError("");
     try {
       const path = { projectId };
       if (kind === "project")
         await unwrap(
-          api.createProject({ body: { name: values.name, description: values.description ?? "" } }),
+          api.createProject({
+            signal,
+            body: { name: values.name, description: values.description ?? "" },
+          }),
         );
       if (kind === "model")
         await unwrap(
           api.createModel({
+            signal,
             path,
             body: {
               name: values.name,
@@ -100,6 +107,7 @@ export function Editor({
       if (kind === "tool")
         await unwrap(
           api.createTool({
+            signal,
             path,
             body: {
               name: values.name,
@@ -125,20 +133,27 @@ export function Editor({
         if (agent)
           await unwrap(
             api.updateAgent({
+              signal,
               path: { ...path, id: agent.id },
               body: { ...body, baseRevision: agent.draftRevision },
             }),
           );
-        else await unwrap(api.createAgent({ path, body }));
+        else await unwrap(api.createAgent({ path, body, signal }));
       }
-      if (kind === "application")
-        onCredential(await unwrap(api.createApplication({ path, body: { name: values.name } })));
+      if (kind === "application") {
+        const credential = await unwrap(
+          api.createApplication({ path, body: { name: values.name }, signal }),
+        );
+        if (signal.aborted) return;
+        onCredential(credential);
+      }
+      if (signal.aborted) return;
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      if (!signal.aborted) setError(e instanceof Error ? e.message : "保存失败");
     } finally {
-      setSaving(false);
+      if (!signal.aborted) setSaving(false);
     }
   }
   return (
