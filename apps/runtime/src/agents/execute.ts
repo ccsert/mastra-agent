@@ -105,7 +105,7 @@ async function executeAgent(
   const agent = new Agent({
     id: job.runId,
     name: job.snapshot.agent.name,
-    instructions: job.snapshot.agent.instructions,
+    instructions: job.snapshot.agent.instructions + (prepared?.instructions ?? ""),
     model,
     tools,
     workspace: prepared?.workspace,
@@ -164,6 +164,7 @@ export async function executeJob(
     access?.skillAccess,
     signal,
     access?.skillSandboxImage,
+    job.skillVersionIds,
   );
   try {
     const result = await executeAgent(job, prepared.signal, onChunk, access, prepared);

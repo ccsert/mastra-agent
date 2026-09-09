@@ -3,6 +3,57 @@
   grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
   gap: 20px;
 }
+.agent-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 32px;
+  align-items: start;
+}
+.agent-editor-section {
+  border-bottom: 1px solid #e4ebe6;
+  padding-bottom: 16px;
+  margin-bottom: 28px;
+}
+.agent-editor-section h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+.agent-editor-fields .agent-instructions {
+  font:
+    13px / 1.8 ui-monospace,
+    monospace;
+  padding: 16px;
+  resize: vertical;
+}
+.agent-editor-summary {
+  background: #f7faf8;
+  padding: 20px;
+  border: 1px solid #e4ebe6;
+  border-radius: 10px;
+  position: sticky;
+  top: 0;
+}
+.agent-editor-summary h3,
+.agent-editor-summary p {
+  overflow-wrap: anywhere;
+}
+.agent-editor-summary p {
+  color: #64748b;
+  line-height: 1.8;
+}
+.agent-editor-summary dl {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 14px;
+  margin-block: 24px;
+}
+.agent-editor-summary dt {
+  color: #64748b;
+}
+.agent-editor-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .agent-card {
   background: white;
   border: 1px solid #e4ebe6;

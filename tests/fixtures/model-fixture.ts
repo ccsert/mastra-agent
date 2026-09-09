@@ -11,6 +11,7 @@ export async function startModelFixture(
   let calls = 0;
   const advertisedTools = new Set<string>();
   const toolResults: unknown[] = [];
+  const systemPrompts: string[] = [];
   const server = createServer(async (req, res) => {
     if (req.url === "/health") {
       res.end("test-fixture");
@@ -34,6 +35,9 @@ export async function startModelFixture(
     for await (const chunk of req) raw += chunk;
     const input = JSON.parse(raw);
     calls++;
+    systemPrompts.push(
+      JSON.stringify(input.messages.filter((m: { role: string }) => m.role === "system")),
+    );
     toolResults.push(
       ...input.messages
         .filter((m: { role: string }) => m.role === "tool")
@@ -135,6 +139,7 @@ export async function startModelFixture(
     server,
     advertisedTools,
     toolResults,
+    systemPrompts,
     url: `http://127.0.0.1:${address.port}`,
     get calls() {
       return calls;

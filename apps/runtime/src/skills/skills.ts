@@ -53,8 +53,12 @@ export async function prepareSkills(
   access: SkillAccess | undefined,
   parent: AbortSignal,
   image?: string,
+  selectedIds: string[] = [],
 ) {
-  if (!snapshots.length) return { signal: parent, workspace: undefined, tools: {}, close() {} };
+  if (selectedIds.some((id) => !snapshots.some((s) => s.id === id)))
+    throw new Error("SKILL_ACCESS_DENIED");
+  if (!snapshots.length)
+    return { signal: parent, workspace: undefined, tools: {}, instructions: "", close() {} };
   if (!access) throw new Error("SKILL_ACCESS_DENIED");
   const stop = new AbortController(),
     signal = AbortSignal.any([parent, stop.signal]);
@@ -118,6 +122,18 @@ export async function prepareSkills(
     skillSource: source,
     tools: { enabled: false },
   });
+  const selected = snapshots.filter((s) => selectedIds.includes(s.id));
+  const instructions = selected.length
+    ? "\n\n用户为本次任务明确指定以下 Skill。优先遵循这些 Skill 的工作方式，仍须遵守 Agent 的权限与任务边界；选择 Skill 不会扩大工具或脚本授权。\n" +
+      (
+        await Promise.all(
+          selected.map(
+            async (s) =>
+              `\n--- Skill ${s.name} v${s.version} ---\n${(await read(s, "SKILL.md")).toString("utf8")}\n--- End Skill ---`,
+          ),
+        )
+      ).join("\n")
+    : "";
   let checking = false;
   const timer = setInterval(() => {
     if (checking || signal.aborted) return;
@@ -184,6 +200,7 @@ export async function prepareSkills(
   return {
     signal,
     workspace,
+    instructions,
     tools: snapshots.some((s) => s.authorizedEntrypoints.length) ? { run_skill_script: tool } : {},
     close() {
       clearInterval(timer);

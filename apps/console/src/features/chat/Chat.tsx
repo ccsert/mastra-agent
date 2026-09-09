@@ -1,28 +1,45 @@
-import {
-  ArrowUpOutlined,
-  BorderOutlined,
-  RobotOutlined,
-  ToolOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
+import { RobotOutlined, ToolOutlined, UserOutlined } from "@ant-design/icons";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/ai-sdk";
 import {
   AssistantRuntimeProvider,
-  AuiIf,
-  ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
   type ToolCallMessagePartComponent,
+  useAuiState,
 } from "@assistant-ui/react";
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
-import { cancelRun } from "@platform/sdk";
+import { cancelRun, getConversationCapabilities } from "@platform/sdk";
+import { useQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
-import { Alert } from "antd";
+import { Alert, Tag } from "antd";
 import { useRef, useState } from "react";
+import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 import { unwrap } from "../../shared/api";
+import { projectKey, useProjectId } from "../../shared/data/ProjectData";
+import { projectPath } from "../../shared/navigation";
+import { ChatComposer } from "./ChatComposer";
 
 type Citation = { citationId: string; filename: string; ordinal: number; content: string };
+function MessageContext({ trace = false }: { trace?: boolean }) {
+  const projectId = useProjectId();
+  const metadata = useAuiState((s) => s.message.metadata.custom);
+  const skills = Array.isArray(metadata?.selectedSkills) ? metadata.selectedSkills : [];
+  return (
+    <div className="message-context">
+      {skills.map((s) =>
+        s && typeof s === "object" && "versionId" in s && "name" in s && "version" in s ? (
+          <Tag key={String(s.versionId)}>
+            {String(s.name)} · v{String(s.version)}
+          </Tag>
+        ) : null,
+      )}
+      {trace && typeof metadata?.runId === "string" && (
+        <Link to={projectPath(projectId, "runs", metadata.runId)}>查看本次运行轨迹</Link>
+      )}
+    </div>
+  );
+}
 function citations(value: unknown): Citation[] {
   if (!value || typeof value !== "object" || !("sources" in value) || !Array.isArray(value.sources))
     return [];
@@ -89,6 +106,7 @@ function UserMessage() {
       <div className="message-body">
         <small>你</small>
         <MessagePrimitive.Parts />
+        <MessageContext />
       </div>
     </MessagePrimitive.Root>
   );
@@ -123,6 +141,7 @@ function AssistantMessage() {
             return null;
           }}
         </MessagePrimitive.Parts>
+        <MessageContext trace />
         <MessagePrimitive.Error>
           <p className="chat-error">本次运行未完成，请查看错误提示和运行记录。</p>
         </MessagePrimitive.Error>
@@ -141,6 +160,15 @@ export function Chat({
   messages: UIMessage[];
   onFinish: () => void;
 }) {
+  const capabilities = useQuery({
+    queryKey: projectKey(projectId, "conversations", conversationId, "capabilities"),
+    queryFn: ({ signal }) =>
+      unwrap(getConversationCapabilities({ path: { projectId, id: conversationId }, signal })),
+    gcTime: 0,
+  });
+  const [selected, setSelected] = useState<string[]>([]);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
   const [initialMessages] = useState(() => messages);
   const [error, setError] = useState(""),
     runId = useRef<string | null>(null),
@@ -151,11 +179,13 @@ export function Chat({
     transport: new AssistantChatTransport({
       api: `/api/v1/projects/${projectId}/conversations/${conversationId}/chat`,
       credentials: "include",
+      body: () => ({ skillVersionIds: selectedRef.current }),
       fetch: async (input, init) => {
         setError("");
         runId.current = null;
         const response = await fetch(input, init);
         runId.current = response.headers.get("x-platform-run-id");
+        if (response.ok) setSelected([]);
         if (pendingCancel.current) await stop();
         return response;
       },
@@ -196,32 +226,14 @@ export function Chat({
         </ThreadPrimitive.Viewport>
         <div className="composer-area">
           {error && <Alert type="error" title={error} closable={{ onClose: () => setError("") }} />}
-          <ComposerPrimitive.Root className="composer">
-            <ComposerPrimitive.Input
-              aria-label="消息"
-              placeholder="描述你的任务…"
-              className="composer-input"
-              rows={2}
-            />
-            <div className="composer-footer">
-              <span>Enter 发送 · Shift + Enter 换行</span>
-              <AuiIf condition={(state) => !state.thread.isRunning}>
-                <ComposerPrimitive.Send className="send-button" aria-label="发送消息">
-                  <ArrowUpOutlined />
-                </ComposerPrimitive.Send>
-              </AuiIf>
-              <AuiIf condition={(state) => state.thread.isRunning}>
-                <button
-                  type="button"
-                  className="send-button cancel-button"
-                  aria-label="停止生成"
-                  onClick={() => void stop()}
-                >
-                  <BorderOutlined />
-                </button>
-              </AuiIf>
-            </div>
-          </ComposerPrimitive.Root>
+          <ChatComposer
+            skills={capabilities.data?.skills ?? []}
+            selected={selected}
+            onSelect={setSelected}
+            stop={stop}
+            loading={capabilities.isPending}
+            error={capabilities.isError}
+          />
           <p className="chat-footnote">
             模型输出请结合业务事实核对。会话与运行记录保存在当前项目中。
           </p>

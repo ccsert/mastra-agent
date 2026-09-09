@@ -10,6 +10,7 @@ export function EditorForm<T extends object>({
   notice,
   ready = true,
   submitLabel = "保存",
+  size = 560,
   onSubmit,
   onClose,
   onSaved,
@@ -20,6 +21,7 @@ export function EditorForm<T extends object>({
   notice?: ReactNode;
   ready?: boolean;
   submitLabel?: string;
+  size?: number;
   onSubmit(values: T, signal: AbortSignal): Promise<void>;
 }) {
   const { busy, error, run } = useOperation();
@@ -28,7 +30,7 @@ export function EditorForm<T extends object>({
       title={title}
       open
       onClose={onClose}
-      size={560}
+      size={size}
       destroyOnHidden
       footer={
         <div className="dialog-footer">

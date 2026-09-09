@@ -530,3 +530,77 @@
 .conversation-pagination {
   padding-inline: 16px;
 }
+.composer {
+  position: relative;
+}
+.chat-command-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #dce7df;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px #183d2426;
+  z-index: 10;
+  padding: 12px;
+}
+.chat-command-menu header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 8px;
+}
+.chat-command-menu [role="listbox"] {
+  max-height: 280px;
+  overflow: auto;
+}
+.chat-command-menu [role="option"] {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: inherit;
+}
+.chat-command-menu [role="option"].active {
+  background: #eef5f0;
+}
+.chat-command-menu [aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.chat-command-menu [role="option"] strong,
+.chat-command-menu [role="option"] small {
+  display: block;
+}
+.chat-command-menu small {
+  color: #64748b;
+  margin-top: 4px;
+}
+.chat-command-menu footer {
+  border-top: 1px solid #edf1ee;
+  margin-top: 8px;
+  padding: 10px 4px 0;
+  font-size: 11px;
+  color: #64748b;
+}
+.chat-command-selection {
+  padding: 12px 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.message-context {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 11px;
+}

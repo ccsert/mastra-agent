@@ -3,7 +3,7 @@ import * as api from "@platform/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { Button, Spin, Tag } from "antd";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { timestamp, unwrap } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
 import {
@@ -15,6 +15,7 @@ import {
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 import type { ResourceSelection } from "../../shared/navigation";
+import { ConversationRuns } from "../runs/index";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
 export function ChatWorkspace({
@@ -25,6 +26,7 @@ export function ChatWorkspace({
   onCreate(): void;
 }) {
   const projectId = useProjectId();
+  const [tracing, setTracing] = useState(false);
   const detailQuery = useQuery({
     queryKey: projectKey(projectId, "conversations", selectedId ?? "", "detail"),
     queryFn: ({ signal }) =>
@@ -80,9 +82,20 @@ export function ChatWorkspace({
                     <strong>{conversation.title}</strong>
                     <span>会话 {conversation.id.slice(0, 8)}</span>
                   </div>
-                  <Tag color="blue">固定版本 v{conversation.releaseVersion}</Tag>
+                  <div>
+                    <Button onClick={() => setTracing(true)}>运行轨迹</Button>{" "}
+                    <Tag color="blue">固定版本 v{conversation.releaseVersion}</Tag>
+                  </div>
                 </header>
                 <ConversationSession key={conversation.id} conversationId={conversation.id} />
+                {tracing && (
+                  <ConversationRuns
+                    key={conversation.id}
+                    projectId={projectId}
+                    conversationId={conversation.id}
+                    onClose={() => setTracing(false)}
+                  />
+                )}
               </>
             )}
           </QueryState>

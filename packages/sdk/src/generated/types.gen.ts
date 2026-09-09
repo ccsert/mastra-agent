@@ -213,6 +213,36 @@ export type SkillFileContent = {
     hash: string;
 };
 
+export type ConversationCapabilities = {
+    skills: Array<{
+        versionId: string;
+        name: string;
+        version: number;
+        description: string;
+        enabled: boolean;
+    }>;
+};
+
+export type Run = {
+    id: string;
+    conversationId: string;
+    releaseId: string;
+    releaseVersion: number;
+    agentName: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    runtimeId: string;
+    createdAt: string;
+    finishedAt: string | null;
+    errorCode: string | null;
+    outputText: string | null;
+    inputText?: string | null;
+    selectedSkills?: Array<{
+        versionId: string;
+        name: string;
+        version: number;
+    }>;
+};
+
 export type Conversation = {
     id: string;
     agentId: string;
@@ -234,26 +264,21 @@ export type Message = {
     parts: Array<{
         [key: string]: unknown;
     }>;
-};
-
-export type Run = {
-    id: string;
-    conversationId: string;
-    releaseId: string;
-    releaseVersion: number;
-    agentName: string;
-    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-    runtimeId: string;
-    createdAt: string;
-    finishedAt: string | null;
-    errorCode: string | null;
-    outputText: string | null;
+    metadata?: {
+        runId: string;
+        selectedSkills?: Array<{
+            versionId: string;
+            name: string;
+            version: number;
+        }>;
+    };
 };
 
 export type RunInput = {
     conversationId: string;
     input: string;
     requestId: string;
+    skillVersionIds?: Array<string>;
 };
 
 export type RunEvent = {
@@ -1684,6 +1709,113 @@ export type GetSkillFileResponses = {
 
 export type GetSkillFileResponse = GetSkillFileResponses[keyof GetSkillFileResponses];
 
+export type GetConversationCapabilitiesData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/capabilities';
+};
+
+export type GetConversationCapabilitiesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetConversationCapabilitiesError = GetConversationCapabilitiesErrors[keyof GetConversationCapabilitiesErrors];
+
+export type GetConversationCapabilitiesResponses = {
+    /**
+     * 成功
+     */
+    200: ConversationCapabilities;
+};
+
+export type GetConversationCapabilitiesResponse = GetConversationCapabilitiesResponses[keyof GetConversationCapabilitiesResponses];
+
+export type ListConversationRunsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/v1/projects/{projectId}/conversations/{id}/runs';
+};
+
+export type ListConversationRunsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListConversationRunsError = ListConversationRunsErrors[keyof ListConversationRunsErrors];
+
+export type ListConversationRunsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<Run>;
+};
+
+export type ListConversationRunsResponse = ListConversationRunsResponses[keyof ListConversationRunsResponses];
+
 export type ListConversationsData = {
     body?: never;
     path: {
@@ -2371,10 +2503,17 @@ export type RevokeApplicationResponse = RevokeApplicationResponses[keyof RevokeA
 
 export type StreamConversationData = {
     body: {
-        messages: Array<Message>;
+        messages: Array<{
+            id: string;
+            role: 'user' | 'assistant';
+            parts: Array<{
+                [key: string]: unknown;
+            }>;
+        }>;
         id?: string;
         trigger?: string;
         messageId?: string;
+        skillVersionIds?: Array<string>;
         [key: string]: unknown;
     };
     path: {

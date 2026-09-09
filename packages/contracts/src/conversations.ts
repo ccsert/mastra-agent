@@ -17,11 +17,25 @@ export const Conversation = z
     createdAt: z.string(),
   })
   .openapi("Conversation");
+export const SelectedSkill = z.object({
+  versionId: Id,
+  name: z.string(),
+  version: z.number().int(),
+});
+export const SkillSelection = z.array(Id).max(10).default([]);
+export const ConversationCapabilities = z
+  .object({
+    skills: z.array(SelectedSkill.extend({ description: z.string(), enabled: z.boolean() })),
+  })
+  .openapi("ConversationCapabilities");
 export const Message = z
   .object({
     id: z.string(),
     role: z.enum(["user", "assistant"]),
     parts: z.array(z.record(z.string(), z.unknown())),
+    metadata: z
+      .object({ runId: Id, selectedSkills: z.array(SelectedSkill).default([]) })
+      .optional(),
   })
   .openapi("Message");
 export const RunInput = z
@@ -29,6 +43,7 @@ export const RunInput = z
     conversationId: Id,
     input: z.string().trim().min(1).max(16000),
     requestId: z.string().min(1).max(100),
+    skillVersionIds: SkillSelection,
   })
   .strict()
   .openapi("RunInput");
@@ -45,6 +60,8 @@ export const Run = z
     finishedAt: z.string().nullable(),
     errorCode: z.string().nullable(),
     outputText: z.string().nullable(),
+    inputText: z.string().nullable().default(null),
+    selectedSkills: z.array(SelectedSkill).default([]),
   })
   .openapi("Run");
 export const RunEvent = z
@@ -59,6 +76,7 @@ export const ExecutionJob = z.object({
   leaseToken: z.string(),
   snapshot: ReleaseSnapshot,
   messages: z.array(Message),
+  skillVersionIds: SkillSelection,
   credentials: z.object({
     modelApiKey: z.string(),
     toolTokens: z.record(z.string(), z.string()),

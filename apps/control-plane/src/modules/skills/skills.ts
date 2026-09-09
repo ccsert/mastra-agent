@@ -33,6 +33,13 @@ export class Skills {
     private readonly projects: Projects,
     private readonly runtimeId: string,
   ) {}
+  async availability(tx: Queryable, scope: { projectId: string; tenantId: string }, ids: string[]) {
+    const rows = await tx.query(
+      "SELECT id FROM skill_versions WHERE project_id=$1 AND tenant_id=$2 AND id=ANY($3::uuid[]) AND enabled=true",
+      [scope.projectId, scope.tenantId, ids],
+    );
+    return new Set(rows.map((r) => String(r.id)));
+  }
   async list(actor: Principal, projectId: string, input: PageInput = {}) {
     requireUser(actor);
     await this.projects.get(actor, projectId);

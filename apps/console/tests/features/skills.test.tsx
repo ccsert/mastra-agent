@@ -8,6 +8,41 @@ import { ProjectData } from "../../src/shared/data/ProjectData.tsx";
 import { Selection } from "../helpers/selection.tsx";
 
 afterEach(cleanup);
+test("Skill file tree keeps nested directories and switches to the selected file", async () => {
+  const paths: string[] = [];
+  const content = {
+    ...version,
+    files: [
+      ...version.files,
+      { path: "references/orders/rules.md", hash: "nested", size: 7, encoding: "utf-8" },
+      { path: "scripts/run.py", hash: "script", size: 4, encoding: "utf-8" },
+    ],
+  };
+  globalThis.fetch = async (input) => {
+    const url = new URL((input as Request).url);
+    if (url.pathname.endsWith("/file")) {
+      const path = url.searchParams.get("path") ?? "";
+      paths.push(path);
+      return Response.json({
+        path,
+        contentBase64: btoa(path === "SKILL.md" ? "readme" : "nested rules"),
+        hash: "test",
+      });
+    }
+    return Response.json(url.pathname.endsWith("/skills") ? [content] : content);
+  };
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: /order-summary/ }));
+  await screen.findByText("readme");
+  assert.ok(screen.getByRole("tree"));
+  assert.equal(screen.queryByRole("combobox", { name: "Skill 文件" }), null);
+  fireEvent.click(screen.getByText("rules.md"));
+  await screen.findByText("nested rules");
+  assert.deepEqual(paths, ["SKILL.md", "references/orders/rules.md"]);
+  fireEvent.change(screen.getByLabelText("搜索包内文件"), { target: { value: "scripts" } });
+  assert.ok(screen.getByText("run.py"));
+  assert.equal(screen.queryByText("rules.md"), null);
+});
 function mount() {
   return render(
     <ConfigProvider theme={{ token: { motion: false } }}>

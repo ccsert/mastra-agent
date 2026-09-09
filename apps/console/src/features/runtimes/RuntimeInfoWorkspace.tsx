@@ -1,5 +1,5 @@
 import { CloudServerOutlined } from "@ant-design/icons";
-import { Tag } from "antd";
+import { Alert, Tag } from "antd";
 import { timestamp } from "../../shared/api";
 import { useProjectQuery } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
@@ -8,6 +8,13 @@ export function RuntimeInfoWorkspace() {
     runtimes = runtimesQuery.data ?? [];
   return (
     <QueryState label="Runtime" query={runtimesQuery}>
+      <Alert
+        type="info"
+        showIcon
+        title="当前使用预配置的托管 Runtime"
+        description="Runtime 以独立服务主动连接控制面，可单独部署。客户 Runtime 的注册、凭据管理、项目绑定和私网连接器尚未开放。"
+        className="form-alert"
+      />
       <div className="runtime-grid">
         {runtimes.map((r) => (
           <section className="runtime-card" key={r.id}>
@@ -36,10 +43,12 @@ export function RuntimeInfoWorkspace() {
               </div>
               <div>
                 <dt>执行能力</dt>
-                <dd>Agent · 授权只读工具</dd>
+                <dd>Agent · 工作流 · 知识处理 · Skills · HTTP / MCP 工具</dd>
               </div>
             </dl>
-            <p>Runtime 独立执行任务，并回传消息与工具事件。</p>
+            <p>
+              按任务的模型、工具和沙箱配置执行；在线状态仅表示连接正常，各项能力仍取决于实际依赖。
+            </p>
           </section>
         ))}
       </div>

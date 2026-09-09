@@ -151,6 +151,41 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
     const conversation = defined(
       (await sdk.createConversation({ client, path, body: { agentId: agent.id } })).data,
     );
+    const capabilities = defined(
+      (await sdk.getConversationCapabilities({ client, path: { ...path, id: conversation.id } }))
+        .data,
+    );
+    assert.deepEqual(
+      capabilities.skills.map((s) => [s.versionId, s.enabled]),
+      [[v1.id, true]],
+    );
+    assert.equal(
+      (
+        await sdk.getConversationCapabilities({
+          client,
+          path: { projectId: other.id, id: conversation.id },
+          throwOnError: false,
+        })
+      ).response?.status,
+      404,
+    );
+    assert.equal(
+      (
+        await sdk.createRun({
+          client,
+          path,
+          body: {
+            conversationId: conversation.id,
+            input: "unbound",
+            requestId: randomUUID(),
+            skillVersionIds: [v2.id],
+          },
+          throwOnError: false,
+        })
+      ).response?.status,
+      403,
+    );
+    const requestId = randomUUID();
     const run = defined(
       (
         await sdk.createRun({
@@ -159,10 +194,59 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
           body: {
             conversationId: conversation.id,
             input: "使用 Skill 计算 40 与 80",
-            requestId: randomUUID(),
+            requestId,
+            skillVersionIds: [v1.id],
           },
         })
       ).data,
+    );
+    assert.deepEqual(run.selectedSkills, [{ versionId: v1.id, name: v1.name, version: 1 }]);
+    assert.equal(
+      (
+        await sdk.createRun({
+          client,
+          path,
+          body: {
+            conversationId: conversation.id,
+            input: JSON.stringify(["使用 Skill 计算 40 与 80", [v1.id]]),
+            requestId,
+          },
+          throwOnError: false,
+        })
+      ).response?.status,
+      409,
+    );
+    assert.equal(
+      (
+        await sdk.createRun({
+          client,
+          path,
+          body: {
+            conversationId: conversation.id,
+            input: "使用 Skill 计算 40 与 80",
+            requestId,
+            skillVersionIds: [v1.id, v1.id],
+          },
+        })
+      ).data?.id,
+      run.id,
+    );
+    assert.equal(
+      (
+        await sdk.createRun({
+          client,
+          path,
+          body: { conversationId: conversation.id, input: "使用 Skill 计算 40 与 80", requestId },
+          throwOnError: false,
+        })
+      ).response?.status,
+      409,
+    );
+    assert.deepEqual(
+      (
+        await sdk.listConversationRuns({ client, path: { ...path, id: conversation.id } })
+      ).data?.map((r) => r.id),
+      [run.id],
     );
     const denied = await fetch(`${baseUrl}/internal/runtime/runs/${run.id}/skills`, {
       method: "POST",
@@ -197,6 +281,9 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
     }
     const completed = await wait(run.id);
     assert.equal(completed.status, "succeeded", JSON.stringify(completed));
+    assert.match(model.systemPrompts[0], /用户为本次任务明确指定/);
+    assert.match(model.systemPrompts[0], /ONE/);
+    assert.doesNotMatch(model.systemPrompts[0], /TWO/);
     const events = defined(
         (await sdk.listRunEvents({ client, path: { ...path, id: run.id } })).data,
       ),
@@ -216,6 +303,8 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
       (await sdk.listMessages({ client, path: { ...path, id: conversation.id } })).data,
     );
     assert.match(JSON.stringify(messages), /ONE/);
+    assert.equal(messages[0].metadata?.runId, run.id);
+    assert.equal(messages[0].metadata?.selectedSkills?.[0].versionId, v1.id);
     const workflow = defined(
       (
         await sdk.createWorkflow({
@@ -292,6 +381,27 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
     assert.match(workflowTools, /ONE/);
     if (script) assert.match(workflowTools, /total.*120/);
     await sdk.setSkillAccess({ client, path: { ...path, id: v1.id }, body: { enabled: false } });
+    assert.equal(
+      (await sdk.getConversationCapabilities({ client, path: { ...path, id: conversation.id } }))
+        .data?.skills[0].enabled,
+      false,
+    );
+    assert.equal(
+      (
+        await sdk.createRun({
+          client,
+          path,
+          body: {
+            conversationId: conversation.id,
+            input: "revoked",
+            requestId: randomUUID(),
+            skillVersionIds: [v1.id],
+          },
+          throwOnError: false,
+        })
+      ).response?.status,
+      403,
+    );
     const before = model.calls,
       next = defined(
         (

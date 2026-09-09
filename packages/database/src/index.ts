@@ -44,6 +44,10 @@ export class Database implements Queryable {
     const workflows = await readFile(new URL("./workflows.sql", import.meta.url), "utf8");
     const pagination = await readFile(new URL("./pagination.sql", import.meta.url), "utf8");
     const skills = await readFile(new URL("./skills.sql", import.meta.url), "utf8");
+    const conversationContext = await readFile(
+      new URL("./conversation-context.sql", import.meta.url),
+      "utf8",
+    );
     const directories = await readFile(
       new URL("./resource-directories.sql", import.meta.url),
       "utf8",
@@ -71,6 +75,10 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=7",
       );
       if (!directoriesApplied) await tx.query(directories);
+      const [contextApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=8",
+      );
+      if (!contextApplied) await tx.query(conversationContext);
     });
   }
   async close() {

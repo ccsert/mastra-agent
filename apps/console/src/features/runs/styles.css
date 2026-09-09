@@ -73,3 +73,140 @@
   padding: 12px;
   line-height: 1.8;
 }
+.trajectory-summary {
+  display: flex;
+  gap: 22px;
+  padding: 14px 0;
+  font-weight: 600;
+}
+.trajectory-layout {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  align-items: start;
+}
+.trajectory-layout.inspecting {
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr);
+}
+.trajectory-steps {
+  min-width: 0;
+}
+.trajectory-steps h4 {
+  color: #64748b;
+  font-size: 12px;
+  margin: 20px 0 8px;
+}
+.trace-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 14px 10px;
+  background: #fff;
+  border: 1px solid #e5ebe7;
+  margin: 6px 0;
+  border-radius: 7px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.trace-row:hover,
+.trace-row.selected {
+  background: #f1f7f3;
+  border-color: #78a288;
+}
+.trace-row > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.trace-row strong {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.trace-row small {
+  display: block;
+  color: #64748b;
+  margin-top: 5px;
+  font-size: 10px;
+}
+.trace-row code {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.trace-inspector {
+  border: 1px solid #dce7df;
+  border-radius: 8px;
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  min-width: 0;
+  max-height: 70vh;
+  overflow: auto;
+}
+.trace-inspector header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.trace-inspector header button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+}
+.trace-inspector pre,
+.trace-input pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f7f9f7;
+  border-radius: 6px;
+  padding: 12px;
+  font:
+    12px / 1.8 ui-monospace,
+    monospace;
+}
+.trace-raw {
+  border-top: 1px solid #e5ebe7;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.trace-raw summary,
+.trace-inspector summary,
+.trace-input summary {
+  cursor: pointer;
+}
+.conversation-traces {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 24px;
+}
+.conversation-traces > aside {
+  border-right: 1px solid #e5ebe7;
+  padding-right: 16px;
+}
+.conversation-trace {
+  display: block;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 14px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.conversation-trace.selected {
+  background: #f1f7f3;
+  border-color: #b0cbbb;
+}
+.conversation-trace strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.conversation-trace small {
+  display: block;
+  color: #64748b;
+  margin: 8px 0;
+}

@@ -61,6 +61,7 @@ export class Queue {
         leaseToken,
         snapshot,
         messages,
+        skillVersionIds: run.skill_version_ids,
         credentials,
         deadline: new Date(String(run.deadline)).getTime(),
       });
@@ -124,7 +125,11 @@ export class Queue {
         } catch {
           throw new ApiError(400, "INVALID_COMPLETION", "Assistant 消息格式不正确");
         }
-        const message = { ...input.message, id: `assistant-${id}` };
+        const message = {
+          ...input.message,
+          id: `assistant-${id}`,
+          metadata: { runId: id, selectedSkills: [] },
+        };
         outputText = message.parts
           .filter((p) => p.type === "text")
           .map((p) => String(p.text ?? ""))

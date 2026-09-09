@@ -1,12 +1,14 @@
 import { createRoute } from "@hono/zod-openapi";
 import {
   Conversation,
+  ConversationCapabilities,
   ConversationInput,
   Message,
   PageQuery,
   Run,
   RunEvent,
   RunInput,
+  SkillSelection,
   z,
 } from "@platform/contracts";
 import type { UIMessageChunk } from "ai";
@@ -23,6 +25,39 @@ import {
 import { ApiError } from "../../infrastructure/errors.ts";
 import type { Conversations } from "./conversations.ts";
 export function registerConversationRoutes(app: ApiApp, conversations: Conversations) {
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/capabilities",
+      operationId: "getConversationCapabilities",
+      request: { params: itemParams },
+      responses: { 200: json(ConversationCapabilities), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.capabilities(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/runs",
+      operationId: "listConversationRuns",
+      request: { params: itemParams, query: PageQuery },
+      responses: { 200: pageJson(Run), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      const page = await conversations.runs(
+        c.get("principal"),
+        projectId,
+        c.req.valid("query"),
+        id,
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
+    },
+  );
   app.openapi(
     createRoute({
       method: "get",
@@ -100,7 +135,7 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       responses: { 200: json(Run), ...errors },
     }),
     async (c) => {
-      const { conversationId, input, requestId } = c.req.valid("json");
+      const { conversationId, input, requestId, skillVersionIds } = c.req.valid("json");
       return c.json(
         await conversations.createRun(
           c.get("principal"),
@@ -108,6 +143,7 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
           conversationId,
           input,
           requestId,
+          skillVersionIds,
         ),
         200,
       );
@@ -177,10 +213,14 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
 export function registerChatRoute(app: ApiApp, conversations: Conversations) {
   const chatBody = z
     .object({
-      messages: z.array(Message).min(1).max(300),
+      messages: z
+        .array(Message.omit({ metadata: true }))
+        .min(1)
+        .max(300),
       id: z.string().optional(),
       trigger: z.string().optional(),
       messageId: z.string().optional(),
+      skillVersionIds: SkillSelection,
     })
     .passthrough();
   app.openapi(
@@ -213,7 +253,14 @@ export function registerChatRoute(app: ApiApp, conversations: Conversations) {
       if (!prompt || prompt.length > 16000)
         throw new ApiError(400, "INVALID_MESSAGE", "消息为空或过长");
       const actor = c.get("principal"),
-        run = await conversations.createRun(actor, projectId, id, prompt, last.id);
+        run = await conversations.createRun(
+          actor,
+          projectId,
+          id,
+          prompt,
+          last.id,
+          input.skillVersionIds,
+        );
       let stopped = false,
         after = -1,
         errorSent = false;
@@ -228,7 +275,14 @@ export function registerChatRoute(app: ApiApp, conversations: Conversations) {
                 const checked = await uiMessageChunkSchema().validate?.(event.chunk);
                 if (!checked?.success) throw new Error("Invalid stream event");
                 const chunk = checked.value;
-                controller.enqueue(chunk);
+                controller.enqueue(
+                  chunk.type === "start"
+                    ? {
+                        ...chunk,
+                        messageMetadata: { runId: run.id, selectedSkills: run.selectedSkills },
+                      }
+                    : chunk,
+                );
                 if (chunk.type === "error") errorSent = true;
                 after = event.seq;
               }

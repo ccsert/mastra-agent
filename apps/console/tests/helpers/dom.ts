@@ -35,6 +35,16 @@ Object.defineProperty(globalThis, "getComputedStyle", {
   configurable: true,
   value: (element: Element) => window.getComputedStyle(element),
 });
+Object.defineProperty(globalThis, "requestAnimationFrame", {
+  configurable: true,
+  value: window.requestAnimationFrame.bind(window),
+});
+Object.defineProperty(globalThis, "cancelAnimationFrame", {
+  configurable: true,
+  value: window.cancelAnimationFrame.bind(window),
+});
+// jsdom has no layout engine; exercise the chat lifecycle without emulating scrolling geometry.
+window.HTMLElement.prototype.scrollTo = () => {};
 window.matchMedia = (query) => ({
   matches: false,
   media: query,

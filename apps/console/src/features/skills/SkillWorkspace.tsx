@@ -2,7 +2,7 @@ import { FileZipOutlined, InboxOutlined } from "@ant-design/icons";
 import type { SkillVersion } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { useQuery } from "@tanstack/react-query";
-import { Alert, App, Button, Drawer, Select, Space, Tag, Upload } from "antd";
+import { Alert, App, Button, Drawer, Space, Tag, Upload } from "antd";
 import { useState } from "react";
 import { timestamp, unwrap } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
@@ -16,6 +16,7 @@ import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 import type { ResourceSelection } from "../../shared/navigation";
 import { useOperation } from "../../shared/useOperation";
+import { SkillFileTree } from "./SkillFileTree";
 
 async function encode(file: File) {
   if (file.size > 4 * 1024 * 1024) throw new Error("请选择不超过 4 MiB 的 ZIP 文件");
@@ -121,6 +122,7 @@ function SkillDetails({ skill, onClose }: { skill: SkillVersion; onClose(): void
     queryKey: projectKey(projectId, "skills", skill.id, "file", path),
     queryFn: ({ signal }) =>
       unwrap(api.getSkillFile({ path: { projectId, id: skill.id }, query: { path }, signal })),
+    gcTime: 0,
   });
   const file = skill.files.find((f) => f.path === path);
   const bytes = query.data
@@ -146,7 +148,7 @@ function SkillDetails({ skill, onClose }: { skill: SkillVersion; onClose(): void
       }
       open
       onClose={onClose}
-      size={900}
+      size={1120}
     >
       <div className="skill-detail-heading">
         <div>
@@ -188,27 +190,31 @@ function SkillDetails({ skill, onClose }: { skill: SkillVersion; onClose(): void
       {skill.warnings.map((warning) => (
         <Alert key={warning} type="warning" title={warning} className="form-alert" />
       ))}
-      <div className="skill-file-toolbar">
-        <Select
-          aria-label="Skill 文件"
-          value={path}
-          onChange={setPath}
-          options={skill.files.map((f) => ({ value: f.path, label: `${f.path} · ${f.size} B` }))}
-          style={{ flex: 1 }}
-        />
-        <Button onClick={download} disabled={!bytes}>
-          下载文件
-        </Button>
-      </div>
-      <QueryState label="Skill 文件" query={query}>
-        {bytes && (
-          <pre className="skill-source">
-            {file?.encoding === "utf-8"
-              ? new TextDecoder().decode(bytes)
-              : "二进制资源，可下载查看。"}
-          </pre>
-        )}
-      </QueryState>
+      <section className="skill-file-browser">
+        <SkillFileTree files={skill.files} path={path} onSelect={setPath} />
+        <div className="skill-file-viewer">
+          <div className="skill-file-toolbar">
+            <div>
+              <code>{path}</code>
+              <small>
+                {file?.size} B · {file?.encoding === "utf-8" ? "文本" : "二进制"}
+              </small>
+            </div>
+            <Button onClick={download} disabled={!bytes}>
+              下载文件
+            </Button>
+          </div>
+          <QueryState label="Skill 文件" query={query}>
+            {bytes && (
+              <pre className="skill-source">
+                {file?.encoding === "utf-8"
+                  ? new TextDecoder().decode(bytes)
+                  : "二进制资源，可下载查看。"}
+              </pre>
+            )}
+          </QueryState>
+        </div>
+      </section>
       <div className="skill-entrypoints">
         <h3>可授权脚本入口 · {skill.entrypoints.length}</h3>
         {skill.entrypoints.length ? (

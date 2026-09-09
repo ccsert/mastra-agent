@@ -29,7 +29,13 @@ export class Platform {
     this.resources = new Resources(db, vault, this.projects);
     this.skills = new Skills(db, this.projects, runtimeId);
     this.agents = new Agents(db, this.projects, this.resources, this.skills);
-    this.conversations = new Conversations(db, this.projects, this.resources, runtimeId);
+    this.conversations = new Conversations(
+      db,
+      this.projects,
+      this.resources,
+      runtimeId,
+      this.skills,
+    );
     this.applications = new Applications(db, vault, this.projects);
     this.runtimes = new Runtimes(db, runtimeId);
   }
