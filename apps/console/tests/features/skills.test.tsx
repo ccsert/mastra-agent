@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { App, ConfigProvider } from "antd";
 import { SkillWorkspace } from "../../src/features/skills/SkillWorkspace.tsx";
 import { ProjectData } from "../../src/shared/data/ProjectData.tsx";
+import { Selection } from "../helpers/selection.tsx";
 
 afterEach(cleanup);
 function mount() {
@@ -12,7 +13,7 @@ function mount() {
     <ConfigProvider theme={{ token: { motion: false } }}>
       <App>
         <ProjectData projectId="skill-project">
-          <SkillWorkspace />
+          <Selection>{(selection) => <SkillWorkspace {...selection} />}</Selection>
         </ProjectData>
       </App>
     </ConfigProvider>,
@@ -53,6 +54,7 @@ test("Skill directory errors remain retryable and closing details cancels plaint
       return fail
         ? Response.json({ message: "目录暂时不可用" }, { status: 503 })
         : Response.json([version]);
+    if (url.pathname.endsWith("/skills/skill-version")) return Response.json(version);
     throw new Error("Unexpected request");
   };
   mount();

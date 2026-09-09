@@ -1,25 +1,27 @@
 import { BookOutlined, PlusOutlined } from "@ant-design/icons";
 import type { Model } from "@platform/sdk";
-import { Button } from "antd";
+import { Alert, Button } from "antd";
 import { useState } from "react";
 import { useProjectQuery } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
+import type { ResourceSelection } from "../../shared/navigation";
 import { KnowledgeCreate } from "./KnowledgeCreate";
 import { KnowledgeDetails } from "./KnowledgeDetails";
 export function KnowledgeWorkspace({
   projectId,
   models,
   onConfigureModels,
-}: {
+  selectedId,
+  onSelect,
+}: ResourceSelection & {
   projectId: string;
   models: Model[];
   onConfigureModels(): void;
 }) {
   const basesQuery = useProjectQuery("knowledgeBases", { poll: 2500 }),
     bases = basesQuery.data ?? [];
-  const [selected, setSelected] = useState(""),
-    [creating, setCreating] = useState(false);
-  const kb = bases.find((base) => base.id === selected) ?? bases[0];
+  const [creating, setCreating] = useState(false);
+  const kb = bases.find((base) => base.id === selectedId);
   return (
     <>
       <div className="knowledge-workspace">
@@ -41,7 +43,7 @@ export function KnowledgeWorkspace({
                 type="button"
                 key={k.id}
                 className={`knowledge-item ${kb?.id === k.id ? "selected" : ""}`}
-                onClick={() => setSelected(k.id)}
+                onClick={() => onSelect(k.id)}
               >
                 <BookOutlined />
                 <span>
@@ -63,13 +65,15 @@ export function KnowledgeWorkspace({
           </QueryState>
         </aside>
         <section className="knowledge-detail panel">
-          {kb ? (
+          {selectedId && basesQuery.data && !kb ? (
+            <Alert type="error" title="知识库不存在或无权访问" />
+          ) : kb ? (
             <KnowledgeDetails key={kb.id} kb={kb} models={models} />
           ) : (
             basesQuery.data && (
               <div className="knowledge-welcome">
                 <BookOutlined />
-                <h2>让 Agent 使用团队的知识</h2>
+                <h2>{bases.length ? "选择一个知识库" : "让 Agent 使用团队的知识"}</h2>
                 <p>接入向量模型，建立知识库，上传资料。通过检索测试查看来源，再绑定到 Agent。</p>
                 <Button onClick={() => setCreating(true)} type="primary">
                   新建知识库
@@ -86,7 +90,7 @@ export function KnowledgeWorkspace({
           onConfigureModels={onConfigureModels}
           onClose={() => setCreating(false)}
           onCreated={(item) => {
-            setSelected(item.id);
+            onSelect(item.id);
             setCreating(false);
           }}
         />

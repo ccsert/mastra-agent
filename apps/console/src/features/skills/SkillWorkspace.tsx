@@ -14,6 +14,7 @@ import {
 } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
+import type { ResourceSelection } from "../../shared/navigation";
 import { useOperation } from "../../shared/useOperation";
 
 async function encode(file: File) {
@@ -224,11 +225,20 @@ function SkillDetails({ skill, onClose }: { skill: SkillVersion; onClose(): void
     </Drawer>
   );
 }
-export function SkillWorkspace() {
+
+export function SkillWorkspace({ selectedId, onSelect }: ResourceSelection) {
   const query = useProjectPages("skills"),
     refresh = useProjectRefresh();
-  const [importing, setImporting] = useState(false),
-    [selected, setSelected] = useState<SkillVersion>();
+  const [importing, setImporting] = useState(false);
+  const projectId = useProjectId();
+  const detailQuery = useQuery({
+    queryKey: projectKey(projectId, "skills", selectedId ?? "", "detail"),
+    queryFn: ({ signal }) =>
+      unwrap(api.getSkill({ path: { projectId, id: selectedId ?? "" }, signal })),
+    enabled: !!selectedId,
+    gcTime: 0,
+  });
+  const selected = detailQuery.data;
   const skills = pageItems(query.data);
   return (
     <>
@@ -247,7 +257,7 @@ export function SkillWorkspace() {
                   className="skill-card"
                   type="button"
                   key={skill.id}
-                  onClick={() => setSelected(skill)}
+                  onClick={() => onSelect(skill.id)}
                 >
                   <div className="skill-card-head">
                     <FileZipOutlined />
@@ -283,16 +293,23 @@ export function SkillWorkspace() {
           onClose={() => setImporting(false)}
           onImported={(skill) => {
             setImporting(false);
-            setSelected(skill);
+            onSelect(skill.id);
             void refresh("skills");
           }}
         />
+      )}
+      {selectedId && !selected && (
+        <Drawer open title="Skill 版本" onClose={() => onSelect()}>
+          <QueryState label="Skill 版本" query={detailQuery}>
+            {null}
+          </QueryState>
+        </Drawer>
       )}
       {selected && (
         <SkillDetails
           key={selected.id}
           skill={skills.find((s) => s.id === selected.id) ?? selected}
-          onClose={() => setSelected(undefined)}
+          onClose={() => onSelect()}
         />
       )}
     </>

@@ -489,6 +489,45 @@ test("SDK pages enumerate conversation and document directories with stable scop
     } while (cursor);
     assert.deepEqual(seen, expected);
     assert.equal(new Set(seen).size, 127);
+    if (kind === "conversations") {
+      const id = expected.at(-1);
+      assert.ok(id);
+      const detail = await sdk.getConversation({ client, path: { ...path, id } });
+      assert.equal(
+        detail.data?.id,
+        id,
+        "deep links can resolve an older conversation outside the first page",
+      );
+      await db.query("UPDATE conversations SET actor_id=$1 WHERE id=$2", [randomUUID(), id]);
+      assert.equal(
+        (await sdk.getConversation({ client, path: { ...path, id }, throwOnError: false })).response
+          ?.status,
+        404,
+      );
+      await db.query("UPDATE conversations SET actor_id=$1,entry='app:another' WHERE id=$2", [
+        actor.id,
+        id,
+      ]);
+      assert.equal(
+        (await sdk.getConversation({ client, path: { ...path, id }, throwOnError: false })).response
+          ?.status,
+        404,
+      );
+      const another = await platform.projects.create(actor, {
+        name: "Another scope",
+        description: "",
+      });
+      assert.equal(
+        (
+          await sdk.getConversation({
+            client,
+            path: { projectId: another.id, id },
+            throwOnError: false,
+          })
+        ).response?.status,
+        404,
+      );
+    }
   }
   for (const query of [{ limit: 0 }, { limit: 101 }, { cursor: "invalid" }]) {
     assert.equal(

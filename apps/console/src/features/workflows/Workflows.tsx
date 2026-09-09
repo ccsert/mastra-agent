@@ -1,11 +1,14 @@
 import { BranchesOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
-import type { Model, WorkflowAsset } from "@platform/sdk";
+import type { Model } from "@platform/sdk";
+import * as api from "@platform/sdk";
+import { useQuery } from "@tanstack/react-query";
 import { Button, Empty, Tag } from "antd";
 import { useState } from "react";
-import { timestamp } from "../../shared/api";
-import { useProjectPages, useProjectRefresh } from "../../shared/data/ProjectData";
+import { timestamp, unwrap } from "../../shared/api";
+import { projectKey, useProjectPages, useProjectRefresh } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
+import type { ResourceSelection } from "../../shared/navigation";
 import type { RegisterGuard } from "./draft";
 import { WorkflowCreate } from "./WorkflowCreate";
 import { WorkflowEditor } from "./WorkflowEditor";
@@ -14,28 +17,44 @@ export function WorkflowWorkspace({
   projectId,
   models,
   registerGuard,
-}: {
+  selectedId,
+  onSelect,
+}: ResourceSelection & {
   projectId: string;
   models: Model[];
   registerGuard: RegisterGuard;
 }) {
-  const [asset, setAsset] = useState<WorkflowAsset | null>(null),
-    [createOpen, setCreateOpen] = useState(false);
-  const itemsQuery = useProjectPages("workflows", { enabled: !asset }),
+  const [createOpen, setCreateOpen] = useState(false);
+  const assetQuery = useQuery({
+    queryKey: projectKey(projectId, "workflows", selectedId ?? "", "asset"),
+    queryFn: ({ signal }) =>
+      unwrap(api.getWorkflow({ path: { projectId, id: selectedId ?? "" }, signal })),
+    enabled: !!selectedId,
+    // FlowGram owns the editing session. Reopening loads the saved revision, never a cached draft.
+    gcTime: 0,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+  const asset = assetQuery.data;
+  const itemsQuery = useProjectPages("workflows", { enabled: !selectedId }),
     items = pageItems(itemsQuery.data),
     refresh = useProjectRefresh();
-  if (asset)
+  if (selectedId)
     return (
-      <WorkflowEditor
-        key={asset.id}
-        initial={asset}
-        models={models}
-        registerGuard={registerGuard}
-        onBack={() => {
-          setAsset(null);
-          void refresh("workflows");
-        }}
-      />
+      <QueryState label="工作流详情" query={assetQuery}>
+        {asset && (
+          <WorkflowEditor
+            key={asset.id}
+            initial={asset}
+            models={models}
+            registerGuard={registerGuard}
+            onBack={() => {
+              onSelect();
+              void refresh("workflows");
+            }}
+          />
+        )}
+      </QueryState>
     );
   return (
     <>
@@ -70,7 +89,7 @@ export function WorkflowWorkspace({
                 type="button"
                 className="workflow-asset-card"
                 key={item.id}
-                onClick={() => setAsset(item)}
+                onClick={() => onSelect(item.id)}
               >
                 <span className="workflow-asset-icon">
                   <BranchesOutlined />
@@ -102,7 +121,7 @@ export function WorkflowWorkspace({
           onClose={() => setCreateOpen(false)}
           onCreated={(created) => {
             setCreateOpen(false);
-            setAsset(created);
+            onSelect(created.id);
           }}
         />
       )}

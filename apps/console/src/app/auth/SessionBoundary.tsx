@@ -9,7 +9,9 @@ import type { Principal } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { Alert, App as AntApp, Button, Form, Input, Spin } from "antd";
 import { type ReactNode, useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router";
 import { unwrap } from "../../shared/api";
+import { loginDestination } from "../../shared/navigation";
 import { useLifetime } from "../../shared/useLifetime";
 
 export interface ConsoleSession {
@@ -19,8 +21,11 @@ export interface ConsoleSession {
 export function SessionBoundary({ children }: { children(session: ConsoleSession): ReactNode }) {
   const { message } = AntApp.useApp();
   const lifetime = useLifetime();
+  const location = useLocation();
+
   const [user, setUser] = useState<Principal | null>(null),
     [initialized, setInitialized] = useState<boolean | null>(null),
+    [loggedOut, setLoggedOut] = useState(false),
     [authReady, setAuthReady] = useState(false),
     [authError, setAuthError] = useState(""),
     [authBusy, setAuthBusy] = useState(false);
@@ -62,6 +67,7 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
             }),
           );
       if (signal.aborted) return;
+      setLoggedOut(false);
       setUser(principal);
       setInitialized(true);
     } catch (e) {
@@ -74,6 +80,7 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
   async function logout() {
     try {
       await unwrap(api.logout({ body: {} }));
+      setLoggedOut(true);
       setUser(null);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "退出登录失败");
@@ -85,6 +92,17 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
         <Spin description="连接平台…" />
       </div>
     );
+  if (!user && location.pathname !== "/login") {
+    const target = location.pathname + location.search + location.hash;
+    return (
+      <Navigate
+        replace
+        to={loggedOut ? "/login" : `/login?${new URLSearchParams({ returnTo: target })}`}
+      />
+    );
+  }
+  if (user && location.pathname === "/login")
+    return <Navigate replace to={loginDestination(location.search)} />;
   if (!user)
     return (
       <div className="auth-screen">

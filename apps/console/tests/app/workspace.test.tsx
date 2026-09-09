@@ -1,10 +1,8 @@
 import "../helpers/dom.ts";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { App as AntApp, ConfigProvider } from "antd";
-import { StrictMode } from "react";
-import { App } from "../../src/app/App.tsx";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { mountConsole } from "../helpers/console.tsx";
 
 afterEach(cleanup);
 const user = {
@@ -54,21 +52,7 @@ function fixture(request: Request) {
   if (path === "/api/v1/projects/A/agents") return json([agent]);
   return json([]);
 }
-function mount(strict = false) {
-  return render(
-    <ConfigProvider theme={{ token: { motion: false } }}>
-      <AntApp>
-        {strict ? (
-          <StrictMode>
-            <App />
-          </StrictMode>
-        ) : (
-          <App />
-        )}
-      </AntApp>
-    </ConfigProvider>,
-  );
-}
+const mount = (strict = false) => mountConsole({ strict });
 async function switchProject(name: string) {
   fireEvent.mouseDown(screen.getByRole("combobox", { name: "当前项目" }));
   fireEvent.click(await screen.findByText(name, { selector: ".ant-select-item-option-content" }));
@@ -142,7 +126,7 @@ test("refresh retains successful application data on failure and deduplicates pe
   });
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
-  fireEvent.click(screen.getByRole("button", { name: /应用接入/ }));
+  fireEvent.click(screen.getByRole("link", { name: /应用接入/ }));
   await screen.findByText("订单业务");
   fireEvent.click(screen.getByRole("button", { name: "刷新数据" }));
   await waitFor(() => assert.equal(applicationReads, 2));
@@ -194,7 +178,7 @@ test("revoking an application refreshes only applications", async (t) => {
   });
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
-  fireEvent.click(screen.getByRole("button", { name: /应用接入/ }));
+  fireEvent.click(screen.getByRole("link", { name: /应用接入/ }));
   await screen.findByText("订单业务");
   const before = reads.length;
   fireEvent.click(screen.getByRole("button", { name: "撤销凭据" }));
@@ -236,7 +220,7 @@ test("an application credential response cannot reopen a closed editor in anothe
   });
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
-  fireEvent.click(screen.getByRole("button", { name: /应用接入/ }));
+  fireEvent.click(screen.getByRole("link", { name: /应用接入/ }));
   fireEvent.click(screen.getByRole("button", { name: /创建应用/ }));
   fireEvent.change(screen.getByLabelText("名称"), { target: { value: "A应用" } });
   fireEvent.submit(screen.getByLabelText("名称").closest("form") as HTMLFormElement);
@@ -297,7 +281,7 @@ test("leaving the Agent page cancels conversation creation even within the same 
   await screen.findByRole("heading", { name: "A项目助手" });
   fireEvent.click(screen.getAllByRole("button", { name: /^对话/ }).at(-1) as HTMLElement);
   await waitFor(() => assert.ok(started));
-  fireEvent.click(screen.getByRole("button", { name: /^工具$/ }));
+  fireEvent.click(screen.getByRole("link", { name: /^工具$/ }));
   await screen.findByRole("heading", { name: "工具", level: 1 });
   assert.equal(started?.signal.aborted, true);
   await act(async () => pending.resolve(json({ id: "late", projectId: "A", title: "迟到的会话" })));
@@ -321,6 +305,8 @@ test("conversation history errors are local and leaving the page cancels retry",
           createdAt: "2026-09-08T00:00:00Z",
         },
       ]);
+    if (request.url.endsWith("/conversations/thread"))
+      return json({ id: "thread", projectId: "A", title: "订单讨论", releaseVersion: 1 });
     if (request.url.endsWith("/thread/messages")) {
       if (++reads === 1) return Response.json({ message: "历史读取失败" }, { status: 503 });
       started = request;
@@ -330,12 +316,12 @@ test("conversation history errors are local and leaving the page cancels retry",
   });
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^对话/ })[0]);
+  fireEvent.click(screen.getByRole("link", { name: "对话" }));
   fireEvent.click(await screen.findByRole("button", { name: /订单讨论/ }));
   await screen.findByText("会话历史加载失败");
   fireEvent.click(screen.getByRole("button", { name: "重试会话历史" }));
   await waitFor(() => assert.ok(started));
-  fireEvent.click(screen.getByRole("button", { name: /^工具$/ }));
+  fireEvent.click(screen.getByRole("link", { name: /^工具$/ }));
   assert.equal(started?.signal.aborted, true);
   await act(async () =>
     pending.resolve(

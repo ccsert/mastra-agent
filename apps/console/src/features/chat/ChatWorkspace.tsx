@@ -1,5 +1,4 @@
 import { CommentOutlined, PlusOutlined } from "@ant-design/icons";
-import type { Conversation } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
@@ -15,17 +14,25 @@ import {
 } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
+import type { ResourceSelection } from "../../shared/navigation";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
 export function ChatWorkspace({
-  conversation,
+  selectedId,
   onSelect,
   onCreate,
-}: {
-  conversation: Conversation | null;
-  onSelect(item: Conversation): void;
+}: ResourceSelection & {
   onCreate(): void;
 }) {
+  const projectId = useProjectId();
+  const detailQuery = useQuery({
+    queryKey: projectKey(projectId, "conversations", selectedId ?? "", "detail"),
+    queryFn: ({ signal }) =>
+      unwrap(api.getConversation({ path: { projectId, id: selectedId ?? "" }, signal })),
+    enabled: !!selectedId,
+    gcTime: 0,
+  });
+  const conversation = detailQuery.data;
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
   return (
@@ -44,7 +51,7 @@ export function ChatWorkspace({
                 className={
                   conversation?.id === c.id ? "conversation-item selected" : "conversation-item"
                 }
-                onClick={() => onSelect(c)}
+                onClick={() => onSelect(c.id)}
               >
                 <CommentOutlined />
                 <span>
@@ -64,17 +71,21 @@ export function ChatWorkspace({
         </QueryState>
       </aside>
       <div className="chat-main">
-        {conversation ? (
-          <>
-            <header className="chat-header">
-              <div>
-                <strong>{conversation.title}</strong>
-                <span>会话 {conversation.id.slice(0, 8)}</span>
-              </div>
-              <Tag color="blue">固定版本 v{conversation.releaseVersion}</Tag>
-            </header>
-            <ConversationSession key={conversation.id} conversationId={conversation.id} />
-          </>
+        {selectedId ? (
+          <QueryState label="会话信息" query={detailQuery}>
+            {conversation && (
+              <>
+                <header className="chat-header">
+                  <div>
+                    <strong>{conversation.title}</strong>
+                    <span>会话 {conversation.id.slice(0, 8)}</span>
+                  </div>
+                  <Tag color="blue">固定版本 v{conversation.releaseVersion}</Tag>
+                </header>
+                <ConversationSession key={conversation.id} conversationId={conversation.id} />
+              </>
+            )}
+          </QueryState>
         ) : (
           <Blank
             title="选择一个 Agent 开始对话"

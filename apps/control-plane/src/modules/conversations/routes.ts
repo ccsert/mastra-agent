@@ -43,6 +43,19 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
   );
   app.openapi(
     createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}",
+      operationId: "getConversation",
+      request: { params: itemParams },
+      responses: { 200: json(Conversation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.get(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
       method: "post",
       path: "/api/v1/projects/{projectId}/conversations",
       operationId: "createConversation",

@@ -1,13 +1,13 @@
-import type { Run, RunEvent } from "@platform/sdk";
+import type { Run } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { Alert, App as AntApp, Button, Drawer, Table, Tag } from "antd";
-import { useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Alert, Button, Drawer, Table, Tag } from "antd";
 import { timestamp, unwrap } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
-import { useProjectPages } from "../../shared/data/ProjectData";
+import { projectKey, useProjectPages } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
-import { useLifetime } from "../../shared/useLifetime";
+import type { ResourceSelection } from "../../shared/navigation";
 
 const statusNames: Record<Run["status"], string> = {
   queued: "排队中",
@@ -26,47 +26,13 @@ const statusColors: Record<Run["status"], string> = {
 function RunStatus({ status }: { status: Run["status"] }) {
   return <Tag color={statusColors[status]}>{statusNames[status]}</Tag>;
 }
-export function RunsWorkspace({ projectId }: { projectId: string }) {
-  const { message } = AntApp.useApp(),
-    lifetime = useLifetime();
+export function RunsWorkspace({
+  projectId,
+  selectedId,
+  onSelect,
+}: ResourceSelection & { projectId: string }) {
   const query = useProjectPages("runs", { poll: true }),
     runs = pageItems(query.data);
-  const detailRequest = useRef(0);
-  const [runDetail, setRunDetail] = useState<Run | null>(null),
-    [events, setEvents] = useState<RunEvent[]>([]),
-    [eventsMore, setEventsMore] = useState(false),
-    [eventsLoading, setEventsLoading] = useState(false);
-  async function inspectRun(run: Run, append = false) {
-    const signal = lifetime(),
-      request = ++detailRequest.current;
-    setRunDetail(run);
-    setEventsLoading(true);
-    if (!append) {
-      setEvents([]);
-      setEventsMore(false);
-    }
-    try {
-      const [batch, current] = await Promise.all([
-        unwrap(
-          api.listRunEvents({
-            signal,
-            path: { projectId, id: run.id },
-            query: { after: append ? (events.at(-1)?.seq ?? -1) : -1 },
-          }),
-        ),
-        unwrap(api.getRun({ path: { projectId, id: run.id }, signal })),
-      ]);
-      if (signal.aborted || request !== detailRequest.current) return;
-      setRunDetail(current);
-      setEvents((previous) => (append ? [...previous, ...batch] : batch));
-      setEventsMore(batch.length === 500);
-    } catch (e) {
-      if (!signal.aborted && request === detailRequest.current)
-        void message.error(e instanceof Error ? e.message : "读取事件失败");
-    } finally {
-      if (!signal.aborted && request === detailRequest.current) setEventsLoading(false);
-    }
-  }
   return (
     <>
       <QueryState label="运行记录" query={query}>
@@ -88,7 +54,7 @@ export function RunsWorkspace({ projectId }: { projectId: string }) {
                 title: "任务",
                 dataIndex: "id",
                 render: (_, r) => (
-                  <Button type="link" onClick={() => void inspectRun(r)}>
+                  <Button type="link" onClick={() => onSelect(r.id)}>
                     {r.id.slice(0, 8)}
                   </Button>
                 ),
@@ -109,7 +75,7 @@ export function RunsWorkspace({ projectId }: { projectId: string }) {
               {
                 title: "操作",
                 render: (_, r) => (
-                  <Button type="text" onClick={() => void inspectRun(r)}>
+                  <Button type="text" onClick={() => onSelect(r.id)}>
                     查看详情
                   </Button>
                 ),
@@ -121,63 +87,93 @@ export function RunsWorkspace({ projectId }: { projectId: string }) {
       </QueryState>
       <Drawer
         title="运行详情"
-        open={!!runDetail}
-        onClose={() => {
-          detailRequest.current++;
-          setRunDetail(null);
-        }}
+        open={!!selectedId}
+        onClose={() => onSelect()}
         size={640}
+        destroyOnHidden
       >
-        {runDetail && (
-          <>
-            <div className="run-detail-head">
-              <h2>{runDetail.agentName}</h2>
-              <RunStatus status={runDetail.status} />
-            </div>
-            <dl className="detail-grid">
-              <dt>运行 ID</dt>
-              <dd>
-                <code>{runDetail.id}</code>
-              </dd>
-              <dt>发布版本</dt>
-              <dd>v{runDetail.releaseVersion}</dd>
-              <dt>Runtime</dt>
-              <dd>{runDetail.runtimeId}</dd>
-              <dt>开始时间</dt>
-              <dd>{timestamp(runDetail.createdAt)}</dd>
-            </dl>
-            {runDetail.errorCode && (
-              <Alert
-                type="error"
-                title={`运行失败：${runDetail.errorCode}`}
-                description="请检查模型连接、服务凭据与 Runtime 状态。"
-              />
-            )}
-            {runDetail.outputText && (
-              <section className="run-output">
-                <h3>输出</h3>
-                <p>{runDetail.outputText}</p>
-              </section>
-            )}
-            <h3>
-              执行事件{" "}
-              <span className="muted">
-                {events.length}
-                {eventsMore ? "+" : ""}
-              </span>
-              <Button
-                type="link"
-                loading={eventsLoading}
-                onClick={() => void inspectRun(runDetail)}
-              >
-                刷新详情
-              </Button>
-            </h3>
-            {eventsMore && (
-              <Button loading={eventsLoading} onClick={() => void inspectRun(runDetail, true)}>
-                加载后续事件
-              </Button>
-            )}
+        {selectedId && <RunDetails key={selectedId} projectId={projectId} id={selectedId} />}
+      </Drawer>
+    </>
+  );
+}
+function RunDetails({ projectId, id }: { projectId: string; id: string }) {
+  const detailQuery = useQuery({
+    queryKey: projectKey(projectId, "runs", id, "detail"),
+    queryFn: ({ signal }) => unwrap(api.getRun({ path: { projectId, id }, signal })),
+    gcTime: 0,
+  });
+  const eventsQuery = useInfiniteQuery({
+    queryKey: projectKey(projectId, "runs", id, "events"),
+    initialPageParam: -1,
+    queryFn: ({ signal, pageParam }) =>
+      unwrap(api.listRunEvents({ path: { projectId, id }, query: { after: pageParam }, signal })),
+    getNextPageParam: (last) => (last.length === 500 ? last.at(-1)?.seq : undefined),
+    enabled: !!detailQuery.data,
+    gcTime: 0,
+  });
+  const runDetail = detailQuery.data,
+    events = eventsQuery.data?.pages.flat() ?? [],
+    eventsMore = eventsQuery.hasNextPage;
+  return (
+    <QueryState label="运行详情" query={detailQuery}>
+      {runDetail && (
+        <>
+          <div className="run-detail-head">
+            <h2>{runDetail.agentName}</h2>
+            <RunStatus status={runDetail.status} />
+          </div>
+          <dl className="detail-grid">
+            <dt>运行 ID</dt>
+            <dd>
+              <code>{runDetail.id}</code>
+            </dd>
+            <dt>发布版本</dt>
+            <dd>v{runDetail.releaseVersion}</dd>
+            <dt>Runtime</dt>
+            <dd>{runDetail.runtimeId}</dd>
+            <dt>开始时间</dt>
+            <dd>{timestamp(runDetail.createdAt)}</dd>
+          </dl>
+          {runDetail.errorCode && (
+            <Alert
+              type="error"
+              title={`运行失败：${runDetail.errorCode}`}
+              description="请检查模型连接、服务凭据与 Runtime 状态。"
+            />
+          )}
+          {runDetail.outputText && (
+            <section className="run-output">
+              <h3>输出</h3>
+              <p>{runDetail.outputText}</p>
+            </section>
+          )}
+          <h3>
+            执行事件{" "}
+            <span className="muted">
+              {events.length}
+              {eventsMore ? "+" : ""}
+            </span>
+            <Button
+              type="link"
+              loading={eventsQuery.isFetching}
+              onClick={() => {
+                void detailQuery.refetch();
+                void eventsQuery.refetch();
+              }}
+            >
+              刷新详情
+            </Button>
+          </h3>
+          {eventsMore && (
+            <Button
+              loading={eventsQuery.isFetching}
+              onClick={() => void eventsQuery.fetchNextPage()}
+            >
+              加载后续事件
+            </Button>
+          )}
+          <QueryState label="执行事件" query={eventsQuery}>
             <div className="event-list">
               {events.map((e) => (
                 <details key={e.seq}>
@@ -190,9 +186,9 @@ export function RunsWorkspace({ projectId }: { projectId: string }) {
                 </details>
               ))}
             </div>
-          </>
-        )}
-      </Drawer>
-    </>
+          </QueryState>
+        </>
+      )}
+    </QueryState>
   );
 }

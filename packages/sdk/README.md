@@ -60,6 +60,8 @@ const { data: nodes } = await listWorkflowNodeRuns({ client, path: runPath, thro
 
 ## 游标分页
 
+控制台深链接使用 `getConversation({ path: { projectId, id } })` 按 ID 读取会话元数据，无需遍历 `listConversations`。读取仍限于当前调用者和入口拥有的会话，其他项目或无权访问的 ID 返回 404；消息继续使用 `listMessages`。
+
 `listConversations`、`listKnowledgeDocuments`、`listSkills`、`listRuns`、`listWorkflows`、`listWorkflowReleases`、`listWorkflowRuns`、`listWorkflowGenerations` 和 `listMcpDiscoveries` 支持 `query.limit`（1–100）和 `query.cursor`。响应正文保持数组，HTTP `X-Next-Cursor` 响应头提供下一页位置；不存在表示最后一页。
 
 ```ts

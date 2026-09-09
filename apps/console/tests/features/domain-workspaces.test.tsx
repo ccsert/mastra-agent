@@ -11,6 +11,7 @@ import { emptyWorkflow } from "../../src/features/workflows/model/workflow-model
 import { WorkflowRunDetails } from "../../src/features/workflows/WorkflowRunDetails";
 import { WorkflowRunDialog } from "../../src/features/workflows/WorkflowRunDialog";
 import { ProjectData } from "../../src/shared/data/ProjectData";
+import { Selection } from "../helpers/selection.tsx";
 
 afterEach(cleanup);
 function deferred() {
@@ -73,7 +74,13 @@ test("switching knowledge bases cancels the old document query and never restore
     }
     return Response.json([document("kb-1", "第二资料.md")]);
   });
-  mount(<KnowledgeWorkspace projectId="A" models={[]} onConfigureModels={() => {}} />);
+  mount(
+    <Selection initial="kb-0">
+      {(selection) => (
+        <KnowledgeWorkspace projectId="A" models={[]} onConfigureModels={() => {}} {...selection} />
+      )}
+    </Selection>,
+  );
   await waitFor(() => assert.ok(oldRequest));
   fireEvent.click(screen.getByRole("button", { name: /第二知识库/ }));
   await screen.findByText("第二资料.md");
@@ -96,7 +103,13 @@ test("closing a document preview cancels its plaintext request", async (t) => {
     started = request;
     return pending.promise;
   });
-  mount(<KnowledgeWorkspace projectId="A" models={[]} onConfigureModels={() => {}} />);
+  mount(
+    <Selection initial="kb-0">
+      {(selection) => (
+        <KnowledgeWorkspace projectId="A" models={[]} onConfigureModels={() => {}} {...selection} />
+      )}
+    </Selection>,
+  );
   await screen.findByText("资料.md");
   fireEvent.click(screen.getByRole("button", { name: "查看分段" }));
   await waitFor(() => assert.ok(started));
@@ -133,7 +146,7 @@ test("MCP has a retryable directory error and closing service details cancels di
     started = request;
     return pending.promise;
   });
-  mount(<McpWorkspace projectId="A" />);
+  mount(<Selection>{(selection) => <McpWorkspace projectId="A" {...selection} />}</Selection>);
   await screen.findByText("MCP 服务加载失败");
   assert.ok(screen.queryByText(/还没有 MCP 服务/) === null);
   fail = false;
@@ -240,7 +253,7 @@ test("MCP credential failures remain visible inside the owning dialog", async (t
       ]);
     return Response.json([]);
   });
-  mount(<McpWorkspace projectId="A" />);
+  mount(<Selection>{(selection) => <McpWorkspace projectId="A" {...selection} />}</Selection>);
   fireEvent.click(await screen.findByRole("button", { name: "管理能力" }));
   fireEvent.click(await screen.findByRole("button", { name: /更新凭据/ }));
   const dialog = screen.getByRole("dialog", { name: "更新 MCP 凭据" });

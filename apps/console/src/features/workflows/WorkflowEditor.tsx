@@ -43,7 +43,7 @@ export function WorkflowEditor({
   onBack(): void;
   registerGuard: RegisterGuard;
 }) {
-  const { message, modal } = AntApp.useApp();
+  const { message } = AntApp.useApp();
   const lifetime = useLifetime(),
     refresh = useProjectRefresh();
   const { busy, error, setError, run: guard } = useOperation();
@@ -74,13 +74,7 @@ export function WorkflowEditor({
     [asset.projectId, asset.id],
   );
   const dirty = !nodeValid || !same(draft, draftOf(asset));
-  useEffect(() => {
-    const beforeUnload = (e: BeforeUnloadEvent) => {
-      if (dirty) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+
   const remember = (next: WorkflowAssetInput) => {
     if (pendingSave.current || same(next, currentDraft.current)) return;
     setDraft(next);
@@ -163,17 +157,7 @@ export function WorkflowEditor({
             icon={<ArrowLeftOutlined />}
             aria-label="返回工作流列表"
             disabled={busy}
-            onClick={() =>
-              dirty || !canvas.current?.canLeaveNode()
-                ? modal.confirm({
-                    title: "离开未保存的草稿？",
-                    content: "当前修改尚未保存，可以先保存后再返回。",
-                    okText: "离开",
-                    cancelText: "继续编辑",
-                    onOk: onBack,
-                  })
-                : onBack()
-            }
+            onClick={onBack}
           />
           <div>
             <h2>{draft.name}</h2>

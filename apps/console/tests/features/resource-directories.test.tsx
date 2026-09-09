@@ -84,7 +84,7 @@ for (const kind of ["conversations", "documents"] as const) {
         <App>
           <ProjectData projectId="project">
             {kind === "conversations" ? (
-              <ChatWorkspace conversation={null} onSelect={() => {}} onCreate={() => {}} />
+              <ChatWorkspace onSelect={() => {}} onCreate={() => {}} />
             ) : (
               <KnowledgeDetails kb={kb} models={[]} />
             )}

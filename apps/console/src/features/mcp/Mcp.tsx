@@ -1,19 +1,23 @@
 import { ApiOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { McpServer } from "@platform/sdk";
-import { Button, Drawer, Empty, Space, Table, Tag } from "antd";
+import { Alert, Button, Drawer, Empty, Space, Table, Tag } from "antd";
 import { useState } from "react";
 import { useProjectQuery, useProjectRefresh } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
+import type { ResourceSelection } from "../../shared/navigation";
 import { McpCreate } from "./McpCreate";
 import { McpDetails } from "./McpDetails";
-export function McpWorkspace({ projectId }: { projectId: string }) {
+export function McpWorkspace({
+  projectId,
+  selectedId,
+  onSelect,
+}: ResourceSelection & { projectId: string }) {
   const serversQuery = useProjectQuery("mcpServers"),
     servers = serversQuery.data ?? [],
     toolsQuery = useProjectQuery("tools"),
     tools = toolsQuery.data ?? [],
     refresh = useProjectRefresh();
-  const [selectedId, setSelectedId] = useState<string>(),
-    [create, setCreate] = useState(false);
+  const [create, setCreate] = useState(false);
   const selected = servers.find((server) => server.id === selectedId);
   return (
     <>
@@ -81,7 +85,7 @@ export function McpWorkspace({ projectId }: { projectId: string }) {
               {
                 title: "操作",
                 render: (_, s) => (
-                  <Button type="link" onClick={() => setSelectedId(s.id)}>
+                  <Button type="link" onClick={() => onSelect(s.id)}>
                     管理能力
                   </Button>
                 ),
@@ -99,18 +103,21 @@ export function McpWorkspace({ projectId }: { projectId: string }) {
           onClose={() => setCreate(false)}
           onCreated={(server) => {
             setCreate(false);
-            setSelectedId(server.id);
+            onSelect(server.id);
           }}
         />
       )}
       <Drawer
         title={selected?.name ?? "MCP 服务"}
-        open={!!selected}
-        onClose={() => setSelectedId(undefined)}
+        open={!!selectedId}
+        onClose={() => onSelect(undefined)}
         size="min(860px, 100vw)"
         destroyOnHidden
       >
-        {selected && <McpDetails key={selected.id} server={selected} tools={tools} />}
+        <QueryState label="MCP 服务信息" query={serversQuery}>
+          {selectedId && !selected && <Alert type="error" title="MCP 服务不存在或无权访问" />}
+          {selected && <McpDetails key={selected.id} server={selected} tools={tools} />}
+        </QueryState>
       </Drawer>
     </>
   );

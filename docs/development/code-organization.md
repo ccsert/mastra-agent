@@ -64,6 +64,8 @@ apps/console/src/
 
 `features/<name>/index.ts` 是功能公开入口；需要样式的功能通过 `styles.css` 公开，由应用入口或功能懒加载入口加载。其他功能不直接访问内部组件。`shared/` 不依赖 `features/` 或 `app/`；`features/` 不反向依赖 `app/`。导航意图类型位于 shared，菜单图标与页面组装仍在 app。
 
+后续路由改造在 `app/routing/` 声明地址、页面组装及离开保护；`ProjectConsole` 只保留导航框架，通过 `Outlet` 渲染页面。功能模块接收资源选择意图，URL 定位与权限检查由应用层协调。路由表及刷新/历史行为见 [控制台路由说明](console-routing.md)。
+
 原五合一 `Editors.tsx` 已删除。各功能拥有自己的表单类型、默认值与生成 SDK 请求；24 行 `EditorHost` 仅选择编辑器。通用 `EditorForm` 处理重复提交、错误、取消与迟到响应，不包含业务字段或根据 kind 切换请求。
 
 项目资源目录确实供 Agent、概览、工作流等多个页面共用，暂留 `shared/data/ProjectData.tsx`；知识库/MCP/工作流的详情和任务查询已归入各自 `queries.ts`。该目录不承载领域写入，也不能引入业务页面。目录中的服务器搜索与查询成本仍需后续治理。

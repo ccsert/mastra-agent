@@ -1,7 +1,8 @@
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { createRoot } from "react-dom/client";
-import { App } from "./app/App";
+import { createBrowserRouter, RouterProvider } from "react-router";
+import { consoleRoutes } from "./app/routing/routes";
 import "antd/dist/reset.css";
 import "./app/styles/base.css";
 import "./app/auth/auth.css";
@@ -15,6 +16,7 @@ import "./features/knowledge/styles.css";
 import "./features/mcp/styles.css";
 import "./features/skills/styles.css";
 
+const router = createBrowserRouter(consoleRoutes);
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing application root");
 createRoot(root).render(
@@ -39,7 +41,7 @@ createRoot(root).render(
     }}
   >
     <AntApp>
-      <App />
+      <RouterProvider router={router} />
     </AntApp>
   </ConfigProvider>,
 );
