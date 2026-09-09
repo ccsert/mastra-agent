@@ -1,10 +1,19 @@
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { App } from "./app/App";
 import "antd/dist/reset.css";
-import "./style.css";
-import "./skills/skills.css";
+import "./app/styles/base.css";
+import "./app/auth/auth.css";
+import "./features/overview/styles.css";
+import "./features/agents/styles.css";
+import "./features/chat/styles.css";
+import "./features/applications/styles.css";
+import "./features/runtimes/styles.css";
+import "./features/runs/styles.css";
+import "./features/knowledge/styles.css";
+import "./features/mcp/styles.css";
+import "./features/skills/styles.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing application root");

@@ -45,7 +45,7 @@ docker image inspect agent-platform/skill-sandbox:local --format '{{.Id}}'
 `pnpm check` 包含 ZIP 异常输入、真实 PostgreSQL/HTTP/生成 SDK/原生 Mastra Skill 读取、版本固定、跨项目和无效租约拒绝，以及现有平台回归。Docker 测试需显式提供固定镜像；未提供时其中两组标记跳过，不能当作隔离通过：
 
 ```sh
-SKILL_TEST_IMAGE=sha256:<实际镜像ID> node --conditions=development --import tsx --test --test-concurrency=1 tests/skill-sandbox.test.ts tests/skills.test.ts
+SKILL_TEST_IMAGE=sha256:<实际镜像ID> node --conditions=development --import tsx --test --test-concurrency=1 tests/runtime/skill-sandbox.test.ts tests/integration/skills.test.ts
 ```
 
 当前结果是文本 stdout，随受管会话和运行事件持久化；临时工作目录中的文件不会自动成为可下载产物。上传表格的 run 文件引用、产物登记下载、脚本通过受控网关调用业务工具、可配置执行环境目录、私网包存储与传输策略、独立执行管理服务、无 Docker 原生隔离、异常崩溃回收和客户 Linux/amd64 验收仍待后续实现。这些限制不影响当前版本的指令/资料读取、固定入口纯计算脚本和工具调用各自已有的授权边界。

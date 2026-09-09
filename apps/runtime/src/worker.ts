@@ -1,8 +1,8 @@
-import { runAgentWorker } from "./agent-worker.ts";
-import type { WorkerConfig } from "./control-client.ts";
-import { runKnowledgeWorker } from "./knowledge-worker.ts";
-import { runMcpWorker } from "./mcp-worker.ts";
-import { runWorkflowWorker } from "./workflow-worker.ts";
+import { runAgentWorker } from "./agents/index.ts";
+import type { WorkerConfig } from "./control-plane/index.ts";
+import { runKnowledgeWorker } from "./knowledge/index.ts";
+import { runMcpWorker } from "./mcp/index.ts";
+import { runWorkflowWorker } from "./workflows/index.ts";
 
 export async function runWorker(config: WorkerConfig) {
   await Promise.all([

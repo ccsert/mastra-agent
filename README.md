@@ -2,7 +2,7 @@
 
 面向业务团队的 Agent、知识库、工具/MCP、标准 Agent Skills 和 AI 工作流平台。目标支持平台内使用，以及 OpenAPI、生成 SDK、React 组件与 iframe 接入；集中控制面管理平台托管和客户私有 Runtime。
 
-**当前交付 M4：AI 工作流编排与执行。** 在真实模型、知识库和 MCP Agent 闭环上，增加正式 FlowGram 画布、AI 完整候选与修订冲突检查、固定发布版本，以及 Mastra 串行/条件执行。平台和生成 SDK 均已使用真实 Qwen 验证订单采购报告；Skills、私网连接与嵌入组件尚未接入正式平台。
+**当前已实现：AI 工作流与平台托管 Agent Skills。** 在真实模型、知识库和 MCP Agent 闭环上，增加正式 FlowGram 画布、AI 完整候选与修订冲突检查、固定发布版本，以及 Mastra 串行/条件执行。平台和生成 SDK 均已使用真实 Qwen 验证订单采购报告；标准 Skills 已支持 ZIP 导入、固定版本绑定、Mastra 原生读取和授权 Docker 脚本执行；私网包存储、连接器与嵌入组件尚未完成。
 
 ## 本地启动
 
@@ -56,6 +56,8 @@ SDK 请求与类型由 Hey API 从 OpenAPI 生成；`pnpm sdk:generate` 更新�
 
 ## 工程与后续主线
 
+应用内部按业务能力组织，目录归属、公开入口、依赖约束、测试和构建约定见 [代码组织说明](docs/development/code-organization.md)。Skills 使用、Docker 配置与当前边界见 [Skills 说明](docs/development/skills.md)。
+
 | 目录 | 职责 |
 | --- | --- |
 | `apps/console` | React + Vite + AntD 6 控制台，assistant-ui 聊天 |
@@ -66,7 +68,7 @@ SDK 请求与类型由 Hey API 从 OpenAPI 生成；`pnpm sdk:generate` 更新�
 | `packages/operations` | 服务配置、结构化日志、请求关联与本机开发来源解析 |
 | `packages/sdk` | Hey API 生成 SDK、服务端签名辅助函数及分发产物 |
 
-后续继续接入更多文档格式与可视化处理流程、标准 Skills 包及隔离执行、更丰富的工作流结构、私网 Runtime/连接器和嵌入组件。统一身份中心、细粒度成员权限、内容治理、生产部署与容量验收继续按既定决策推进。当前是开发里程碑，尚未完成企业级生产验收。
+后续继续接入更多文档格式与可视化处理流程、Skills 输入文件/产物与受控工具网关、更丰富的工作流结构、私网 Runtime/连接器和嵌入组件。统一身份中心、细粒度成员权限、内容治理、生产部署与容量验收继续按既定决策推进。当前是开发里程碑，尚未完成企业级生产验收。
 
 已有方案：[领域术语](CONTEXT.md)、[架构草案](docs/planning/agent-platform-discovery.md)、[FlowGram/Mastra ADR](docs/adr/0001-flowgram-authoring-mastra-execution.md)、[assistant-ui ADR](docs/adr/0002-assistant-ui-chat-foundation.md)。
 

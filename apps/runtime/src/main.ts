@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { createLogger, required } from "@platform/operations";
-import { ControlConnection } from "./connection.ts";
+import { ControlConnection } from "./control-plane/index.ts";
 import { runWorker } from "./worker.ts";
 
 const log = createLogger("runtime");

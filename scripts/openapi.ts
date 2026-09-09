@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { Database } from "@platform/database";
 import { createApp } from "../apps/control-plane/src/app.ts";
-import { Vault } from "../apps/control-plane/src/crypto.ts";
+import { Vault } from "../apps/control-plane/src/infrastructure/crypto.ts";
 import { Platform } from "../apps/control-plane/src/platform.ts";
 
 // Schema export builds route definitions only; it neither connects nor migrates the database.

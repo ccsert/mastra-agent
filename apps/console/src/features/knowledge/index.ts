@@ -1,0 +1,1 @@
+export { KnowledgeWorkspace } from "./Knowledge";

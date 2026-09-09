@@ -1,0 +1,165 @@
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 17px;
+  margin-bottom: 26px;
+}
+.metric {
+  padding: 23px 24px;
+  background: white;
+  border: 1px solid #e5ece7;
+  border-radius: 10px;
+}
+.metric > span {
+  font-size: 12px;
+  color: #809087;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.metric .anticon {
+  color: #5b8472;
+  font-size: 16px;
+}
+.metric strong {
+  display: block;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin: 16px 0 8px;
+}
+.metric small {
+  color: #9ca79f;
+  font-size: 11px;
+}
+.onboarding {
+  padding: 26px 28px;
+  border: 1px solid #dce8de;
+  border-radius: 10px;
+  background: linear-gradient(110deg, #edf4ee, #f8faf5);
+  display: flex;
+  align-items: center;
+  gap: 38px;
+  margin-bottom: 30px;
+}
+.onboarding > div:first-child {
+  flex: 1;
+}
+.onboarding h2 {
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  font-weight: 500;
+  margin: 10px 0;
+}
+.onboarding p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #7e9184;
+  max-width: 380px;
+}
+.onboarding-steps {
+  display: grid;
+  gap: 8px;
+  width: 43%;
+  min-width: 275px;
+}
+.onboarding-steps button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e5ece3;
+  border-radius: 7px;
+  padding: 12px;
+  background: #fff9;
+  text-align: left;
+  color: #354d40;
+}
+.onboarding-steps button:hover {
+  background: white;
+  border-color: #9db5a6;
+}
+.onboarding-steps button > span:nth-child(2) {
+  flex: 1;
+}
+.onboarding-steps strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.onboarding-steps small {
+  display: block;
+  font-size: 10px;
+  color: #8d9d91;
+  margin-top: 3px;
+}
+.onboarding-steps button > .anticon {
+  font-size: 11px;
+  color: #99ac9d;
+}
+.step-number {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dce8dd;
+  border-radius: 50%;
+  color: #87a18c;
+  font-size: 11px;
+}
+.step-number.done {
+  background: #e4f0e7;
+  border-color: #e4f0e7;
+  color: #40795a;
+  font-size: 15px;
+}
+@media (max-width: 1150px) {
+  .metrics {
+    gap: 10px;
+  }
+}
+@media (max-width: 1150px) {
+  .metric {
+    padding: 20px 17px;
+  }
+}
+@media (max-width: 1150px) {
+  .onboarding {
+    gap: 22px;
+    padding: 24px;
+  }
+}
+@media (max-width: 1150px) {
+  .onboarding h2 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 600px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+@media (max-width: 600px) {
+  .metric {
+    padding: 18px;
+  }
+}
+@media (max-width: 600px) {
+  .metric strong {
+    font-size: 29px;
+    margin: 12px 0 6px;
+  }
+}
+@media (max-width: 600px) {
+  .onboarding {
+    display: block;
+    padding: 22px;
+  }
+}
+@media (max-width: 600px) {
+  .onboarding-steps {
+    width: 100%;
+    min-width: 0;
+    margin-top: 22px;
+  }
+}

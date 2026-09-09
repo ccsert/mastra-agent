@@ -1,4 +1,4 @@
-import { mcpFixture } from "../tests/mcp-fixture.ts";
+import { mcpFixture } from "../tests/fixtures/mcp-fixture.ts";
 
 const service = await mcpFixture(Number(process.env.MCP_FIXTURE_PORT ?? 4201));
 console.log(`Synthetic read-only MCP service: ${service.url}`);

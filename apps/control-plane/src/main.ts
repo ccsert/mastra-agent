@@ -3,7 +3,7 @@ import { serve } from "@hono/node-server";
 import { Database } from "@platform/database";
 import { createLogger, localConsoleOrigins, required } from "@platform/operations";
 import { createApp } from "./app.ts";
-import { Vault } from "./crypto.ts";
+import { Vault } from "./infrastructure/crypto.ts";
 import { Platform } from "./platform.ts";
 
 const log = createLogger("control-plane");

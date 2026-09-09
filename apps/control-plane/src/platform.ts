@@ -1,13 +1,13 @@
 import type { Database } from "@platform/database";
-import { Agents } from "./agents.ts";
-import { Applications } from "./applications.ts";
-import { Conversations } from "./conversations.ts";
-import type { Vault } from "./crypto.ts";
-import { Identity } from "./identity.ts";
-import { Projects } from "./projects.ts";
-import { Resources } from "./resources.ts";
-import { Runtimes } from "./runtimes.ts";
-import { Skills } from "./skills.ts";
+import type { Vault } from "./infrastructure/crypto.ts";
+import { Agents } from "./modules/agents/index.ts";
+import { Applications } from "./modules/applications/index.ts";
+import { Conversations } from "./modules/conversations/index.ts";
+import { Identity } from "./modules/identity/index.ts";
+import { Projects } from "./modules/projects/index.ts";
+import { Resources } from "./modules/resources/index.ts";
+import { Runtimes } from "./modules/runtimes/index.ts";
+import { Skills } from "./modules/skills/index.ts";
 
 /** Composition root: domain modules depend on explicit collaborators, never on this object. */
 export class Platform {

@@ -8,7 +8,7 @@ import { resolve, sep } from "node:path";
 import { Database } from "@platform/database";
 import { createClient } from "../packages/sdk/src/generated/client/index.ts";
 import * as sdk from "../packages/sdk/src/index.ts";
-import { startModelFixture } from "../tests/model-fixture.ts";
+import { startModelFixture } from "../tests/fixtures/model-fixture.ts";
 import { required } from "./env.ts";
 
 const bundle = resolve(process.argv[2] ?? "missing-bundle-directory");

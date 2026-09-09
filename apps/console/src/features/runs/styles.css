@@ -1,0 +1,75 @@
+.run-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+.run-detail-head h2 {
+  font-size: 19px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 15px;
+  font-size: 12px;
+  margin-bottom: 28px;
+}
+.detail-grid dt {
+  color: #90a295;
+}
+.detail-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-output {
+  padding: 18px;
+  border-radius: 8px;
+  background: #f1f6f0;
+  margin: 25px 0;
+}
+.run-output h3 {
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.run-output p {
+  font-size: 12px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.event-list {
+  margin-top: 18px;
+}
+.event-list details {
+  border-bottom: 1px solid #ecf1eb;
+  padding: 12px 0;
+}
+.event-list summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.event-list summary > span {
+  color: #9aab9c;
+  min-width: 25px;
+}
+.event-list summary strong {
+  font-weight: 500;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.event-list summary small {
+  color: #a4b2a6;
+  font-size: 9px;
+}
+.event-list pre {
+  font-size: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f5f8f2;
+  padding: 12px;
+  line-height: 1.8;
+}

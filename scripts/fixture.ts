@@ -1,4 +1,4 @@
-import { startModelFixture } from "../tests/model-fixture.ts";
+import { startModelFixture } from "../tests/fixtures/model-fixture.ts";
 
 const fixture = await startModelFixture(Number(process.env.FIXTURE_PORT ?? 4199));
 console.log(`TEST FIXTURE ONLY — deterministic responses, no LLM inference. ${fixture.url}/v1`);

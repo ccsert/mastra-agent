@@ -21,7 +21,7 @@
   },
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/build-package.mjs",
     "prepack": "pnpm build"
   },
   "files": [
