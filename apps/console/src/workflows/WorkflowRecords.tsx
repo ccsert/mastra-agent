@@ -1,7 +1,8 @@
 import type { WorkflowRelease } from "@platform/sdk";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Button, Table } from "antd";
 import { timestamp } from "../api";
+import { PageMore, pageItems } from "../data/pages";
 import { QueryState } from "../data/QueryState";
 import { workflowQueries } from "../data/workflows";
 import { Status } from "./Status";
@@ -16,8 +17,8 @@ export function WorkflowRuns({
   enabled: boolean;
   onDetail(id: string): void;
 }) {
-  const query = useQuery({ ...workflowQueries.runs(projectId, id), enabled }),
-    runs = query.data ?? [];
+  const query = useInfiniteQuery({ ...workflowQueries.runs(projectId, id), enabled }),
+    runs = pageItems(query.data);
   return (
     <QueryState label="工作流运行记录" query={query}>
       <Table
@@ -35,6 +36,7 @@ export function WorkflowRuns({
           },
         ]}
       />
+      <PageMore query={query} count={runs.length} />
     </QueryState>
   );
 }
@@ -49,8 +51,8 @@ export function WorkflowReleases({
   enabled: boolean;
   onRun(release: WorkflowRelease): void;
 }) {
-  const query = useQuery({ ...workflowQueries.releases(projectId, id), enabled }),
-    releases = query.data ?? [];
+  const query = useInfiniteQuery({ ...workflowQueries.releases(projectId, id), enabled }),
+    releases = pageItems(query.data);
   return (
     <QueryState label="发布版本" query={query}>
       <Table
@@ -71,6 +73,7 @@ export function WorkflowReleases({
           },
         ]}
       />
+      <PageMore query={query} count={releases.length} label="版本" />
     </QueryState>
   );
 }

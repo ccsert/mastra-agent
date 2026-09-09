@@ -3,7 +3,8 @@ import type { Model, WorkflowAsset } from "@platform/sdk";
 import { Button, Empty, Tag } from "antd";
 import { useState } from "react";
 import { timestamp } from "./api";
-import { useProjectQuery, useProjectRefresh } from "./data/ProjectData";
+import { useProjectPages, useProjectRefresh } from "./data/ProjectData";
+import { PageMore, pageItems } from "./data/pages";
 import { QueryState } from "./data/QueryState";
 import type { RegisterGuard } from "./workflows/draft";
 import { WorkflowCreate } from "./workflows/WorkflowCreate";
@@ -20,8 +21,8 @@ export function WorkflowWorkspace({
 }) {
   const [asset, setAsset] = useState<WorkflowAsset | null>(null),
     [createOpen, setCreateOpen] = useState(false);
-  const itemsQuery = useProjectQuery("workflows", { enabled: !asset }),
-    items = itemsQuery.data ?? [],
+  const itemsQuery = useProjectPages("workflows", { enabled: !asset }),
+    items = pageItems(itemsQuery.data),
     refresh = useProjectRefresh();
   if (asset)
     return (
@@ -93,6 +94,7 @@ export function WorkflowWorkspace({
             </Empty>
           </div>
         )}
+        <PageMore query={itemsQuery} count={items.length} label="工作流" />
       </QueryState>
       {createOpen && (
         <WorkflowCreate

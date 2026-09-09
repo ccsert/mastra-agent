@@ -1,7 +1,7 @@
 import "./env.ts";
 import { type ChildProcess, spawn } from "node:child_process";
 import { createServer } from "node:net";
-import { networkInterfaces } from "node:os";
+import { localConsoleOrigins } from "./console-origins.ts";
 import { required } from "./env.ts";
 
 required("DATABASE_URL");
@@ -11,25 +11,9 @@ const ports = [
   Number(process.env.CONSOLE_PORT ?? 5179),
 ];
 const consoleHost = process.env.CONSOLE_HOST ?? "0.0.0.0";
-const consoleAddresses =
-  consoleHost === "0.0.0.0"
-    ? [
-        "127.0.0.1",
-        "localhost",
-        ...Object.values(networkInterfaces())
-          .flatMap((addresses) => addresses ?? [])
-          .filter((address) => address.family === "IPv4" && !address.internal)
-          .map((address) => address.address),
-      ]
-    : [consoleHost];
-const consoleOrigins = consoleAddresses.map((address) => `http://${address}:${ports[2]}`);
-// Trust only this machine's concrete console addresses, never arbitrary private-network origins.
-process.env.CONSOLE_ADDITIONAL_ORIGINS = [
-  ...new Set([
-    ...(process.env.CONSOLE_ADDITIONAL_ORIGINS ?? "").split(",").filter(Boolean),
-    ...consoleOrigins,
-  ]),
-].join(",");
+const consoleOrigins = localConsoleOrigins(consoleHost, ports[2]);
+// Only the local launcher enables live interface discovery; deployed servers use explicit origins.
+process.env.CONSOLE_LOCAL_ORIGINS = "true";
 const hosts = [
   process.env.API_HOST ?? "127.0.0.1",
   process.env.RUNTIME_HOST ?? "127.0.0.1",
@@ -79,10 +63,17 @@ function stop(code = 0) {
   }
   setTimeout(() => process.exit(code), 1000);
 }
-start("Control plane", ["exec", "tsx", "apps/control-plane/src/main.ts"]);
+start("Control plane", [
+  "exec",
+  "node",
+  "--conditions=development",
+  "--import",
+  "tsx",
+  "apps/control-plane/src/main.ts",
+]);
 start(
   "Runtime",
-  ["exec", "tsx", "apps/runtime/src/main.ts"],
+  ["exec", "node", "--conditions=development", "--import", "tsx", "apps/runtime/src/main.ts"],
   ["CONTROL_PLANE_URL", "RUNTIME_TOKEN", "RUNTIME_ID", "RUNTIME_HOST", "RUNTIME_PORT"],
 );
 start(

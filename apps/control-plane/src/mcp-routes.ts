@@ -7,11 +7,12 @@ import {
   McpServer,
   McpServerInput,
   McpServerUpdate,
+  PageQuery,
   type Principal,
   Tool,
   z,
 } from "@platform/contracts";
-import { body, errors, json } from "./http.ts";
+import { body, errors, json, pageJson } from "./http.ts";
 import type { Mcp } from "./mcp.ts";
 
 const project = z.object({ projectId: Id }),
@@ -66,12 +67,19 @@ export function registerMcpRoutes(
       method: "get",
       path: `${root}/{id}/discoveries`,
       operationId: "listMcpDiscoveries",
-      request: { params: item },
-      responses: { 200: json(z.array(McpDiscovery)), ...errors },
+      request: { params: item, query: PageQuery },
+      responses: { 200: pageJson(McpDiscovery), ...errors },
     }),
     async (c) => {
       const p = c.req.valid("param");
-      return c.json(await mcp.discoveries(c.get("principal"), p.projectId, p.id), 200);
+      const page = await mcp.discoveries(
+        c.get("principal"),
+        p.projectId,
+        p.id,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
     },
   );
   app.openapi(

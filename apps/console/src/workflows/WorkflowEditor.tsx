@@ -15,11 +15,12 @@ import {
 } from "@ant-design/icons";
 import type { Model, WorkflowAsset, WorkflowAssetInput, WorkflowRelease } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Alert, App as AntApp, Button, Tabs } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { unwrap } from "../api";
 import { useProjectQuery, useProjectRefresh } from "../data/ProjectData";
+import { PageMore, pageItems } from "../data/pages";
 import { QueryState } from "../data/QueryState";
 import { workflowQueries } from "../data/workflows";
 import { useLifetime } from "../useLifetime";
@@ -50,8 +51,8 @@ export function WorkflowEditor({
     [draft, setDraft] = useState(draftOf(initial));
   const catalogQuery = useProjectQuery("workflowCatalog"),
     catalog = catalogQuery.data ?? [];
-  const releasesQuery = useQuery(workflowQueries.releases(initial.projectId, initial.id)),
-    releases = releasesQuery.data ?? [];
+  const releasesQuery = useInfiniteQuery(workflowQueries.releases(initial.projectId, initial.id)),
+    releases = pageItems(releasesQuery.data);
   const [issues, setIssues] = useState<{ message: string; nodeId?: string }[]>([]),
     [tab, setTab] = useState("canvas"),
     [selected, setSelected] = useState("start"),
@@ -492,6 +493,7 @@ export function WorkflowEditor({
           workflowId={asset.id}
           initialRelease={runRelease}
           releases={releases}
+          pagination={<PageMore query={releasesQuery} count={releases.length} label="版本" />}
           onClose={() => setRunRelease(null)}
           onStarted={(run) => {
             setRunRelease(null);

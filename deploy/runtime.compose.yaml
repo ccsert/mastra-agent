@@ -1,0 +1,13 @@
+name: agent-runtime
+services:
+  runtime:
+    image: agent-platform/runtime:${PLATFORM_TAG:-local}
+    environment:
+      CONTROL_PLANE_URL: ${CONTROL_PLANE_URL:?Set reachable HTTPS control plane URL}
+      RUNTIME_TOKEN: ${RUNTIME_TOKEN:?Set assigned runtime token}
+      RUNTIME_ID: ${RUNTIME_ID:?Set assigned runtime ID}
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "127.0.0.1:${RUNTIME_PORT:-4112}:4112"

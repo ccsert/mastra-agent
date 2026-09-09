@@ -1,7 +1,9 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { Id, type Principal, RuntimeEventInput, RuntimeFinishInput, z } from "@platform/contracts";
+import { createLogger, type Logger, requestId } from "@platform/operations";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
+import { matchedRoutes } from "hono/route";
 import { registerAccessRoutes } from "./access-routes.ts";
 import { registerAgentRoutes } from "./agent-routes.ts";
 import { registerChatRoute, registerConversationRoutes } from "./conversation-routes.ts";
@@ -21,12 +23,18 @@ import { registerWorkflowRoutes } from "./workflow-routes.ts";
 import { Workflows } from "./workflows.ts";
 export interface AppConfig {
   origin: string;
-  additionalOrigins?: string[];
+  additionalOrigins?: string[] | (() => string[]);
   runtimeToken: string;
   secureCookie?: boolean;
+  logger?: Logger;
 }
 export function createApp(platform: Platform, config: AppConfig) {
-  const allowedOrigins = new Set([config.origin, ...(config.additionalOrigins ?? [])]);
+  const additionalOrigins = config.additionalOrigins ?? [];
+  const log = config.logger ?? createLogger("control-plane");
+  const allowedOrigins = () => [
+    config.origin,
+    ...(typeof additionalOrigins === "function" ? additionalOrigins() : additionalOrigins),
+  ];
   const app = new OpenAPIHono<{ Variables: { principal: Principal } }>({
     defaultHook: (result, c) => {
       if (!result.success)
@@ -35,6 +43,27 @@ export function createApp(platform: Platform, config: AppConfig) {
   });
   const queue = new Queue(platform.db, platform.vault, platform.runtimeId);
   const knowledge = new Knowledge(platform);
+  app.use("*", async (c, next) => {
+    const id = requestId(c.req.header("x-request-id")),
+      start = performance.now();
+    c.header("X-Request-Id", id);
+    await next();
+    const route =
+      matchedRoutes(c).findLast((route) => !route.path.includes("*"))?.path ?? "unmatched";
+    // Idle worker polling is frequent; retain failures and actual API work without noisy success polls.
+    if (
+      c.res.status >= 400 ||
+      (!route.startsWith("/internal/") && route !== "/health" && route !== "/ready")
+    )
+      log({
+        event: "http_request",
+        requestId: id,
+        method: c.req.method,
+        route,
+        status: c.res.status,
+        durationMs: Math.round(performance.now() - start),
+      });
+  });
   app.use("*", (c, next) =>
     bodyLimit({
       maxSize: c.req.path.startsWith("/internal/")
@@ -50,10 +79,6 @@ export function createApp(platform: Platform, config: AppConfig) {
       return c.json({ code: error.code, message: error.message }, error.status);
     if (error instanceof z.ZodError)
       return c.json({ code: "INVALID_INPUT", message: "请求或存储数据不符合约束" }, 400);
-    console.error(
-      "Control plane request failed:",
-      error instanceof Error ? error.name : "UnknownError",
-    );
     return c.json({ code: "INTERNAL_ERROR", message: "服务暂时不可用，请稍后重试" }, 503);
   });
   app.use("/api/*", async (c, next) => {
@@ -61,7 +86,7 @@ export function createApp(platform: Platform, config: AppConfig) {
     c.header("X-Content-Type-Options", "nosniff");
     if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
       const origin = c.req.header("origin");
-      if (origin && !allowedOrigins.has(origin))
+      if (origin && !allowedOrigins().includes(origin))
         throw new ApiError(403, "ORIGIN_DENIED", "请求来源不被允许");
       if (!(c.req.header("content-type") ?? "").startsWith("application/json"))
         throw new ApiError(400, "CONTENT_TYPE", "请求必须使用 JSON");
@@ -85,6 +110,10 @@ export function createApp(platform: Platform, config: AppConfig) {
       return c.json({ status: "ok" as const }, 200);
     },
   );
+  app.get("/ready", async (c) => {
+    await platform.db.query("SELECT 1");
+    return c.json({ status: "ready" });
+  });
   registerIdentityRoutes(app, platform.identity, config.secureCookie);
   registerResourceRoutes(app, platform.projects, platform.resources);
   registerAgentRoutes(app, platform.agents);

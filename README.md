@@ -24,7 +24,7 @@ pnpm dev
 
 `pnpm dev` 与 `pnpm preview` 默认在 `0.0.0.0:5179` 提供控制台，启动日志打印本机访问地址。其他电脑使用 `http://服务器的局域网IP:5179`，并使用已有账号登录。页面、API 和会话流均通过同一个 5179 入口；API 进程和 Runtime 默认仍监听本机，由控制台代理 API 请求。
 
-启动器自动将本机当前 IPv4 地址对应的控制台来源加入登录与写入允许列表，同时保留 `CONSOLE_ORIGIN`。IP 地址变化后重启 `pnpm dev` / `pnpm preview`。`.env` 中可设置 `CONSOLE_HOST=127.0.0.1` 改为仅本机监听，或通过 `CONSOLE_ADDITIONAL_ORIGINS` 添加逗号分隔的精确访问来源；直接启动控制面时也需明确配置这些来源。其他机器的浏览器通过服务器地址访问即可，不需要把客户端 IP 加入允许列表。
+启动器自动将本机当前 IPv4 地址对应的控制台来源加入登录与写入允许列表，同时保留 `CONSOLE_ORIGIN`。IP 地址变化后，开发控制面会在请求时更新本机地址列表，无需重启。`.env` 中可设置 `CONSOLE_HOST=127.0.0.1` 改为仅本机监听，或通过 `CONSOLE_ADDITIONAL_ORIGINS` 添加逗号分隔的精确访问来源；直接启动控制面时也需明确配置这些来源。其他机器的浏览器通过服务器地址访问即可，不需要把客户端 IP 加入允许列表。
 
 HTTP 局域网环境的工作流 ID 使用支持 `crypto.getRandomValues` 回退的 UUID 实现，覆盖插入/复制节点、AI 编排和发起工作流。OpenAPI 使用相对服务器地址 `/`，可从当前访问入口调用。生产部署继续使用 HTTPS 和 `COOKIE_SECURE=true`。
 
@@ -48,7 +48,7 @@ pnpm lint
 pnpm sdk:check
 ```
 
-若要查看构建产物，停止 `pnpm dev` 后执行 `pnpm preview`，控制台仍位于 5179。
+若要查看前端构建产物，停止 `pnpm dev` 后执行 `pnpm preview`，控制台仍位于 5179；该命令仍以开发方式启动后端。完整编译产物、Docker、Linux 服务和验证命令见 [独立部署](docs/development/deployment.md)。
 
 测试使用独立 PostgreSQL schema，结束后清理测试 schema。覆盖生成 SDK 到 Mastra 工具执行、隔离/鉴权、发布固定、幂等、取消、失败与租约、消息流竞态。知识库测试另覆盖多批分段、维度传递、重排、删除、隔离和锁等待跨租约截止。工作流测试另覆盖互斥分支、上游变量、候选原样返回后的重试、旧版本调用和节点事件；本轮验收见 [M4 记录](docs/development/m4.md)。
 
@@ -63,6 +63,7 @@ SDK 请求与类型由 Hey API 从 OpenAPI 生成；`pnpm sdk:generate` 更新�
 | `apps/runtime` | 独立 Mastra Agent 执行进程，无数据库依赖或数据库凭据 |
 | `packages/contracts` | Zod 领域契约和导出的 OpenAPI |
 | `packages/database` | PostgreSQL 连接、迁移和事务 |
+| `packages/operations` | 服务配置、结构化日志、请求关联与本机开发来源解析 |
 | `packages/sdk` | Hey API 生成 SDK、服务端签名辅助函数及分发产物 |
 
 后续继续接入更多文档格式与可视化处理流程、标准 Skills 包及隔离执行、更丰富的工作流结构、私网 Runtime/连接器和嵌入组件。统一身份中心、细粒度成员权限、内容治理、生产部署与容量验收继续按既定决策推进。当前是开发里程碑，尚未完成企业级生产验收。

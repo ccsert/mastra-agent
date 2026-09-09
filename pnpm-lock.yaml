@@ -144,6 +144,9 @@ importers:
       '@platform/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@platform/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
       ai:
         specifier: 7.0.93
         version: 7.0.93(zod@4.5.4)
@@ -174,6 +177,9 @@ importers:
       '@platform/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@platform/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
       ai:
         specifier: 7.0.93
         version: 7.0.93(zod@4.5.4)
@@ -204,6 +210,8 @@ importers:
       pg:
         specifier: 8.23.0
         version: 8.23.0
+
+  packages/operations: {}
 
   packages/sdk: {}
 

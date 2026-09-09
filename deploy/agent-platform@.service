@@ -1,0 +1,20 @@
+[Unit]
+Description=Agent Platform %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agent-platform
+Group=agent-platform
+WorkingDirectory=/opt/agent-platform/%i
+EnvironmentFile=/etc/agent-platform/%i.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

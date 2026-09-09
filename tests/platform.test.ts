@@ -118,7 +118,7 @@ test("published revisions and conversation ownership are durable, secrets never 
   try {
     const reopened = new Platform(reconnect, store.vault);
     assert.equal((await reopened.conversations.messages(actor, project.id, thread.id)).length, 1);
-    assert.equal((await reopened.conversations.runs(actor, project.id)).length, 1);
+    assert.equal((await reopened.conversations.runs(actor, project.id)).items.length, 1);
   } finally {
     await reconnect.close();
   }

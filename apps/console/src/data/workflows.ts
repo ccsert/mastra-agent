@@ -1,28 +1,38 @@
 import * as api from "@platform/sdk";
 import { queryOptions } from "@tanstack/react-query";
-import { unwrap } from "../api";
+import { unwrap, unwrapPage } from "../api";
 import { projectKey } from "./ProjectData";
+import { pageOptions } from "./pages";
 
 export const workflowQueries = {
-  releases: (projectId: string, id: string) =>
-    queryOptions({
-      queryKey: projectKey(projectId, "workflows", id, "releases"),
-      queryFn: ({ signal }) =>
-        unwrap(api.listWorkflowReleases({ path: { projectId, id }, signal })),
-    }),
-  runs: (projectId: string, id: string) =>
-    queryOptions({
-      queryKey: projectKey(projectId, "workflows", id, "runs"),
-      queryFn: ({ signal }) => unwrap(api.listWorkflowRuns({ path: { projectId, id }, signal })),
-      refetchInterval: 2000,
-    }),
-  generations: (projectId: string, id: string) =>
-    queryOptions({
-      queryKey: projectKey(projectId, "workflows", id, "generations"),
-      queryFn: ({ signal }) =>
-        unwrap(api.listWorkflowGenerations({ path: { projectId, id }, signal })),
-      refetchInterval: 2000,
-    }),
+  releases: (projectId: string, id: string) => ({
+    ...pageOptions(projectKey(projectId, "workflows", id, "releases"), (cursor, signal) =>
+      unwrapPage(
+        api.listWorkflowReleases({ path: { projectId, id }, query: { cursor, limit: 20 }, signal }),
+      ),
+    ),
+    refetchInterval: false as const,
+  }),
+  runs: (projectId: string, id: string) => ({
+    ...pageOptions(projectKey(projectId, "workflows", id, "runs"), (cursor, signal) =>
+      unwrapPage(
+        api.listWorkflowRuns({ path: { projectId, id }, query: { cursor, limit: 20 }, signal }),
+      ),
+    ),
+    refetchInterval: 2000,
+  }),
+  generations: (projectId: string, id: string) => ({
+    ...pageOptions(projectKey(projectId, "workflows", id, "generations"), (cursor, signal) =>
+      unwrapPage(
+        api.listWorkflowGenerations({
+          path: { projectId, id },
+          query: { cursor, limit: 20 },
+          signal,
+        }),
+      ),
+    ),
+    refetchInterval: 2000,
+  }),
   run: (projectId: string, id: string) =>
     queryOptions({
       queryKey: projectKey(projectId, "workflows", "run", id),

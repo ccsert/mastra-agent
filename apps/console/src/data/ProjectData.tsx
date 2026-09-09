@@ -12,9 +12,17 @@ import type {
   WorkflowCapability,
 } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { unwrap } from "../api";
+import { unwrap, unwrapPage } from "../api";
+
+import { pageOptions } from "./pages";
 
 type Resources = {
   agents: Agent[];
@@ -106,4 +114,25 @@ export function useProjectRefresh() {
           ),
         )
       : client.refetchQueries({ type: "active" }, { cancelRefetch: false });
+}
+
+const pageLoaders = {
+  runs: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
+    unwrapPage(api.listRuns({ path: { projectId }, query: { cursor, limit: 20 }, signal })),
+  workflows: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
+    unwrapPage(api.listWorkflows({ path: { projectId }, query: { cursor, limit: 20 }, signal })),
+};
+export function useProjectPages<K extends keyof typeof pageLoaders>(
+  resource: K,
+  { enabled = true, poll = false }: { enabled?: boolean; poll?: boolean } = {},
+) {
+  const projectId = useProjectId();
+  return useInfiniteQuery({
+    ...pageOptions<Resources[K][number]>(
+      projectKey(projectId, resource, "pages"),
+      (cursor, signal) => pageLoaders[resource](projectId, cursor, signal),
+    ),
+    enabled: !!projectId && enabled,
+    refetchInterval: poll ? 5000 : false,
+  });
 }

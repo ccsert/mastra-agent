@@ -19,6 +19,7 @@ import type { Queryable, Row } from "@platform/database";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
 import type { ExecutionContext } from "./execution-context.ts";
+import { cursorPage, type PageInput } from "./pagination.ts";
 import type { Projects } from "./projects.ts";
 import { requireUser } from "./projects.ts";
 
@@ -137,15 +138,17 @@ export class Mcp {
       return serverDto(updated);
     });
   }
-  async discoveries(actor: Principal, projectId: string, id: string) {
+  async discoveries(actor: Principal, projectId: string, id: string, input: PageInput = {}) {
     await this.server(actor, projectId, id);
-    return (
-      await this.deps.db.query(
-        "SELECT * FROM mcp_discoveries WHERE server_id=$1 ORDER BY created_at DESC LIMIT 10",
-        [id],
-      )
-    ).map(discoveryDto);
+    const page = cursorPage(["mcp-discoveries", actor.tenantId, projectId, id], input, 10);
+    const rows = await this.deps.db.query(
+      `SELECT d.*,${page.select("d")} FROM mcp_discoveries d WHERE d.server_id=$1
+       AND ${page.where("d", 2)} ORDER BY d.created_at DESC,d.id DESC LIMIT $4`,
+      [id, ...page.values],
+    );
+    return page.result(rows, discoveryDto);
   }
+
   async discover(actor: Principal, projectId: string, id: string) {
     return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);

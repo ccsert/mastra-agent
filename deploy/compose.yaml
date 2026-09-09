@@ -1,0 +1,52 @@
+name: agent-platform
+services:
+  database:
+    image: agent-platform-postgres:16-vector0.8.6
+    build: ./postgres
+    environment:
+      POSTGRES_DB: platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - platform-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U platform -d platform"]
+      interval: 5s
+      retries: 10
+  control-plane:
+    image: agent-platform/control-plane:${PLATFORM_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: control-plane }
+    environment:
+      DATABASE_URL: postgresql://platform:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@database:5432/platform
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY}
+      RUNTIME_TOKEN: ${RUNTIME_TOKEN:?Set RUNTIME_TOKEN}
+      RUNTIME_ID: ${RUNTIME_ID:-hosted-local}
+      CONSOLE_ORIGIN: ${CONSOLE_ORIGIN:?Set the exact public console origin}
+      CONSOLE_ADDITIONAL_ORIGINS: ${CONSOLE_ADDITIONAL_ORIGINS:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "${CONTROL_PLANE_BIND:-127.0.0.1}:${CONTROL_PLANE_PORT:-4110}:4110"
+    depends_on:
+      database: { condition: service_healthy }
+    init: true
+    stop_grace_period: 30s
+  runtime:
+    image: agent-platform/runtime:${PLATFORM_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: runtime }
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:4110
+      RUNTIME_TOKEN: ${RUNTIME_TOKEN:?Set RUNTIME_TOKEN}
+      RUNTIME_ID: ${RUNTIME_ID:-hosted-local}
+    depends_on:
+      control-plane: { condition: service_healthy }
+    init: true
+    stop_grace_period: 30s
+  console:
+    image: agent-platform/console:${PLATFORM_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: console }
+    ports:
+      - "${CONSOLE_BIND:-0.0.0.0}:${CONSOLE_PORT:-5179}:8080"
+    depends_on:
+      control-plane: { condition: service_healthy }
+volumes:
+  platform-data:

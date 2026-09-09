@@ -1,7 +1,7 @@
 import { KeyOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { McpDescriptor, McpDiscovery, McpServer, Tool } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   App,
@@ -22,6 +22,7 @@ import { useState } from "react";
 import { timestamp, unwrap } from "./api";
 import { mcpQueries } from "./data/mcp";
 import { useProjectRefresh } from "./data/ProjectData";
+import { PageMore, pageItems, prependPage } from "./data/pages";
 import { QueryState } from "./data/QueryState";
 import { useOperation } from "./useOperation";
 
@@ -45,8 +46,8 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
   const { message } = App.useApp(),
     refresh = useProjectRefresh(),
     client = useQueryClient();
-  const discoveriesQuery = useQuery(mcpQueries.discoveries(server.projectId, server.id)),
-    discoveries = discoveriesQuery.data ?? [];
+  const discoveriesQuery = useInfiniteQuery(mcpQueries.discoveries(server.projectId, server.id)),
+    discoveries = pageItems(discoveriesQuery.data);
 
   const [viewId, setViewId] = useState<string>(),
     [review, setReview] = useState<{ descriptor: McpDescriptor; discoveryId: string }>(),
@@ -60,9 +61,8 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
   async function discover() {
     await action(async (signal) => {
       const job = await unwrap(api.discoverMcpTools({ path, body: {}, signal }), signal);
-      client.setQueryData(
-        mcpQueries.discoveries(server.projectId, server.id).queryKey,
-        (old = []) => [job, ...old.filter((d) => d.id !== job.id)],
+      client.setQueryData(mcpQueries.discoveries(server.projectId, server.id).queryKey, (old) =>
+        prependPage(old, job),
       );
       void refresh("mcpServers");
       setViewId(job.id);
@@ -238,6 +238,7 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
             )}
           </>
         )}
+        <PageMore query={discoveriesQuery} count={discoveries.length} label="发现记录" />
       </QueryState>
       <h3>已导入工具</h3>
       {tools

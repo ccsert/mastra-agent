@@ -7,12 +7,13 @@ import type {
   WorkflowGeneration,
 } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, App as AntApp, Button, Form, Input, Modal, Select } from "antd";
 import { useEffect, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { timestamp, unwrap } from "../api";
 import { useProjectRefresh } from "../data/ProjectData";
+import { PageMore, pageItems, prependPage } from "../data/pages";
 import { QueryState } from "../data/QueryState";
 import { workflowQueries } from "../data/workflows";
 import { useLifetime } from "../useLifetime";
@@ -45,8 +46,8 @@ export function WorkflowAuthoring({
     refresh = useProjectRefresh(),
     client = useQueryClient();
   const generationsOptions = workflowQueries.generations(asset.projectId, asset.id),
-    generationsQuery = useQuery(generationsOptions),
-    generations = generationsQuery.data ?? [];
+    generationsQuery = useInfiniteQuery(generationsOptions),
+    generations = pageItems(generationsQuery.data);
   const [intent, setIntent] = useState(""),
     [modelId, setModelId] = useState(models.find((model) => model.kind === "chat")?.id),
     [review, setReview] = useState<WorkflowGeneration | null>(null);
@@ -107,10 +108,9 @@ export function WorkflowAuthoring({
                     }),
                     signal,
                   );
-                  client.setQueryData(generationsOptions.queryKey, (items = []) => [
-                    generation,
-                    ...items,
-                  ]);
+                  client.setQueryData(generationsOptions.queryKey, (items) =>
+                    prependPage(items, generation),
+                  );
                   void refresh("workflows");
                 })
               }
@@ -187,6 +187,7 @@ export function WorkflowAuthoring({
               ))}
             </details>
           )}
+          <PageMore query={generationsQuery} count={generations.length} label="编排记录" />
         </aside>
       </QueryState>
       <Modal

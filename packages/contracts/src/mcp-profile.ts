@@ -1,5 +1,5 @@
-import Ajv from "ajv";
-import Ajv2020 from "ajv/dist/2020.js";
+import { Ajv } from "ajv";
+import { Ajv2020 } from "ajv/dist/2020.js";
 
 // This profile is shared by import and execution. No remote refs, regex execution,
 // coercion or implicit defaults are permitted for imported third-party schemas.

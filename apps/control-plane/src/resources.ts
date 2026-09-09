@@ -8,7 +8,7 @@ import {
   type ToolInput,
 } from "@platform/contracts";
 import type { Database, Queryable, Row } from "@platform/database";
-import Ajv from "ajv";
+import { Ajv } from "ajv";
 import type { Vault } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
 import { type Projects, requireUser } from "./projects.ts";

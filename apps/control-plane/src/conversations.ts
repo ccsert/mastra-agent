@@ -3,6 +3,7 @@ import { Conversation, type Principal, Run, RunEvent } from "@platform/contracts
 import type { Database, Queryable, Row } from "@platform/database";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
+import { cursorPage, type PageInput } from "./pagination.ts";
 import type { Projects } from "./projects.ts";
 import { date, text } from "./records.ts";
 import type { Resources } from "./resources.ts";
@@ -152,14 +153,17 @@ export class Conversations {
     if (!r) throw notFound();
     return runDto(r);
   }
-  async runs(actor: Principal, projectId: string) {
+  async runs(actor: Principal, projectId: string, input: PageInput = {}) {
     await this.projects.get(actor, projectId);
-    return (
-      await this.db.query(
-        "SELECT q.*,r.version,r.snapshot->'agent'->>'name' AS agent_name FROM runs q JOIN releases r ON q.release_id=r.id WHERE q.project_id=$1 AND q.actor_id=$2 AND q.entry=$3 ORDER BY q.created_at DESC LIMIT 100",
-        [projectId, actor.id, actor.entry],
-      )
-    ).map(runDto);
+    const page = cursorPage(["runs", actor.tenantId, projectId, actor.id, actor.entry], input);
+    const rows = await this.db.query(
+      `SELECT q.*,r.version,r.snapshot->'agent'->>'name' AS agent_name,${page.select("q")}
+       FROM runs q JOIN releases r ON q.release_id=r.id
+       WHERE q.project_id=$1 AND q.actor_id=$2 AND q.entry=$3 AND ${page.where("q", 4)}
+       ORDER BY q.created_at DESC,q.id DESC LIMIT $6`,
+      [projectId, actor.id, actor.entry, ...page.values],
+    );
+    return page.result(rows, runDto);
   }
   async events(actor: Principal, projectId: string, id: string, after = -1) {
     await this.run(actor, projectId, id);

@@ -3,6 +3,7 @@ import {
   Conversation,
   ConversationInput,
   Message,
+  PageQuery,
   Run,
   RunEvent,
   RunInput,
@@ -12,7 +13,7 @@ import type { UIMessageChunk } from "ai";
 import { createUIMessageStreamResponse, uiMessageChunkSchema } from "ai";
 import type { Conversations } from "./conversations.ts";
 import { ApiError } from "./errors.ts";
-import { type ApiApp, body, errors, itemParams, json, projectParams } from "./http.ts";
+import { type ApiApp, body, errors, itemParams, json, pageJson, projectParams } from "./http.ts";
 export function registerConversationRoutes(app: ApiApp, conversations: Conversations) {
   app.openapi(
     createRoute({
@@ -89,11 +90,15 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       method: "get",
       path: "/api/v1/projects/{projectId}/runs",
       operationId: "listRuns",
-      request: { params: projectParams },
-      responses: { 200: json(z.array(Run)), ...errors },
+      request: { params: projectParams, query: PageQuery },
+      responses: { 200: pageJson(Run), ...errors },
     }),
-    async (c) =>
-      c.json(await conversations.runs(c.get("principal"), c.req.valid("param").projectId), 200),
+    async (c) => {
+      const p = c.req.valid("param");
+      const page = await conversations.runs(c.get("principal"), p.projectId, c.req.valid("query"));
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
+    },
   );
   app.openapi(
     createRoute({

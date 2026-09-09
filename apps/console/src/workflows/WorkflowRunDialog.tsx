@@ -1,7 +1,7 @@
 import type { WorkflowRelease, WorkflowRun } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { Alert, Form, Input, Modal, Select } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { timestamp, unwrap } from "../api";
 import { useProjectRefresh } from "../data/ProjectData";
@@ -12,6 +12,7 @@ export function WorkflowRunDialog({
   workflowId,
   initialRelease,
   releases,
+  pagination,
   onClose,
   onStarted,
 }: {
@@ -19,6 +20,7 @@ export function WorkflowRunDialog({
   workflowId: string;
   initialRelease: WorkflowRelease;
   releases: WorkflowRelease[];
+  pagination?: ReactNode;
   onClose(): void;
   onStarted(run: WorkflowRun): void;
 }) {
@@ -75,6 +77,7 @@ export function WorkflowRunDialog({
             }}
           />
         </Form.Item>
+        {pagination}
         <Form.Item
           label="运行输入"
           htmlFor="workflow-run-input"

@@ -4,7 +4,8 @@ import { Alert, App as AntApp, Button, Drawer, Table, Tag } from "antd";
 import { useRef, useState } from "react";
 import { timestamp, unwrap } from "./api";
 import { Blank } from "./Blank";
-import { useProjectQuery } from "./data/ProjectData";
+import { useProjectPages } from "./data/ProjectData";
+import { PageMore, pageItems } from "./data/pages";
 import { QueryState } from "./data/QueryState";
 import { useLifetime } from "./useLifetime";
 
@@ -28,8 +29,8 @@ function RunStatus({ status }: { status: Run["status"] }) {
 export function RunsWorkspace({ projectId }: { projectId: string }) {
   const { message } = AntApp.useApp(),
     lifetime = useLifetime();
-  const query = useProjectQuery("runs", { poll: true }),
-    runs = query.data ?? [];
+  const query = useProjectPages("runs", { poll: true }),
+    runs = pageItems(query.data);
   const detailRequest = useRef(0);
   const [runDetail, setRunDetail] = useState<Run | null>(null),
     [events, setEvents] = useState<RunEvent[]>([]),
@@ -116,6 +117,7 @@ export function RunsWorkspace({ projectId }: { projectId: string }) {
             ]}
           />
         </section>
+        <PageMore query={query} count={runs.length} label="运行记录" />
       </QueryState>
       <Drawer
         title="运行详情"

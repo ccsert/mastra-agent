@@ -55,3 +55,22 @@ const { data: nodes } = await listWorkflowNodeRuns({ client, path: runPath, thro
 `requestId` 在工作流、调用者与入口范围内去重；同一键但版本或输入不同返回 409。应用只能访问自己的运行，不能管理草稿、发布或请求 AI 编排。重试业务调用应由调用方明确决定，平台不会隐式重放失败的节点。
 
 管理方法：`listWorkflows` / `createWorkflow` / `getWorkflow` / `updateWorkflow` / `validateWorkflow` / `publishWorkflow` / `listWorkflowReleases`。`updateWorkflow` 完整替换草稿并要求 `baseRevision`，冲突返回 409。`generateWorkflow` 是异步候选任务，通过 `getWorkflowGeneration` 读取状态与校验问题；`acceptWorkflowGeneration` 只更新草稿，仍需另行发布。接受时要求生成基线与当前草稿修订一致。
+
+## 游标分页
+
+`listRuns`、`listWorkflows`、`listWorkflowReleases`、`listWorkflowRuns`、`listWorkflowGenerations` 和 `listMcpDiscoveries` 支持 `query.limit`（1–100）和 `query.cursor`。响应正文保持数组，HTTP `X-Next-Cursor` 响应头提供下一页位置；不存在表示最后一页。
+
+```ts
+let cursor: string | undefined;
+do {
+  const result = await listWorkflows({
+    client, path: { projectId }, query: { limit: 50, cursor }, throwOnError: true,
+  });
+  consume(result.data);
+  cursor = result.response?.headers.get('X-Next-Cursor') ?? undefined;
+} while (cursor);
+```
+
+每页均验证权限，游标只表示当前列表位置；不同项目、运行的调用者或入口不能混用。发布版本按版本号倒序，其余按创建时间/ID 倒序；刷新需从第一页开始。游标不承诺数据库快照，新创建的记录在刷新后可见。旧客户端省略分页参数时保留原每页条数。运行事件仍使用原 `after` 序号分页。浏览器跨域直连接入需由入口网关显式配置凭据与暴露响应头；目前控制台使用同源代理。
+
+排障时保留响应中的 `X-Request-Id`，可在控制面结构化日志中查找对应状态。请求关联 ID 与业务幂等字段 `requestId` 用途不同。

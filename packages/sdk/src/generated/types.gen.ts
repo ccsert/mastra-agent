@@ -1510,7 +1510,10 @@ export type ListRunsData = {
     path: {
         projectId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/runs';
 };
 
@@ -2672,7 +2675,10 @@ export type ListMcpDiscoveriesData = {
         projectId: string;
         id: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/mcp-servers/{id}/discoveries';
 };
 
@@ -2829,7 +2835,10 @@ export type ListWorkflowsData = {
     path: {
         projectId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/workflows';
 };
 
@@ -3197,7 +3206,10 @@ export type ListWorkflowReleasesData = {
         projectId: string;
         id: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/workflows/{id}/releases';
 };
 
@@ -3249,7 +3261,10 @@ export type ListWorkflowRunsData = {
         projectId: string;
         id: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/workflows/{id}/runs';
 };
 
@@ -3511,7 +3526,10 @@ export type ListWorkflowGenerationsData = {
         projectId: string;
         id: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/workflows/{id}/generations';
 };
 

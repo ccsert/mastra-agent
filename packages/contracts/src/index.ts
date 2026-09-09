@@ -11,6 +11,15 @@ export * from "./workflow-definition.ts";
 
 export { z };
 export const Id = z.uuid();
+export const PageQuery = z.object({
+  cursor: z
+    .string()
+    .min(1)
+    .max(1024)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
 export const ErrorBody = z.object({ code: z.string(), message: z.string() }).openapi("ApiError");
 export const ProjectInput = z
   .object({ name: z.string().trim().min(1).max(80), description: z.string().max(500).default("") })

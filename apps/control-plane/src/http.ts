@@ -20,3 +20,13 @@ export const errors = {
   429: json(ErrorBody),
   503: json(ErrorBody),
 };
+
+export const pageJson = <T extends z.ZodType>(schema: T) => ({
+  ...json(z.array(schema)),
+  headers: {
+    "X-Next-Cursor": {
+      description: "下一页游标；没有此响应头表示已到末页。每页仍需通过资源授权。",
+      schema: { type: "string" as const },
+    },
+  },
+});

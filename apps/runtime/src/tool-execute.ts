@@ -1,5 +1,5 @@
 import { compileMcpSchema, type Tool, type z } from "@platform/contracts";
-import Ajv from "ajv";
+import { Ajv } from "ajv";
 import { callMcpTool } from "./mcp.ts";
 
 export async function executePlatformTool(

@@ -1,6 +1,7 @@
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import {
   Id,
+  PageQuery,
   type Principal,
   VectorQuery,
   WorkflowAsset,
@@ -18,7 +19,7 @@ import {
   WorkflowRuntimeFinish,
   z,
 } from "@platform/contracts";
-import { body, errors, json } from "./http.ts";
+import { body, errors, json, pageJson } from "./http.ts";
 import { requireUser } from "./projects.ts";
 import type { WorkflowQueue } from "./workflow-queue.ts";
 import type { Workflows } from "./workflows.ts";
@@ -40,11 +41,15 @@ export function registerWorkflowRoutes(
       method: "get",
       path: root,
       operationId: "listWorkflows",
-      request: { params: project },
-      responses: { 200: json(z.array(WorkflowAsset)), ...errors },
+      request: { params: project, query: PageQuery },
+      responses: { 200: pageJson(WorkflowAsset), ...errors },
     }),
-    async (c) =>
-      c.json(await service.list(c.get("principal"), c.req.valid("param").projectId), 200),
+    async (c) => {
+      const p = c.req.valid("param");
+      const page = await service.list(c.get("principal"), p.projectId, c.req.valid("query"));
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
+    },
   );
   app.openapi(
     createRoute({
@@ -153,12 +158,19 @@ export function registerWorkflowRoutes(
       method: "get",
       path: `${root}/{id}/releases`,
       operationId: "listWorkflowReleases",
-      request: { params: item },
-      responses: { 200: json(z.array(WorkflowRelease)), ...errors },
+      request: { params: item, query: PageQuery },
+      responses: { 200: pageJson(WorkflowRelease), ...errors },
     }),
     async (c) => {
       const p = c.req.valid("param");
-      return c.json(await service.releases(c.get("principal"), p.projectId, p.id), 200);
+      const page = await service.releases(
+        c.get("principal"),
+        p.projectId,
+        p.id,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
     },
   );
   app.openapi(
@@ -166,12 +178,14 @@ export function registerWorkflowRoutes(
       method: "get",
       path: `${root}/{id}/runs`,
       operationId: "listWorkflowRuns",
-      request: { params: item },
-      responses: { 200: json(z.array(WorkflowRun)), ...errors },
+      request: { params: item, query: PageQuery },
+      responses: { 200: pageJson(WorkflowRun), ...errors },
     }),
     async (c) => {
       const p = c.req.valid("param");
-      return c.json(await service.runs(c.get("principal"), p.projectId, p.id), 200);
+      const page = await service.runs(c.get("principal"), p.projectId, p.id, c.req.valid("query"));
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
     },
   );
   app.openapi(
@@ -251,12 +265,19 @@ export function registerWorkflowRoutes(
       method: "get",
       path: `${root}/{id}/generations`,
       operationId: "listWorkflowGenerations",
-      request: { params: item },
-      responses: { 200: json(z.array(WorkflowGeneration)), ...errors },
+      request: { params: item, query: PageQuery },
+      responses: { 200: pageJson(WorkflowGeneration), ...errors },
     }),
     async (c) => {
       const p = c.req.valid("param");
-      return c.json(await service.generations(c.get("principal"), p.projectId, p.id), 200);
+      const page = await service.generations(
+        c.get("principal"),
+        p.projectId,
+        p.id,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
     },
   );
   app.openapi(

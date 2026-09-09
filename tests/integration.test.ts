@@ -78,6 +78,46 @@ test("generated SDK → authenticated control plane → HTTP worker → Mastra t
       assert.equal(denied.status, 403, origin);
       assert.equal((await denied.json()).code, "ORIGIN_DENIED");
     }
+    let localOrigins = ["http://192.168.50.31:5179"];
+    const liveApp = createApp(store, {
+      origin: "http://127.0.0.1:5179",
+      additionalOrigins: () => ["http://console.example:5179", ...localOrigins],
+      runtimeToken: "integration-runtime-token",
+    }).app;
+    const loginFrom = (origin: string) =>
+      liveApp.request("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({ username: "test-owner", password: "test-password-123" }),
+      });
+    assert.equal((await loginFrom("http://192.168.50.31:5179")).status, 200);
+    localOrigins = ["http://192.168.110.151:5179"];
+    for (const origin of [
+      "http://127.0.0.1:5179",
+      "http://console.example:5179",
+      "http://192.168.110.151:5179",
+    ]) {
+      const login = await loginFrom(origin);
+      assert.equal(login.status, 200, origin);
+      const sessionCookie = login.headers.get("set-cookie")?.split(";")[0];
+      assert.ok(sessionCookie);
+      assert.equal(
+        (await liveApp.request("/api/v1/me", { headers: { cookie: sessionCookie } })).status,
+        200,
+      );
+    }
+    for (const origin of [
+      "http://192.168.50.31:5179",
+      "http://192.168.110.152:5179",
+      "http://192.168.110.151:5180",
+      "https://192.168.110.151:5179",
+      "http://192.168.110.151.evil.invalid:5179",
+      "null",
+    ]) {
+      const denied = await loginFrom(origin);
+      assert.equal(denied.status, 403, origin);
+      assert.equal((await denied.json()).code, "ORIGIN_DENIED");
+    }
     const spec = await fetch(`${baseUrl}/openapi.json`);
     assert.deepEqual((await spec.json()).servers, [{ url: "/" }]);
     const project = defined(

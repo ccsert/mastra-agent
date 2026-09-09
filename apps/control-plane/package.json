@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/main.ts"
+    "dev": "node --conditions=development --env-file-if-exists=../../.env --import tsx src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
@@ -13,6 +16,10 @@
     "@platform/database": "workspace:*",
     "ai": "7.0.93",
     "ajv": "8.20.0",
-    "hono": "4.13.7"
-  }
+    "hono": "4.13.7",
+    "@platform/operations": "workspace:*"
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -1,23 +1,17 @@
 import { ExecutionJob, McpErrorCode, Message } from "@platform/contracts";
+import { createLogger } from "@platform/operations";
 import { runtimeClient, type WorkerConfig, waitForPoll } from "./control-client.ts";
 import { executeJob } from "./execute.ts";
 
 export async function runAgentWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
-  let disconnected = false;
+  const log = config.logger ?? createLogger("runtime");
   while (!config.signal.aborted) {
     let job: ExecutionJob | null = null;
     try {
       const response = await post("/internal/runtime/claim", {});
       job = response.job ? ExecutionJob.parse(response.job) : null;
-      if (disconnected) {
-        console.log("Runtime control connection restored");
-        disconnected = false;
-      }
     } catch {
-      if (!config.signal.aborted && !disconnected)
-        console.error("Runtime control connection unavailable");
-      disconnected = true;
       await waitForPoll(1000, config.signal);
       continue;
     }
@@ -97,9 +91,11 @@ export async function runAgentWorker(config: WorkerConfig) {
           AbortSignal.timeout(8000),
         );
       } catch {
-        console.error(
-          "Runtime completion could not be acknowledged; lease expiry will finalize the run.",
-        );
+        log({
+          event: "completion_unacknowledged",
+          runtimeId: config.runtimeId,
+          jobId: current.runId,
+        });
       }
     } finally {
       clearInterval(heartbeat);

@@ -48,7 +48,7 @@ test("workflow lists use a constant query budget and preserve scope, draft and r
         2,
         "one access check and one list query, independent of item count",
       );
-      return result;
+      return result.items;
     }
     assert.deepEqual(await list(), []);
     const draft = await workflows.create(actor, project.id, input);

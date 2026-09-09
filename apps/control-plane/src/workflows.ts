@@ -26,6 +26,7 @@ import type { Agents } from "./agents.ts";
 import { sha256 } from "./crypto.ts";
 import { ApiError, notFound } from "./errors.ts";
 import type { ExecutionContext } from "./execution-context.ts";
+import { cursorPage, type PageInput } from "./pagination.ts";
 import type { Projects } from "./projects.ts";
 import { requireUser } from "./projects.ts";
 import { modelDto, type Resources } from "./resources.ts";
@@ -71,6 +72,38 @@ const assetDto = (row: Row) =>
     publishedVersion: row.version ?? null,
     createdAt: workflowDate(row.created_at),
   });
+const runDto = (r: Row) =>
+  WorkflowRun.parse({
+    id: r.id,
+    workflowId: r.workflow_id,
+    releaseId: r.release_id,
+    version: r.version,
+    name: r.name,
+    status: r.status,
+    input: r.input,
+    output: r.output,
+    errorCode: r.error_code,
+    createdAt: workflowDate(r.created_at),
+    finishedAt: r.finished_at ? workflowDate(r.finished_at) : null,
+  });
+const generationDto = (r: Row) => {
+  const input = r.input as z.infer<typeof WorkflowGenerationInput>;
+  return WorkflowGeneration.parse({
+    id: r.id,
+    workflowId: r.workflow_id,
+    baseRevision: input.baseRevision,
+    intent: input.intent,
+    modelId: input.modelId,
+    status: r.status,
+    candidate: r.candidate,
+    issues: r.issues,
+    attempts: r.attempts,
+    acceptedRevision: r.accepted_revision,
+    errorCode: r.error_code,
+    createdAt: workflowDate(r.created_at),
+    finishedAt: r.finished_at ? workflowDate(r.finished_at) : null,
+  });
+};
 export function toolCapability(tool: z.infer<typeof Tool>): WorkflowCapability {
   const outputSchema =
     tool.kind === "mcp" && tool.mcp?.descriptor.outputSchema
@@ -122,17 +155,18 @@ export class Workflows {
     if (!row) throw notFound();
     return assetDto(row);
   }
-  async list(actor: Principal, projectId: string) {
+  async list(actor: Principal, projectId: string, input: PageInput = {}) {
     requireUser(actor);
     await this.deps.projects.get(actor, projectId);
+    const page = cursorPage(["workflows", actor.tenantId, projectId], input);
     const rows = await this.db.query(
-      `SELECT w.*,r.version FROM workflows w
+      `SELECT w.*,r.version,${page.select("w")} FROM workflows w
        LEFT JOIN workflow_releases r ON r.id=w.current_release_id
-       WHERE w.project_id=$1 AND w.tenant_id=$2
-       ORDER BY w.created_at DESC,w.id DESC LIMIT 100`,
-      [projectId, actor.tenantId],
+       WHERE w.project_id=$1 AND w.tenant_id=$2 AND ${page.where("w", 3)}
+       ORDER BY w.created_at DESC,w.id DESC LIMIT $5`,
+      [projectId, actor.tenantId, ...page.values],
     );
-    return rows.map(assetDto);
+    return page.result(rows, assetDto);
   }
   private checkLayout(input: z.infer<typeof WorkflowAssetInput>) {
     if (
@@ -298,15 +332,22 @@ export class Workflows {
       return releaseDto(row);
     });
   }
-  async releases(actor: Principal, projectId: string, id: string) {
+  async releases(actor: Principal, projectId: string, id: string, input: PageInput = {}) {
     requireUser(actor);
     await this.asset(actor, projectId, id);
-    return (
-      await this.db.query(
-        "SELECT * FROM workflow_releases WHERE workflow_id=$1 AND project_id=$2 ORDER BY version DESC LIMIT 100",
-        [id, projectId],
-      )
-    ).map(releaseDto);
+    const page = cursorPage(
+      ["workflow-releases", actor.tenantId, projectId, id],
+      input,
+      100,
+      "version",
+    );
+    const rows = await this.db.query(
+      `SELECT r.*,${page.select("r")} FROM workflow_releases r
+       WHERE r.workflow_id=$1 AND r.project_id=$2 AND ${page.where("r", 3)}
+       ORDER BY r.version DESC,r.id DESC LIMIT $5`,
+      [id, projectId, ...page.values],
+    );
+    return page.result(rows, releaseDto);
   }
   async ownedJob(
     actor: Principal,
@@ -330,28 +371,24 @@ export class Workflows {
       "SELECT version,name FROM workflow_releases WHERE id=$1",
       [r.release_id],
     );
-    return WorkflowRun.parse({
-      id: r.id,
-      workflowId: r.workflow_id,
-      releaseId: r.release_id,
-      version: release.version,
-      name: release.name,
-      status: r.status,
-      input: r.input,
-      output: r.output,
-      errorCode: r.error_code,
-      createdAt: workflowDate(r.created_at),
-      finishedAt: r.finished_at ? workflowDate(r.finished_at) : null,
-    });
+    return runDto({ ...r, ...release });
   }
-  async runs(actor: Principal, projectId: string, workflowId: string) {
+  async runs(actor: Principal, projectId: string, workflowId: string, input: PageInput = {}) {
     await this.asset(actor, projectId, workflowId);
-    const rows = await this.db.query(
-      "SELECT id FROM workflow_jobs WHERE workflow_id=$1 AND actor_id=$2 AND entry=$3 AND kind='execute' ORDER BY created_at DESC LIMIT 100",
-      [workflowId, actor.id, actor.entry],
+    const page = cursorPage(
+      ["workflow-runs", actor.tenantId, projectId, workflowId, actor.id, actor.entry],
+      input,
     );
-    return Promise.all(rows.map((r) => this.run(actor, projectId, String(r.id))));
+    const rows = await this.db.query(
+      `SELECT j.*,r.version,r.name,${page.select("j")} FROM workflow_jobs j
+       JOIN workflow_releases r ON r.id=j.release_id
+       WHERE j.workflow_id=$1 AND j.project_id=$2 AND j.actor_id=$3 AND j.entry=$4 AND j.kind='execute'
+       AND ${page.where("j", 5)} ORDER BY j.created_at DESC,j.id DESC LIMIT $7`,
+      [workflowId, projectId, actor.id, actor.entry, ...page.values],
+    );
+    return page.result(rows, runDto);
   }
+
   async enqueue(
     actor: Principal,
     projectId: string,
@@ -439,31 +476,28 @@ export class Workflows {
   async generation(actor: Principal, projectId: string, id: string) {
     requireUser(actor);
     const r = await this.ownedJob(actor, projectId, id, "generate");
-    const input = r.input as z.infer<typeof WorkflowGenerationInput>;
-    return WorkflowGeneration.parse({
-      id: r.id,
-      workflowId: r.workflow_id,
-      baseRevision: input.baseRevision,
-      intent: input.intent,
-      modelId: input.modelId,
-      status: r.status,
-      candidate: r.candidate,
-      issues: r.issues,
-      attempts: r.attempts,
-      acceptedRevision: r.accepted_revision,
-      errorCode: r.error_code,
-      createdAt: workflowDate(r.created_at),
-      finishedAt: r.finished_at ? workflowDate(r.finished_at) : null,
-    });
+    return generationDto(r);
   }
-  async generations(actor: Principal, projectId: string, workflowId: string) {
+  async generations(
+    actor: Principal,
+    projectId: string,
+    workflowId: string,
+    input: PageInput = {},
+  ) {
     requireUser(actor);
     await this.asset(actor, projectId, workflowId);
-    const rows = await this.db.query(
-      "SELECT id FROM workflow_jobs WHERE workflow_id=$1 AND actor_id=$2 AND entry=$3 AND kind='generate' ORDER BY created_at DESC LIMIT 20",
-      [workflowId, actor.id, actor.entry],
+    const page = cursorPage(
+      ["workflow-generations", actor.tenantId, projectId, workflowId, actor.id, actor.entry],
+      input,
+      20,
     );
-    return Promise.all(rows.map((r) => this.generation(actor, projectId, String(r.id))));
+    const rows = await this.db.query(
+      `SELECT j.*,${page.select("j")} FROM workflow_jobs j
+       WHERE j.workflow_id=$1 AND j.project_id=$2 AND j.actor_id=$3 AND j.entry=$4 AND j.kind='generate'
+       AND ${page.where("j", 5)} ORDER BY j.created_at DESC,j.id DESC LIMIT $7`,
+      [workflowId, projectId, actor.id, actor.entry, ...page.values],
+    );
+    return page.result(rows, generationDto);
   }
   async generate(
     actor: Principal,
