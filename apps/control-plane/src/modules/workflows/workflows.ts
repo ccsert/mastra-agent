@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  agentWorkflowInput,
-  agentWorkflowOutput,
   assertWorkflowValue,
   canonicalJson,
   Model,
@@ -11,7 +9,6 @@ import {
   validateWorkflow,
   WorkflowAsset,
   WorkflowAssetInput,
-  type WorkflowCapability,
   WorkflowGeneration,
   type WorkflowGenerationInput,
   WorkflowRelease,
@@ -30,6 +27,12 @@ import type { Agents } from "../agents/index.ts";
 import type { Projects } from "../projects/index.ts";
 import { requireUser } from "../projects/index.ts";
 import { modelDto, type Resources } from "../resources/index.ts";
+import {
+  agentCapability,
+  generationCatalog,
+  loadWorkflowCatalog,
+  toolCapability,
+} from "./catalog.ts";
 
 export const workflowDate = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 export const workflowTool = (r: Row) =>
@@ -104,35 +107,6 @@ const generationDto = (r: Row) => {
     finishedAt: r.finished_at ? workflowDate(r.finished_at) : null,
   });
 };
-export function toolCapability(tool: z.infer<typeof Tool>): WorkflowCapability {
-  const outputSchema =
-    tool.kind === "mcp" && tool.mcp?.descriptor.outputSchema
-      ? {
-          type: "object",
-          properties: { text: { type: "string" }, data: tool.mcp.descriptor.outputSchema },
-          required: ["text", "data"],
-          additionalProperties: false,
-        }
-      : tool.outputSchema;
-  return {
-    kind: "tool",
-    id: tool.id,
-    name: tool.name,
-    description: tool.description,
-    version: tool.version,
-    inputSchema: tool.inputSchema,
-    outputSchema,
-  };
-}
-const agentCapability = (release: z.infer<typeof Release>): WorkflowCapability => ({
-  kind: "agent",
-  id: release.id,
-  name: release.snapshot.agent.name,
-  description: release.snapshot.agent.description,
-  version: release.version,
-  inputSchema: agentWorkflowInput,
-  outputSchema: agentWorkflowOutput,
-});
 export class Workflows {
   constructor(
     readonly deps: ExecutionContext & { projects: Projects; resources: Resources; agents: Agents },
@@ -218,38 +192,9 @@ export class Workflows {
   async catalog(actor: Principal, projectId: string) {
     requireUser(actor);
     await this.deps.projects.get(actor, projectId);
-    const tools = (
-      await this.db.query(
-        "SELECT * FROM resources WHERE project_id=$1 AND kind='tool' ORDER BY created_at DESC LIMIT 100",
-        [projectId],
-      )
-    ).map(workflowTool);
-    const entries: WorkflowCapability[] = [];
-    for (const tool of tools) {
-      try {
-        await this.checkTool(this.db, projectId, actor.tenantId, tool);
-        entries.push(toolCapability(tool));
-      } catch (e) {
-        if (!(e instanceof ApiError && e.code === "DEPENDENCY_UNAVAILABLE")) throw e;
-      }
-    }
-    const releases = (
-      await this.db.query(
-        "SELECT * FROM releases WHERE project_id=$1 ORDER BY created_at DESC LIMIT 100",
-        [projectId],
-      )
-    ).map(workflowAgentRelease);
-    for (const release of releases) {
-      try {
-        await this.deps.agents.validate(actor, projectId, release.snapshot.agent);
-        entries.push(agentCapability(release));
-      } catch (e) {
-        if (!(e instanceof ApiError && ["MCP_DISABLED", "DEPENDENCY_UNAVAILABLE"].includes(e.code)))
-          throw e;
-      }
-    }
-    return entries;
+    return loadWorkflowCatalog(this.db, { projectId, tenantId: actor.tenantId });
   }
+
   async snapshot(
     actor: Principal,
     projectId: string,
@@ -506,17 +451,15 @@ export class Workflows {
     input: z.infer<typeof WorkflowGenerationInput>,
   ) {
     requireUser(actor);
-    const catalog = await this.catalog(actor, projectId);
-    if (JSON.stringify(catalog).length > 160000)
-      throw new ApiError(
-        400,
-        "CATALOG_LIMIT",
-        "当前项目的能力目录超过编排上下文限制，请减少资源或缩短接口说明",
-      );
     const id = await this.db.transaction(async (tx) => {
       const asset = await this.asset(actor, projectId, workflowId, tx, true);
       if (asset.revision !== input.baseRevision)
         throw new ApiError(409, "DRAFT_CONFLICT", "请基于最新草稿生成候选");
+      const catalog = generationCatalog(
+        await loadWorkflowCatalog(tx, { projectId, tenantId: actor.tenantId }),
+        asset.definition,
+        input.capabilityIds,
+      );
       const model = Model.parse(
         modelDto(await this.deps.resources.get(actor, projectId, input.modelId, "model", tx)),
       );

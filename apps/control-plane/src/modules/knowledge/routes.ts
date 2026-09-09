@@ -9,12 +9,13 @@ import {
   KnowledgeFinish,
   KnowledgeInput,
   KnowledgeSearch,
+  PageQuery,
   type Principal,
   SearchInput,
   VectorQuery,
   z,
 } from "@platform/contracts";
-import { body, errors, json } from "../../http/contracts.ts";
+import { body, errors, json, pageJson } from "../../http/contracts.ts";
 import type { Knowledge } from "./knowledge.ts";
 
 const project = z.object({ projectId: Id }),
@@ -60,12 +61,19 @@ export function registerKnowledgeRoutes(
       method: "get",
       path: `${root}/{kbId}/documents`,
       operationId: "listKnowledgeDocuments",
-      request: { params: kb },
-      responses: { 200: json(z.array(KnowledgeDocument)), ...errors },
+      request: { params: kb, query: PageQuery },
+      responses: { 200: pageJson(KnowledgeDocument), ...errors },
     }),
     async (c) => {
       const p = c.req.valid("param");
-      return c.json(await knowledge.documents(c.get("principal"), p.projectId, p.kbId), 200);
+      const page = await knowledge.documents(
+        c.get("principal"),
+        p.projectId,
+        p.kbId,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
     },
   );
   app.openapi(

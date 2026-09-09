@@ -78,6 +78,7 @@ export const WorkflowGenerationInput = z
     baseRevision: z.number().int().positive(),
     modelId: Id,
     intent: z.string().trim().min(1).max(8000),
+    capabilityIds: z.array(Id).max(200).optional(),
     requestId: z.string().min(1).max(100),
   })
   .strict()

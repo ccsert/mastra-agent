@@ -39,14 +39,20 @@ export class Conversations {
     private readonly resources: Resources,
     private readonly runtimeId: string,
   ) {}
-  async list(actor: Principal, projectId: string) {
+  async list(actor: Principal, projectId: string, input: PageInput = {}) {
     await this.projects.get(actor, projectId);
-    return (
-      await this.db.query(
-        "SELECT c.*,r.version FROM conversations c JOIN releases r ON r.id=c.release_id WHERE c.project_id=$1 AND c.actor_id=$2 AND c.entry=$3 ORDER BY c.created_at DESC",
-        [projectId, actor.id, actor.entry],
-      )
-    ).map(conversationDto);
+    const page = cursorPage(
+      ["conversations", actor.tenantId, projectId, actor.id, actor.entry],
+      input,
+    );
+    const rows = await this.db.query(
+      `SELECT c.id,c.project_id,c.agent_id,c.release_id,c.title,c.created_at,r.version,${page.select("c")}
+       FROM conversations c JOIN releases r ON r.id=c.release_id AND r.project_id=c.project_id
+       WHERE c.project_id=$1 AND c.tenant_id=$2 AND c.actor_id=$3 AND c.entry=$4
+         AND ${page.where("c", 5)} ORDER BY c.created_at DESC,c.id DESC LIMIT $7`,
+      [projectId, actor.tenantId, actor.id, actor.entry, ...page.values],
+    );
+    return page.result(rows, conversationDto);
   }
   async get(
     actor: Principal,

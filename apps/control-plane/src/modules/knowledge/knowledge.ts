@@ -21,6 +21,7 @@ import type { Queryable, Row } from "@platform/database";
 import { sha256 } from "../../infrastructure/crypto.ts";
 import { ApiError, notFound } from "../../infrastructure/errors.ts";
 import type { ExecutionContext } from "../../infrastructure/execution-context.ts";
+import { cursorPage, type PageInput } from "../../infrastructure/pagination.ts";
 import type { Projects } from "../projects/index.ts";
 import { requireUser } from "../projects/index.ts";
 import { modelDto, type Resources } from "../resources/index.ts";
@@ -126,14 +127,16 @@ export class Knowledge {
     if (!result) throw notFound();
     return result;
   }
-  async documents(actor: Principal, projectId: string, kbId: string) {
+  async documents(actor: Principal, projectId: string, kbId: string, input: PageInput = {}) {
     await this.scope(actor, projectId, kbId);
-    return (
-      await this.db.query(
-        "SELECT * FROM knowledge_documents WHERE knowledge_base_id=$1 AND status<>'deleted' ORDER BY created_at DESC",
-        [kbId],
-      )
-    ).map(documentDto);
+    const page = cursorPage(["knowledge-documents", actor.tenantId, projectId, kbId], input);
+    const rows = await this.db.query(
+      `SELECT d.id,d.knowledge_base_id,d.filename,d.content_hash,d.status,d.chunk_count,d.error_code,d.created_at,${page.select("d")}
+       FROM knowledge_documents d WHERE d.knowledge_base_id=$1 AND d.status<>'deleted'
+         AND ${page.where("d", 2)} ORDER BY d.created_at DESC,d.id DESC LIMIT $4`,
+      [kbId, ...page.values],
+    );
+    return page.result(rows, documentDto);
   }
   async chunks(actor: Principal, projectId: string, kbId: string, docId: string) {
     await this.scope(actor, projectId, kbId);

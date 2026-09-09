@@ -526,3 +526,7 @@
   border-left: 3px solid #c3d9ca;
   color: #748579;
 }
+
+.conversation-pagination {
+  padding-inline: 16px;
+}

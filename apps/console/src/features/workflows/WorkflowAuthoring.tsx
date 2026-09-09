@@ -49,6 +49,7 @@ export function WorkflowAuthoring({
     generationsQuery = useInfiniteQuery(generationsOptions),
     generations = pageItems(generationsQuery.data);
   const [intent, setIntent] = useState(""),
+    [capabilityIds, setCapabilityIds] = useState<string[]>([]),
     [modelId, setModelId] = useState(models.find((model) => model.kind === "chat")?.id),
     [review, setReview] = useState<WorkflowGeneration | null>(null);
   useEffect(() => {
@@ -77,6 +78,24 @@ export function WorkflowAuthoring({
                 onChange={setModelId}
               />
             </Form.Item>
+            <Form.Item
+              label="本次可用能力（可选）"
+              htmlFor="workflow-author-capabilities"
+              extra="未选时使用全部能力。流程已引用的工具和 Agent 版本会自动保留。"
+            >
+              <Select
+                id="workflow-author-capabilities"
+                mode="multiple"
+                showSearch={{ optionFilterProp: "label" }}
+                placeholder="资源较多时，可限定本次编排范围"
+                value={capabilityIds}
+                onChange={setCapabilityIds}
+                options={catalog.map((entry) => ({
+                  value: entry.id,
+                  label: `${entry.kind === "agent" ? "Agent" : "工具"} · ${entry.name} · v${entry.version}`,
+                }))}
+              />
+            </Form.Item>
             <Form.Item label="业务需求" htmlFor="workflow-intent">
               <Input.TextArea
                 id="workflow-intent"
@@ -103,6 +122,7 @@ export function WorkflowAuthoring({
                         baseRevision: asset.revision,
                         modelId: modelId ?? "",
                         intent,
+                        ...(capabilityIds.length ? { capabilityIds } : {}),
                         requestId: uuid(),
                       },
                     }),

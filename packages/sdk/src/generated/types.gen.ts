@@ -577,6 +577,7 @@ export type WorkflowGenerationInput = {
     baseRevision: number;
     modelId: string;
     intent: string;
+    capabilityIds?: Array<string>;
     requestId: string;
 };
 
@@ -1688,7 +1689,10 @@ export type ListConversationsData = {
     path: {
         projectId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/conversations';
 };
 
@@ -2479,7 +2483,10 @@ export type ListKnowledgeDocumentsData = {
         projectId: string;
         kbId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
     url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents';
 };
 

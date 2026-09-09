@@ -50,7 +50,7 @@ Runtime 主动领取任务，无需为业务调用开放客户入站端口；本
 
 标准 Skills 的指令读取不需要 Docker 管理权限。需要执行授权脚本时，参考 [Skills 部署与验收说明](skills.md)，预加载固定沙箱镜像并显式叠加 `deploy/runtime.skills.compose.yaml`；默认 Compose 不挂载 Docker socket。新增 Docker CLI 的 Runtime 镜像尚未完成本轮构建验收，下面记录的上一轮镜像与安装包不含 Skills 实现。
 
-普通停止使用 `docker compose ... stop`，保留数据卷。备份必须同时保存 PostgreSQL 数据和 `ENCRYPTION_KEY`。数据库启动会执行带 advisory lock 的迁移；v5 新建分页索引，v6 新建 Skill 版本和文件表。已有大库需先在副本评估建索引锁等待与耗时，未做生产在线迁移验收。
+普通停止使用 `docker compose ... stop`，保留数据卷。备份必须同时保存 PostgreSQL 数据和 `ENCRYPTION_KEY`。数据库启动会执行带 advisory lock 的迁移；v5 新建分页索引，v6 新建 Skill 版本和文件表，v7 增加会话/文档分页及能力目录依赖查询索引。已有大库需先在副本评估建索引锁等待与耗时，未做生产在线迁移验收。
 
 ## Linux 直接安装
 

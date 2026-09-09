@@ -45,7 +45,7 @@ export function PageMore({
   };
 }) {
   return (
-    <Space style={{ marginBlock: 16 }}>
+    <Space wrap style={{ marginBlock: 16 }}>
       <Typography.Text type="secondary">
         已加载 {count} 条{label}
         {query.hasNextPage ? "" : " · 已全部加载"}

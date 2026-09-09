@@ -64,7 +64,7 @@ test("switching knowledge bases cancels the old document query and never restore
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     if (request.url.endsWith("/knowledge")) return Response.json(bases);
-    if (request.url.endsWith("/kb-0/documents")) {
+    if (new URL(request.url).pathname.endsWith("/kb-0/documents")) {
       if (++reads === 1) {
         oldRequest = request;
         return pending.promise;
@@ -91,7 +91,8 @@ test("closing a document preview cancels its plaintext request", async (t) => {
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     if (request.url.endsWith("/knowledge")) return Response.json([bases[0]]);
-    if (request.url.endsWith("/documents")) return Response.json([document("kb-0", "资料.md")]);
+    if (new URL(request.url).pathname.endsWith("/documents"))
+      return Response.json([document("kb-0", "资料.md")]);
     started = request;
     return pending.promise;
   });

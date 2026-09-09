@@ -10,9 +10,10 @@ import { Blank } from "../../shared/Blank";
 import {
   projectKey,
   useProjectId,
-  useProjectQuery,
+  useProjectPages,
   useProjectRefresh,
 } from "../../shared/data/ProjectData";
+import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
@@ -25,8 +26,8 @@ export function ChatWorkspace({
   onSelect(item: Conversation): void;
   onCreate(): void;
 }) {
-  const query = useProjectQuery("conversations"),
-    conversations = query.data ?? [];
+  const query = useProjectPages("conversations"),
+    conversations = pageItems(query.data);
   return (
     <section className="chat-workspace">
       <aside className="conversation-list">
@@ -57,6 +58,9 @@ export function ChatWorkspace({
           ) : (
             <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
           )}
+          <div className="conversation-pagination">
+            <PageMore query={query} count={conversations.length} label="会话" />
+          </div>
         </QueryState>
       </aside>
       <div className="chat-main">

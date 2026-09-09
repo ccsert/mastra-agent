@@ -28,11 +28,18 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       method: "get",
       path: "/api/v1/projects/{projectId}/conversations",
       operationId: "listConversations",
-      request: { params: projectParams },
-      responses: { 200: json(z.array(Conversation)), ...errors },
+      request: { params: projectParams, query: PageQuery },
+      responses: { 200: pageJson(Conversation), ...errors },
     }),
-    async (c) =>
-      c.json(await conversations.list(c.get("principal"), c.req.valid("param").projectId), 200),
+    async (c) => {
+      const page = await conversations.list(
+        c.get("principal"),
+        c.req.valid("param").projectId,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
+    },
   );
   app.openapi(
     createRoute({

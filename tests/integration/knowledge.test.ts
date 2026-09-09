@@ -96,7 +96,7 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
       status: "succeeded",
       chunkCount: 1,
     });
-    assert.equal((await knowledge.documents(actor, project.id, kb.id))[0].status, "ready");
+    assert.equal((await knowledge.documents(actor, project.id, kb.id)).items[0].status, "ready");
     assert.equal((await knowledge.chunks(actor, project.id, kb.id, doc.id)).length, 1);
     const chat = await store.resources.createModel(actor, project.id, {
       name: "Chat",
@@ -217,7 +217,8 @@ test("knowledge publication, dimensions, scoped retrieval, deletion and lease fe
     ]);
     await knowledge.reap();
     assert.equal(
-      (await knowledge.documents(actor, project.id, kb.id)).find((d) => d.id === third.id)?.status,
+      (await knowledge.documents(actor, project.id, kb.id)).items.find((d) => d.id === third.id)
+        ?.status,
       "failed",
     );
     await knowledge.retry(actor, project.id, kb.id, third.id);

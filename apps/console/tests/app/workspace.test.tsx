@@ -311,7 +311,7 @@ test("conversation history errors are local and leaving the page cancels retry",
     started: Request | undefined;
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
-    if (request.url.endsWith("/A/conversations"))
+    if (new URL(request.url).pathname.endsWith("/A/conversations"))
       return json([
         {
           id: "thread",

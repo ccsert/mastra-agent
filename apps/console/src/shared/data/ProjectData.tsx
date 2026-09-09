@@ -40,8 +40,9 @@ type Resources = {
   workflowCatalog: WorkflowCapability[];
 };
 type Resource = keyof Resources;
+type QueryResource = Exclude<Resource, "conversations" | "workflows">;
 const loaders: {
-  [K in Resource]: (projectId: string, signal: AbortSignal) => Promise<Resources[K]>;
+  [K in QueryResource]: (projectId: string, signal: AbortSignal) => Promise<Resources[K]>;
 } = {
   skills: async (projectId, signal) => {
     const items: SkillVersion[] = [];
@@ -59,8 +60,6 @@ const loaders: {
   agents: (projectId, signal) => unwrap(api.listAgents({ path: { projectId }, signal })),
   applications: (projectId, signal) =>
     unwrap(api.listApplications({ path: { projectId }, signal })),
-  conversations: (projectId, signal) =>
-    unwrap(api.listConversations({ path: { projectId }, signal })),
   knowledgeBases: (projectId, signal) =>
     unwrap(api.listKnowledgeBases({ path: { projectId }, signal })),
   models: (projectId, signal) => unwrap(api.listModels({ path: { projectId }, signal })),
@@ -68,7 +67,6 @@ const loaders: {
   runtimes: (_projectId, signal) => unwrap(api.listRuntimes({ signal })),
   tools: (projectId, signal) => unwrap(api.listTools({ path: { projectId }, signal })),
   mcpServers: (projectId, signal) => unwrap(api.listMcpServers({ path: { projectId }, signal })),
-  workflows: (projectId, signal) => unwrap(api.listWorkflows({ path: { projectId }, signal })),
   workflowCatalog: (projectId, signal) =>
     unwrap(api.getWorkflowCatalog({ path: { projectId }, signal })),
 };
@@ -106,7 +104,7 @@ export function useProjectId() {
   if (projectId === null) throw new Error("ProjectData provider required");
   return projectId;
 }
-export function useProjectQuery<K extends Resource>(
+export function useProjectQuery<K extends QueryResource>(
   resource: K,
   { enabled = true, poll = false }: { enabled?: boolean; poll?: boolean | number } = {},
 ) {
@@ -132,6 +130,10 @@ export function useProjectRefresh() {
 }
 
 const pageLoaders = {
+  conversations: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
+    unwrapPage(
+      api.listConversations({ path: { projectId }, query: { cursor, limit: 20 }, signal }),
+    ),
   skills: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
     unwrapPage(api.listSkills({ path: { projectId }, query: { cursor, limit: 20 }, signal })),
   runs: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>

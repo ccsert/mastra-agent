@@ -1,11 +1,12 @@
 import { FileTextOutlined, InboxOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { KnowledgeBase, KnowledgeDocument, Model } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, App, Button, Drawer, Empty, Input, Select, Table, Tabs, Tag, Upload } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { timestamp, unwrap } from "../../shared/api";
 import { useProjectRefresh } from "../../shared/data/ProjectData";
+import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 import { useLifetime } from "../../shared/useLifetime";
 import { knowledgeQueries } from "./queries";
@@ -36,8 +37,8 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
     client = useQueryClient();
   const confirmation = useRef<ReturnType<typeof modal.confirm> | null>(null);
   useEffect(() => () => confirmation.current?.destroy(), []);
-  const documentsQuery = useQuery(knowledgeQueries.documents(projectId, kbId)),
-    documents = documentsQuery.data ?? [];
+  const documentsQuery = useInfiniteQuery(knowledgeQueries.documents(projectId, kbId)),
+    documents = pageItems(documentsQuery.data);
   const [error, setError] = useState(""),
     [uploading, setUploading] = useState(0),
     [query, setQuery] = useState(""),
@@ -172,7 +173,7 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
         items={[
           {
             key: "documents",
-            label: `文档 · ${documents.length}`,
+            label: `文档 · ${kb.documentCount}`,
             children: (
               <>
                 <Upload.Dragger
@@ -197,7 +198,7 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                     className="knowledge-documents"
                     rowKey="id"
                     dataSource={documents}
-                    pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                    pagination={false}
                     scroll={{ x: 600 }}
                     locale={{
                       emptyText: (
@@ -261,6 +262,7 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                       },
                     ]}
                   />
+                  <PageMore query={documentsQuery} count={documents.length} label="文档" />
                 </QueryState>
               </>
             ),
