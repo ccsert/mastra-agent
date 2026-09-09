@@ -1034,6 +1034,13 @@
             ],
             "default": null
           },
+          "agentInstructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
           "selectedSkills": {
             "type": "array",
             "items": {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   Conversation,
+  Message,
   type Principal,
   ReleaseSnapshot,
   Run,
@@ -45,6 +46,7 @@ const runDto = (r: Row) =>
     errorCode: r.error_code,
     outputText: r.output_text,
     inputText: r.input_text ?? null,
+    agentInstructions: r.snapshot ? ReleaseSnapshot.parse(r.snapshot).agent.instructions : null,
     selectedSkills: r.snapshot
       ? selectedSkills(ReleaseSnapshot.parse(r.snapshot), SkillSelection.parse(r.skill_version_ids))
       : [],
@@ -57,6 +59,30 @@ export class Conversations {
     private readonly runtimeId: string,
     private readonly skills: Skills,
   ) {}
+  // Old runs retain a plain-text hash, but migration 8 did not backfill input_text.
+  // Recover only an exact match within the authorized run's own conversation.
+  private async restoreLegacyInputs(rows: Row[]) {
+    const legacy = rows.filter((r) => r.input_text == null);
+    if (!legacy.length) return rows;
+    const messages = await this.db.query(
+      "SELECT conversation_id,data FROM messages WHERE conversation_id=ANY($1::uuid[]) AND data->>'role'='user'",
+      [[...new Set(legacy.map((r) => r.conversation_id))]],
+    );
+    const inputs = new Map<string, string>();
+    for (const row of messages) {
+      const message = Message.safeParse(row.data);
+      if (!message.success) continue;
+      const input = message.data.parts
+        .filter((p) => p.type === "text" && typeof p.text === "string")
+        .map((p) => p.text)
+        .join("");
+      inputs.set(`${row.conversation_id}:${sha256(input)}`, input);
+    }
+    return rows.map((r) => ({
+      ...r,
+      input_text: r.input_text ?? inputs.get(`${r.conversation_id}:${r.input_hash}`) ?? null,
+    }));
+  }
   private async snapshot(tx: Queryable, projectId: string, releaseId: string) {
     const [release] = await tx.query(
       "SELECT snapshot FROM releases WHERE id=$1 AND project_id=$2",
@@ -225,7 +251,7 @@ export class Conversations {
       [id, projectId, actor.id, actor.entry],
     );
     if (!r) throw notFound();
-    return runDto(r);
+    return runDto((await this.restoreLegacyInputs([r]))[0]);
   }
   async runs(actor: Principal, projectId: string, input: PageInput = {}, conversationId?: string) {
     await this.projects.get(actor, projectId);
@@ -241,7 +267,7 @@ export class Conversations {
        ORDER BY q.created_at DESC,q.id DESC LIMIT $6`,
       [projectId, actor.id, actor.entry, ...page.values, conversationId ?? null],
     );
-    return page.result(rows, runDto);
+    return page.result(await this.restoreLegacyInputs(rows), runDto);
   }
   async events(actor: Principal, projectId: string, id: string, after = -1) {
     await this.run(actor, projectId, id);

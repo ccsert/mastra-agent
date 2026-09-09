@@ -40,42 +40,57 @@ export function RunDetails({ projectId, id }: { projectId: string; id: string })
   return (
     <QueryState label="运行详情" query={detailQuery}>
       {runDetail && (
-        <>
-          <div className="run-detail-head">
-            <h2>{runDetail.agentName}</h2>
-            <RunStatus status={runDetail.status} />
-          </div>
-          <dl className="detail-grid">
-            <dt>运行 ID</dt>
-            <dd>
-              <code>{runDetail.id}</code>
-            </dd>
-            <dt>发布版本</dt>
-            <dd>v{runDetail.releaseVersion}</dd>
-            <dt>Runtime</dt>
-            <dd>{runDetail.runtimeId}</dd>
-            <dt>开始时间</dt>
-            <dd>{timestamp(runDetail.createdAt)}</dd>
-          </dl>
-          <p>
-            <Link to={projectPath(projectId, "chat", runDetail.conversationId)}>打开关联会话</Link>
-          </p>
-          {!!runDetail.selectedSkills?.length && (
-            <p>
-              本次指定：
-              {runDetail.selectedSkills.map((s) => (
-                <Tag key={s.versionId}>
-                  {s.name} · v{s.version}
-                </Tag>
-              ))}
-            </p>
-          )}
-          {runDetail.inputText && (
-            <details className="trace-input">
-              <summary>用户输入</summary>
-              <pre>{runDetail.inputText}</pre>
+        <section className="run-details">
+          <header className="run-detail-head">
+            <div>
+              <h2>{runDetail.agentName}</h2>
+              <small>
+                v{runDetail.releaseVersion} · {runDetail.runtimeId} ·{" "}
+                {timestamp(runDetail.createdAt)}
+              </small>
+            </div>
+            <div>
+              <RunStatus status={runDetail.status} />
+              <Button
+                size="small"
+                loading={eventsQuery.isFetching}
+                onClick={() => {
+                  void detailQuery.refetch();
+                  void eventsQuery.refetch();
+                }}
+              >
+                刷新详情
+              </Button>
+            </div>
+          </header>
+          <div className="run-context-bar">
+            <details>
+              <summary>运行信息</summary>
+              <dl className="detail-grid">
+                <dt>运行 ID</dt>
+                <dd>
+                  <code>{runDetail.id}</code>
+                </dd>
+                <dt>发布版本</dt>
+                <dd>v{runDetail.releaseVersion}</dd>
+                <dt>Runtime</dt>
+                <dd>{runDetail.runtimeId}</dd>
+                <dt>开始时间</dt>
+                <dd>{timestamp(runDetail.createdAt)}</dd>
+              </dl>
             </details>
-          )}
+            <Link to={projectPath(projectId, "chat", runDetail.conversationId)}>打开关联会话</Link>
+            {!!runDetail.selectedSkills?.length && (
+              <span>
+                本次指定：
+                {runDetail.selectedSkills.map((s) => (
+                  <Tag key={s.versionId}>
+                    {s.name} · v{s.version}
+                  </Tag>
+                ))}
+              </span>
+            )}
+          </div>
           {runDetail.errorCode && (
             <Alert
               type="error"
@@ -83,29 +98,6 @@ export function RunDetails({ projectId, id }: { projectId: string; id: string })
               description="请检查模型连接、服务凭据与 Runtime 状态。"
             />
           )}
-          {runDetail.outputText && (
-            <section className="run-output">
-              <h3>输出</h3>
-              <p>{runDetail.outputText}</p>
-            </section>
-          )}
-          <h3>
-            执行事件{" "}
-            <span className="muted">
-              {events.length}
-              {eventsMore ? "+" : ""}
-            </span>
-            <Button
-              type="link"
-              loading={eventsQuery.isFetching}
-              onClick={() => {
-                void detailQuery.refetch();
-                void eventsQuery.refetch();
-              }}
-            >
-              刷新详情
-            </Button>
-          </h3>
           {eventsMore && (
             <Button
               loading={eventsQuery.isFetching}
@@ -115,9 +107,20 @@ export function RunDetails({ projectId, id }: { projectId: string; id: string })
             </Button>
           )}
           <QueryState label="执行事件" query={eventsQuery}>
-            <RunTrajectory events={events} status={runDetail.status} complete={!eventsMore} />
+            <RunTrajectory
+              events={events}
+              status={runDetail.status}
+              complete={!eventsMore}
+              run={runDetail}
+            />
           </QueryState>
-        </>
+          {runDetail.outputText && (
+            <details className="trace-output-raw">
+              <summary>汇总输出原文</summary>
+              <pre>{runDetail.outputText}</pre>
+            </details>
+          )}
+        </section>
       )}
     </QueryState>
   );

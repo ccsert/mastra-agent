@@ -1,24 +1,40 @@
 import { CloseOutlined } from "@ant-design/icons";
 import { Button, Tabs, Tag } from "antd";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { timestamp } from "../../shared/api";
-import { type TraceRecord, traceDuration } from "./trajectory";
+import { type TraceRecord, traceDuration, traceKinds, traceStates, traceValue } from "./trajectory";
 
-export const traceStates = {
-  running: "进行中",
-  succeeded: "完成",
-  failed: "失败",
-  interrupted: "未完成",
-};
-export function traceValue(value: unknown) {
-  return value === undefined
-    ? "尚未收到"
-    : typeof value === "string"
-      ? value
-      : JSON.stringify(value, null, 2);
-}
 export function TrajectoryInspector({ record, close }: { record: TraceRecord; close(): void }) {
-  const output = record.kind === "model" ? record.text || undefined : record.output;
-  const input = record.kind === "tool" ? (record.input ?? (record.text || undefined)) : undefined;
+  const message = ["system", "user", "model"].includes(record.kind);
+  const output = message ? record.text : record.kind === "context" ? record.input : record.output;
+  const input = record.input ?? (record.text || undefined);
+  const plain = (value: unknown) => <pre>{traceValue(value).replace(/^(?:[ \t]*\r?\n)+/, "")}</pre>;
+  const content =
+    record.kind === "model" ? (
+      record.text.trim() ? (
+        <div className="trace-markdown">
+          <Markdown
+            remarkPlugins={[remarkGfm]}
+            skipHtml
+            components={{
+              img: ({ alt }) => <span>{alt}</span>,
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noreferrer">
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {record.text}
+          </Markdown>
+        </div>
+      ) : (
+        <p className="trace-empty">模型未返回正文</p>
+      )
+    ) : (
+      plain(output)
+    );
   const timing = (
     <dl className="trace-facts">
       <dt>开始接收</dt>
@@ -37,7 +53,7 @@ export function TrajectoryInspector({ record, close }: { record: TraceRecord; cl
         <div>
           <strong>{record.title}</strong>
           <small>
-            步骤 {record.step} · {record.id}
+            {record.step === 0 ? "初始输入" : `步骤 ${record.step}`} · {record.id}
           </small>
         </div>
         <Button
@@ -48,6 +64,10 @@ export function TrajectoryInspector({ record, close }: { record: TraceRecord; cl
           onClick={close}
         />
       </header>
+      <p className="trace-provenance">
+        <Tag>{traceKinds[record.kind]}</Tag>
+        {record.source ?? "已持久化执行事件"}
+      </p>
       <Tabs
         size="small"
         items={[
@@ -60,30 +80,48 @@ export function TrajectoryInspector({ record, close }: { record: TraceRecord; cl
                 {record.kind === "tool" && (
                   <>
                     <h4>参数</h4>
-                    <pre>{traceValue(input)}</pre>
+                    {plain(input)}
                   </>
                 )}
-                <h4>{record.status === "failed" ? "错误" : "结果"}</h4>
-                <pre>{traceValue(output)}</pre>
-                <h4>计时</h4>
-                {timing}
+                <h4>
+                  {message
+                    ? "正文"
+                    : record.kind === "context"
+                      ? "请求正文"
+                      : record.status === "failed"
+                        ? "错误"
+                        : "结果"}
+                </h4>
+                {content}
               </>
             ),
           },
           ...(record.kind === "tool"
-            ? [{ key: "input", label: "参数", children: <pre>{traceValue(input)}</pre> }]
+            ? [{ key: "input", label: "参数", children: plain(input) }]
             : []),
           {
             key: "output",
-            label: record.status === "failed" ? "错误" : "结果",
+            label: message
+              ? "原始正文"
+              : record.kind === "context"
+                ? "请求正文"
+                : record.status === "failed"
+                  ? "错误"
+                  : "结果",
             children: <pre>{traceValue(output)}</pre>,
           },
-          { key: "timing", label: "计时", children: timing },
-          {
-            key: "events",
-            label: `事件 (${record.events.length})`,
-            children: <pre>{JSON.stringify(record.events, null, 2)}</pre>,
-          },
+          ...(["tool", "model", "error"].includes(record.kind)
+            ? [{ key: "timing", label: "计时", children: timing }]
+            : []),
+          ...(record.events.length
+            ? [
+                {
+                  key: "events",
+                  label: `事件 (${record.events.length})`,
+                  children: plain(record.events),
+                },
+              ]
+            : []),
         ]}
       />
     </section>

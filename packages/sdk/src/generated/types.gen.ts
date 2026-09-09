@@ -236,6 +236,7 @@ export type Run = {
     errorCode: string | null;
     outputText: string | null;
     inputText?: string | null;
+    agentInstructions?: string | null;
     selectedSkills?: Array<{
         versionId: string;
         name: string;

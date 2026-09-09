@@ -14,6 +14,7 @@ import {
 import { retrieve } from "../knowledge/index.ts";
 import { prepareSkills, type SkillAccess } from "../skills/index.ts";
 import { executePlatformTool } from "../tools/index.ts";
+import { tracedModelFetch } from "./trace.ts";
 
 export interface AgentExecutionAccess {
   skillAccess?: SkillAccess;
@@ -100,7 +101,7 @@ async function executeAgent(
     name: "platform",
     baseURL: job.snapshot.model.baseUrl.replace(/\/$/, ""),
     apiKey: job.credentials.modelApiKey || undefined,
-    fetch: (input, init) => fetch(input, { ...init, redirect: "error" }),
+    fetch: tracedModelFetch(onChunk),
   }).chatModel(job.snapshot.model.modelId);
   const agent = new Agent({
     id: job.runId,

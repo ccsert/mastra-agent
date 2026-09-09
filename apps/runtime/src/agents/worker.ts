@@ -28,6 +28,7 @@ export async function runAgentWorker(config: WorkerConfig) {
       ]);
     let seq = 0,
       cancelled = false;
+    let delivery = Promise.resolve();
     const heartbeat = setInterval(() => {
       void post(
         `/internal/runtime/runs/${current.runId}/heartbeat`,
@@ -46,12 +47,17 @@ export async function runAgentWorker(config: WorkerConfig) {
       const message = await executeJob(
         current,
         executionSignal,
-        async (chunk) => {
-          await post(
-            `/internal/runtime/runs/${current.runId}/events`,
-            { leaseToken: current.leaseToken, seq: seq++, chunk },
-            executionSignal,
-          );
+        (chunk) => {
+          // Model request capture and stream consumption can emit concurrently.
+          // Preserve the append protocol's contiguous sequence at the network boundary.
+          delivery = delivery.then(async () => {
+            await post(
+              `/internal/runtime/runs/${current.runId}/events`,
+              { leaseToken: current.leaseToken, seq: seq++, chunk },
+              executionSignal,
+            );
+          });
+          return delivery;
         },
         {
           skillSandboxImage: config.skillSandboxImage,

@@ -2,6 +2,8 @@
 
 日期：2026-09-09。此次依据官方程序的真实运行与浏览器操作，不把源码阅读当作界面验收。
 
+后续更新：[运行轨迹透明度修复与验收](trajectory-transparency-fix-2026-09-09.md) 补充了输入恢复、分类、实际模型请求采集及新一轮浏览器验收。下文保留初次接入时的状态。
+
 ## 本地程序与合成任务
 
 官方仓库 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 检出提交 `5dda764ed3aa172535a7967b06ff95d9cbfe536a`，位于 `.scratch/deepseek-harness`。实际运行的是 npm 官方发布包 `@deepseek-ai/dsh@0.1.2-rc.1`，安装在 `.scratch/dsh-reference/install`；源码检出与发布包分别记录，不声称二者字节一致。

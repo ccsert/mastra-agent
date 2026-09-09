@@ -49,7 +49,7 @@ export function ConversationRuns({
                 className={id === run.id ? "conversation-trace selected" : "conversation-trace"}
                 onClick={() => setSelected(run.id)}
               >
-                <strong>{run.inputText?.slice(0, 60) || run.id.slice(0, 8)}</strong>
+                <strong>{run.inputText?.slice(0, 60) || "未记录输入正文"}</strong>
                 <small>{timestamp(run.createdAt)}</small>
                 <RunStatus status={run.status} />
               </button>

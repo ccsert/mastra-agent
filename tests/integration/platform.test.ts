@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { Database } from "@platform/database";
 import { createApp } from "../../apps/control-plane/src/app.ts";
-import { hashPassword, Vault } from "../../apps/control-plane/src/infrastructure/crypto.ts";
+import { hashPassword, sha256, Vault } from "../../apps/control-plane/src/infrastructure/crypto.ts";
 import { Queue } from "../../apps/control-plane/src/modules/conversations/queue.ts";
 import { Platform } from "../../apps/control-plane/src/platform.ts";
 import type { Principal } from "../../packages/contracts/src/index.ts";
@@ -38,6 +38,64 @@ after(async () => {
   await db.close();
   await admin.query(`DROP SCHEMA ${schema} CASCADE`);
   await admin.close();
+});
+test("legacy run details and lists recover only the saved input matching that run hash", async () => {
+  const project = await store.projects.create(actor, { name: "Legacy inputs", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Legacy",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Legacy");
+  const run = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "first exact input",
+    "legacy",
+  );
+  await store.conversations.cancel(actor, project.id, run.id);
+  // Migration 8 added input_text; earlier runs hashed only the plain text.
+  await db.query("UPDATE runs SET input_text=NULL,input_hash=$2 WHERE id=$1", [
+    run.id,
+    sha256("first exact input"),
+  ]);
+  await db.query("UPDATE messages SET data=data-'metadata' WHERE conversation_id=$1", [thread.id]);
+  const next = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "a different later input",
+    "later",
+  );
+  assert.equal(
+    (await store.conversations.run(actor, project.id, run.id)).inputText,
+    "first exact input",
+  );
+  const listed = await store.conversations.runs(actor, project.id, {}, thread.id);
+  assert.equal(listed.items.find((r) => r.id === run.id)?.inputText, "first exact input");
+  assert.equal(listed.items.find((r) => r.id === next.id)?.inputText, "a different later input");
+  await store.conversations.cancel(actor, project.id, next.id);
+  await assert.rejects(() => store.conversations.run(other, project.id, run.id), {
+    code: "NOT_FOUND",
+  });
+  const [stored] = await db.query("SELECT input_text FROM runs WHERE id=$1", [run.id]);
+  assert.equal(stored.input_text, null);
+  await db.query("UPDATE runs SET input_hash=$2 WHERE id=$1", [
+    run.id,
+    sha256("missing historical message"),
+  ]);
+  assert.equal((await store.conversations.run(actor, project.id, run.id)).inputText, null);
 });
 test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
   const project = await store.projects.create(actor, { name: "Orders", description: "" });

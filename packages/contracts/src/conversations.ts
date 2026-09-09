@@ -61,6 +61,7 @@ export const Run = z
     errorCode: z.string().nullable(),
     outputText: z.string().nullable(),
     inputText: z.string().nullable().default(null),
+    agentInstructions: z.string().nullable().default(null),
     selectedSkills: z.array(SelectedSkill).default([]),
   })
   .openapi("Run");

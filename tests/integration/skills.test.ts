@@ -291,6 +291,18 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
         .filter((e) => e.chunk.type === "tool-output-available")
         .map((e) => e.chunk.output);
     const serialized = JSON.stringify(outputs);
+    const requests = events.filter((e) => e.chunk.type === "data-model-request");
+    assert.ok(requests.length >= 3);
+    const requestText = JSON.stringify(requests[0].chunk.data);
+    assert.match(requestText, /用户为本次任务明确指定/);
+    assert.match(requestText, /ONE/);
+    assert.match(requestText, /skill_read/);
+    assert.doesNotMatch(requestText, /fixture-key|skill-test-token/);
+    assert.equal(requests[0].chunk.transient, true);
+    assert.deepEqual(
+      events.map((e) => e.seq),
+      events.map((_, index) => index),
+    );
     assert.match(serialized, /ONE/);
     assert.doesNotMatch(serialized, /TWO/);
     assert.match(serialized, /不得编造/);
@@ -303,6 +315,7 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
       (await sdk.listMessages({ client, path: { ...path, id: conversation.id } })).data,
     );
     assert.match(JSON.stringify(messages), /ONE/);
+    assert.doesNotMatch(JSON.stringify(messages), /data-model-request/);
     assert.equal(messages[0].metadata?.runId, run.id);
     assert.equal(messages[0].metadata?.selectedSkills?.[0].versionId, v1.id);
     const workflow = defined(
