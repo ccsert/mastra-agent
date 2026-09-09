@@ -1,107 +1,10 @@
-.run-details {
-  min-width: 0;
-}
-.run-detail-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-.run-detail-head h2 {
-  font-size: 16px;
-  line-height: 1.5;
-  margin: 0 0 3px;
-}
-.run-detail-head small {
-  color: #71807a;
-  font-size: 11px;
-}
-.run-detail-head > div:last-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.run-context-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  font-size: 11px;
-  color: #71807a;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e9eeeb;
-}
-.run-context-bar summary {
-  cursor: pointer;
-}
-.detail-grid {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 8px 12px;
-  font-size: 11px;
-  margin: 10px 0;
-}
-.detail-grid dt {
-  color: #71807a;
-}
-.detail-grid dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.trace-output-raw {
-  margin-top: 12px;
-  color: #71807a;
-  font-size: 11px;
-}
-.trace-output-raw summary {
-  cursor: pointer;
-}
-.trace-output-raw pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.event-list {
-  margin-top: 18px;
-}
-.event-list details {
-  border-bottom: 1px solid #ecf1eb;
-  padding: 12px 0;
-}
-.event-list summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  font-size: 11px;
-}
-.event-list summary > span {
-  color: #9aab9c;
-  min-width: 25px;
-}
-.event-list summary strong {
-  font-weight: 500;
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-.event-list summary small {
-  color: #a4b2a6;
-  font-size: 9px;
-}
-.event-list pre {
-  font-size: 10px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  background: #f5f8f2;
-  padding: 12px;
-  line-height: 1.8;
-}
 /* Dense event rows and a local inspector, based on the live DSH reference. */
 .trajectory-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 10px 0;
   font-size: 12px;
 }
@@ -119,6 +22,7 @@
   flex-shrink: 0;
 }
 .trajectory-overview {
+  flex-shrink: 0;
   padding: 9px 12px;
   background: #f7f9f8;
   border: 1px solid #e3e9e5;
@@ -145,13 +49,6 @@
   height: 12px;
   background: #edf1ee;
 }
-.trajectory-overview > small {
-  display: block;
-  text-align: right;
-  color: #8a9790;
-  font-size: 9px;
-  margin-top: 3px;
-}
 .trace-segment {
   flex: 1;
   min-width: 4px;
@@ -172,33 +69,22 @@
   outline-offset: 2px;
 }
 .trajectory-layout {
-  max-height: 65dvh;
+  flex: 1;
   min-height: 0;
   border: 1px solid #e3e9e5;
 }
-.trajectory-steps {
+.trajectory-records {
+  height: 100%;
+  overflow: auto;
+  position: relative;
   min-width: 0;
-}
-.trajectory-steps h4 {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  font-weight: 500;
-  padding: 7px 12px;
-  margin: 0;
-  background: #f8faf9;
-  color: #87968d;
-  border-bottom: 1px solid #e9eeeb;
-}
-.trajectory-steps h4 span {
-  font-weight: 400;
 }
 .trace-row {
   display: flex;
   align-items: center;
   width: 100%;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   background: transparent;
   border: 0;
   border-bottom: 1px solid #edf1ee;
@@ -206,7 +92,7 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  min-height: 45px;
+  min-height: 44px;
 }
 .trace-row:hover {
   background: #f6f9f7;
@@ -220,7 +106,7 @@
   align-items: center;
   gap: 6px;
   color: #8a7db3;
-  flex: 0 0 64px;
+  flex: 0 0 56px;
   font-size: 14px;
 }
 .trace-kind small {
@@ -267,13 +153,12 @@
   text-overflow: ellipsis;
 }
 .trace-preview > span {
-  font:
-    11px / 1.6 ui-monospace,
-    monospace;
+  font-size: 12px;
+  line-height: 1.6;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #71807a;
+  color: #54655b;
 }
 .trace-status {
   font-size: 10px;
@@ -323,8 +208,7 @@
   color: #71807a;
   font-size: 11px;
 }
-.trace-inspector pre,
-.trace-input pre {
+.trace-inspector pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: #f7f9f7;
@@ -357,51 +241,9 @@
   color: #87968d;
   margin-top: 10px;
 }
-.trace-raw {
-  border-top: 1px solid #e5ebe7;
-  margin-top: 12px;
-  padding-top: 10px;
-  font-size: 11px;
-}
-.trace-raw summary,
-.trace-inspector summary,
-.trace-input summary {
+.trace-inspector summary {
   cursor: pointer;
 }
-.conversation-traces {
-  display: grid;
-  grid-template-columns: 176px minmax(0, 1fr);
-  gap: 16px;
-}
-.conversation-traces > aside {
-  border-right: 1px solid #e5ebe7;
-  padding-right: 16px;
-}
-.conversation-trace {
-  display: block;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 14px;
-  text-align: left;
-  width: 100%;
-  cursor: pointer;
-}
-.conversation-trace.selected {
-  background: #f1f7f3;
-  border-color: #b0cbbb;
-}
-.conversation-trace strong {
-  display: block;
-  overflow-wrap: anywhere;
-  font-size: 12px;
-}
-.conversation-trace small {
-  display: block;
-  color: #64748b;
-  margin: 8px 0;
-}
-
 .trace-provenance {
   color: #71807a;
   font-size: 11px;
@@ -445,4 +287,70 @@
 .trace-markdown ul,
 .trace-markdown ol {
   padding-left: 22px;
+}
+
+.conversation-trajectory,
+.session-trajectory {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  min-width: 0;
+}
+.conversation-trajectory {
+  padding: 0 16px 10px;
+}
+.session-trajectory .ant-splitter-panel {
+  overflow: hidden;
+}
+.trajectory-toolbar > span {
+  flex-shrink: 0;
+}
+.trace-round {
+  width: 48px;
+  flex-shrink: 0;
+  color: #7f8d86;
+  font-size: 10px;
+}
+.trace-row.user {
+  border-top: 1px solid #dce4de;
+}
+.trace-row.system {
+  background: #f7f9f7;
+}
+.trace-tools details {
+  border-bottom: 1px solid #e5ebe7;
+  padding: 10px 0;
+}
+.trace-tools summary {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.trace-tools summary code {
+  color: #3c6551;
+  font-size: 12px;
+}
+.trace-tools summary span {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #77867d;
+}
+.trace-tools details[open] summary span {
+  color: #46574c;
+}
+.trace-diagnostics {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #849087;
+}
+.trace-diagnostics summary {
+  cursor: pointer;
+}
+.trace-diagnostics p {
+  font-size: 11px;
+  margin: 8px 0;
+}
+.trace-page-warning {
+  padding: 4px 0;
 }

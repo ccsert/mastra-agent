@@ -1,12 +1,61 @@
 import "../helpers/dom.ts";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import type { RunEvent } from "@platform/sdk";
+import type { Run, RunEvent } from "@platform/sdk";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { RunTrajectory } from "../../src/features/runs/RunTrajectory.tsx";
-import { projectTrajectory, traceDuration } from "../../src/features/runs/trajectory.ts";
+import { ConversationTrajectory } from "../../src/features/runs/ConversationTrajectory.tsx";
+import {
+  projectConversation,
+  projectTrajectory,
+  sessionLog,
+  traceDuration,
+} from "../../src/features/runs/trajectory.ts";
 
+const baseRun: Run = {
+  id: "run",
+  conversationId: "conversation",
+  releaseId: "release",
+  releaseVersion: 1,
+  agentName: "Agent",
+  runtimeId: "runtime",
+  createdAt: "2026-09-09T00:00:00Z",
+  finishedAt: null,
+  status: "succeeded",
+  errorCode: null,
+  inputText: "第一轮输入",
+  agentInstructions: "发布提示词",
+  registeredTools: [],
+  selectedSkills: [],
+  outputText: null,
+};
+function RunTrajectory({
+  events,
+  status,
+  complete,
+  run,
+}: {
+  events: RunEvent[];
+  status: Run["status"];
+  complete: boolean;
+  run?: Partial<Run>;
+}) {
+  const current = { ...baseRun, ...run, status };
+  const request = events.find((e) => e.chunk.type === "data-model-request") ?? null;
+  return (
+    <ConversationTrajectory
+      totalTurns={1}
+      records={projectConversation({ run: current, request }, [
+        { number: 1, run: current, events, hasMoreEvents: !complete },
+      ])}
+    />
+  );
+}
 afterEach(cleanup);
+test("the conversation reader does not expose transport steps as reading groups", () => {
+  render(<RunTrajectory events={events} status="succeeded" complete />);
+  assert.equal(!!screen.queryByText("步骤 1"), false);
+  assert.equal(!!screen.queryByText("全部原始事件", { exact: false }), false);
+});
 const event = (seq: number, chunk: RunEvent["chunk"]): RunEvent => ({
   seq,
   chunk,
@@ -41,17 +90,19 @@ test("trajectory pairs interleaved calls by ID and preserves partial records acr
   assert.equal(complete[1].records[0].status, "interrupted");
   assert.equal(complete[0].records[0].events.length, 3);
 });
-test("trajectory inspector shows structured input and failure with raw events available", () => {
+test("trajectory inspector shows structured input and failure without transport rows", () => {
   render(<RunTrajectory events={events} status="failed" complete />);
   fireEvent.click(screen.getByRole("button", { name: /^order_query/ }));
   const inspector = screen.getByRole("region", { name: "轨迹记录详情" });
+  fireEvent.click(screen.getByRole("tab", { name: "参数" }));
   assert.match(inspector.textContent ?? "", /synthetic-42/);
+  fireEvent.click(screen.getByRole("tab", { name: "结果" }));
   assert.match(inspector.textContent ?? "", /订单服务超时/);
   fireEvent.change(screen.getByLabelText("搜索轨迹"), { target: { value: "knowledge" } });
   assert.equal(screen.queryByRole("button", { name: /^order_query/ }), null);
   assert.ok(screen.getByRole("button", { name: /^knowledge_search/ }));
-  fireEvent.click(screen.getByRole("button", { name: "收起步骤" }));
-  fireEvent.click(screen.getByRole("button", { name: "定位 order_query" }));
+  fireEvent.click(screen.getByRole("button", { name: "收起轮次" }));
+  fireEvent.click(screen.getByRole("button", { name: "定位 order_query · 第 1 轮" }));
   assert.equal((screen.getByLabelText("搜索轨迹") as HTMLInputElement).value, "");
   assert.equal(
     screen.getByRole("button", { name: /^order_query/ }).getAttribute("aria-pressed"),
@@ -126,9 +177,66 @@ test("trajectory exposes input categories, exact system prompts, and captured re
   fireEvent.click(screen.getByRole("button", { name: "输入" }));
   assert.ok(screen.getByRole("button", { name: /^用户输入/ }));
   assert.equal(screen.queryByRole("button", { name: /^order_query/ }), null);
-  fireEvent.click(screen.getByRole("button", { name: /^运行上下文/ }));
+  fireEvent.click(screen.getByRole("button", { name: "模型" }));
+  fireEvent.click(screen.getByRole("button", { name: /^模型请求/ }));
+  fireEvent.click(screen.getByRole("tab", { name: "请求内容" }));
   assert.match(screen.getByRole("region", { name: "轨迹记录详情" }).textContent ?? "", /qwen/);
   const historical = projectTrajectory([], "succeeded", true, run)[0].records[0];
   assert.equal(historical.text, "发布提示词");
   assert.match(historical.source ?? "", /历史运行未记录完整模型请求/);
+});
+
+test("multiple runs form ordered user turns with one system/tool catalogue and no transport fragments", () => {
+  const request = event(0, {
+    type: "data-model-request",
+    data: {
+      requestIndex: 1,
+      request: {
+        model: "qwen",
+        messages: [{ role: "system", content: "完整提示词" }],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "order_query",
+              description: "查询订单",
+              parameters: { type: "object", properties: { orderId: { type: "string" } } },
+            },
+          },
+        ],
+      },
+    },
+  });
+  const second = { ...baseRun, id: "second", inputText: "第二轮追问" };
+  const records = projectConversation({ run: baseRun, request }, [
+    { number: 2, run: second, events, hasMoreEvents: false },
+    {
+      number: 1,
+      run: baseRun,
+      events: [request, ...events.map((e) => ({ ...e, seq: e.seq + 1 }))],
+      hasMoreEvents: false,
+    },
+  ]);
+  assert.equal(new Set(records.map((r) => r.id)).size, records.length);
+  assert.deepEqual(
+    records.filter((r) => r.kind === "user").map((r) => r.turn),
+    [1, 2],
+  );
+  assert.equal(records.filter((r) => r.kind === "system").length, 1);
+  assert.equal(records.filter((r) => r.kind === "context").length, 0);
+  assert.match(
+    JSON.stringify(sessionLog(records).find((r) => r.kind === "model")?.request),
+    /qwen/,
+  );
+  assert.equal(records.find((r) => r.kind === "user")?.execution?.id, baseRun.id);
+  assert.ok(!JSON.stringify(sessionLog(records)).includes("text-delta"));
+  render(<ConversationTrajectory records={records} totalTurns={2} />);
+  assert.ok(screen.getByText("第 1 轮"));
+  assert.ok(screen.getByText("第 2 轮"));
+  assert.equal(!!screen.queryByText(/步骤/), false);
+  fireEvent.click(screen.getByRole("button", { name: /^初始系统提示词/ }));
+  fireEvent.click(screen.getByRole("tab", { name: "工具 (1)" }));
+  assert.ok(screen.getByText("查询订单"));
+  assert.match(screen.getByRole("tabpanel").textContent ?? "", /orderId/);
+  assert.equal(!!screen.queryByRole("tab", { name: /事件/ }), false);
 });

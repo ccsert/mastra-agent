@@ -62,6 +62,15 @@ export const Run = z
     outputText: z.string().nullable(),
     inputText: z.string().nullable().default(null),
     agentInstructions: z.string().nullable().default(null),
+    registeredTools: z
+      .array(
+        z.object({
+          name: z.string(),
+          description: z.string(),
+          inputSchema: z.record(z.string(), z.unknown()),
+        }),
+      )
+      .default([]),
     selectedSkills: z.array(SelectedSkill).default([]),
   })
   .openapi("Run");
@@ -72,6 +81,33 @@ export const RunEvent = z
     createdAt: z.string(),
   })
   .openapi("RunEvent");
+export const ConversationRunSummary = Conversation.extend({
+  agentName: z.string(),
+  runCount: z.number().int(),
+  latestRunId: Id,
+  latestStatus: RunStatus,
+  lastRunAt: z.string(),
+}).openapi("ConversationRunSummary");
+export const TraceTurn = z
+  .object({
+    number: z.number().int().positive(),
+    run: Run,
+    events: z.array(RunEvent),
+    hasMoreEvents: z.boolean(),
+  })
+  .openapi("TraceTurn");
+export const ConversationTrace = z
+  .object({
+    initial: z.object({ run: Run, request: z.object(RunEvent.shape).nullable() }).nullable(),
+    turns: z.array(TraceTurn),
+    totalTurns: z.number().int().nonnegative(),
+    nextBefore: z.number().int().positive().nullable(),
+  })
+  .openapi("ConversationTrace");
+export const TraceQuery = z.object({
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+});
 export const ExecutionJob = z.object({
   runId: Id,
   leaseToken: z.string(),

@@ -46,7 +46,7 @@ function MessageContext({ trace = false }: { trace?: boolean }) {
         ) : null,
       )}
       {trace && typeof metadata?.runId === "string" && (
-        <Link to={projectPath(projectId, "runs", metadata.runId)}>查看本次运行轨迹</Link>
+        <Link to={projectPath(projectId, "runs", metadata.runId)}>查看本轮轨迹</Link>
       )}
     </div>
   );

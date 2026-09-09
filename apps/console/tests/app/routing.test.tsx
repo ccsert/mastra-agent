@@ -208,22 +208,16 @@ test("an old Skill URL opens without loading earlier pages and closing it cancel
   await waitFor(() => assert.ok(file?.signal.aborted));
 });
 
-test("run deep links load their own details and closing them cancels pending events", async (t) => {
+test("legacy run links open the conversation trace and switching view cancels pending trace data", async (t) => {
   let events: Request | undefined;
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = new Request(input, init),
       path = new URL(req.url).pathname;
-    if (path.endsWith("/runs/old"))
-      return Response.json({
-        id: "old",
-        agentName: "历史助手",
-        status: "succeeded",
-        releaseVersion: 1,
-        runtimeId: "fixture",
-        createdAt: "2026-01-01",
-        outputText: "保留的报告",
-      });
-    if (path.endsWith("/old/events")) {
+    if (path.endsWith("/runs/old")) return Response.json({ id: "old", conversationId: "history" });
+    if (path.endsWith("/conversations/history"))
+      return Response.json({ id: "history", projectId: "A", title: "历史会话", releaseVersion: 1 });
+    if (path.endsWith("/capabilities")) return Response.json({ skills: [] });
+    if (path.endsWith("/history/trajectory")) {
       events = req;
       return new Promise<Response>((_resolve, reject) =>
         req.signal.addEventListener(
@@ -236,9 +230,16 @@ test("run deep links load their own details and closing them cancels pending eve
     return fixture(req);
   });
   const view = mountConsole({ initialEntries: ["/projects/A/runs/old"] });
-  await screen.findByText("保留的报告");
+  await screen.findByText("历史会话");
   await waitFor(() => assert.ok(events));
-  fireEvent.click(screen.getByRole("button", { name: /Close|关闭/ }));
-  await waitFor(() => assert.equal(view.router.state.location.pathname, "/projects/A/runs"));
+  assert.equal(view.router.state.location.pathname, "/projects/A/chat/history");
+  assert.equal(new URLSearchParams(view.router.state.location.search).get("runId"), "old");
+  assert.equal(screen.getByRole("tab", { name: "轨迹" }).getAttribute("aria-selected"), "true");
+  fireEvent.click(screen.getByRole("tab", { name: "对话" }));
+  await waitFor(() => assert.equal(view.router.state.location.search, ""));
   await waitFor(() => assert.ok(events?.signal.aborted));
+  await act(() => view.router.navigate(-1));
+  await waitFor(() =>
+    assert.equal(screen.getByRole("tab", { name: "轨迹" }).getAttribute("aria-selected"), "true"),
+  );
 });

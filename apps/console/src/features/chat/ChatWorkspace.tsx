@@ -2,8 +2,9 @@ import { CommentOutlined, PlusOutlined } from "@ant-design/icons";
 import * as api from "@platform/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
-import { Button, Spin, Tag } from "antd";
-import { lazy, Suspense, useState } from "react";
+import { Button, Spin, Tabs, Tag } from "antd";
+import { lazy, Suspense } from "react";
+import { useSearchParams } from "react-router";
 import { timestamp, unwrap } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
 import {
@@ -15,7 +16,7 @@ import {
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 import type { ResourceSelection } from "../../shared/navigation";
-import { ConversationRuns } from "../runs/index";
+import { ConversationTrace } from "../runs/index";
 
 const Chat = lazy(() => import("./Chat").then((module) => ({ default: module.Chat })));
 export function ChatWorkspace({
@@ -26,7 +27,8 @@ export function ChatWorkspace({
   onCreate(): void;
 }) {
   const projectId = useProjectId();
-  const [tracing, setTracing] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tracing = searchParams.get("view") === "trace";
   const detailQuery = useQuery({
     queryKey: projectKey(projectId, "conversations", selectedId ?? "", "detail"),
     queryFn: ({ signal }) =>
@@ -38,40 +40,42 @@ export function ChatWorkspace({
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
   return (
-    <section className="chat-workspace">
-      <aside className="conversation-list">
-        <div className="conversation-list-head">
-          <strong>我的会话</strong>
-          <Button type="text" aria-label="新建会话" icon={<PlusOutlined />} onClick={onCreate} />
-        </div>
-        <QueryState label="会话" query={query}>
-          {conversations.length ? (
-            conversations.map((c) => (
-              <button
-                type="button"
-                key={c.id}
-                className={
-                  conversation?.id === c.id ? "conversation-item selected" : "conversation-item"
-                }
-                onClick={() => onSelect(c.id)}
-              >
-                <CommentOutlined />
-                <span>
-                  <strong>{c.title}</strong>
-                  <small>
-                    v{c.releaseVersion} · {timestamp(c.createdAt)}
-                  </small>
-                </span>
-              </button>
-            ))
-          ) : (
-            <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
-          )}
-          <div className="conversation-pagination">
-            <PageMore query={query} count={conversations.length} label="会话" />
+    <section className={`chat-workspace${tracing ? " tracing" : ""}`}>
+      {!tracing && (
+        <aside className="conversation-list">
+          <div className="conversation-list-head">
+            <strong>我的会话</strong>
+            <Button type="text" aria-label="新建会话" icon={<PlusOutlined />} onClick={onCreate} />
           </div>
-        </QueryState>
-      </aside>
+          <QueryState label="会话" query={query}>
+            {conversations.length ? (
+              conversations.map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  className={
+                    conversation?.id === c.id ? "conversation-item selected" : "conversation-item"
+                  }
+                  onClick={() => onSelect(c.id)}
+                >
+                  <CommentOutlined />
+                  <span>
+                    <strong>{c.title}</strong>
+                    <small>
+                      v{c.releaseVersion} · {timestamp(c.createdAt)}
+                    </small>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
+            )}
+            <div className="conversation-pagination">
+              <PageMore query={query} count={conversations.length} label="会话" />
+            </div>
+          </QueryState>
+        </aside>
+      )}
       <div className="chat-main">
         {selectedId ? (
           <QueryState label="会话信息" query={detailQuery}>
@@ -79,21 +83,39 @@ export function ChatWorkspace({
               <>
                 <header className="chat-header">
                   <div>
-                    <strong>{conversation.title}</strong>
+                    <h1>{conversation.title}</h1>
                     <span>会话 {conversation.id.slice(0, 8)}</span>
                   </div>
                   <div>
-                    <Button onClick={() => setTracing(true)}>运行轨迹</Button>{" "}
                     <Tag color="blue">固定版本 v{conversation.releaseVersion}</Tag>
                   </div>
                 </header>
-                <ConversationSession key={conversation.id} conversationId={conversation.id} />
+                <Tabs
+                  className="conversation-view-tabs"
+                  activeKey={tracing ? "trace" : "chat"}
+                  onChange={(view) => {
+                    const next = new URLSearchParams(searchParams);
+                    if (view === "trace") next.set("view", view);
+                    else {
+                      next.delete("view");
+                      next.delete("runId");
+                    }
+                    setSearchParams(next);
+                  }}
+                  items={[
+                    { key: "chat", label: "对话" },
+                    { key: "trace", label: "轨迹" },
+                  ]}
+                />
+                <div className="chat-session" hidden={tracing}>
+                  <ConversationSession key={conversation.id} conversationId={conversation.id} />
+                </div>
                 {tracing && (
-                  <ConversationRuns
+                  <ConversationTrace
                     key={conversation.id}
                     projectId={projectId}
                     conversationId={conversation.id}
-                    onClose={() => setTracing(false)}
+                    focusRunId={searchParams.get("runId") ?? undefined}
                   />
                 )}
               </>

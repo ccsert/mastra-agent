@@ -213,14 +213,38 @@ export type SkillFileContent = {
     hash: string;
 };
 
-export type ConversationCapabilities = {
-    skills: Array<{
-        versionId: string;
-        name: string;
-        version: number;
-        description: string;
-        enabled: boolean;
-    }>;
+export type ConversationRunSummary = Conversation & {
+    agentName: string;
+    runCount: number;
+    latestRunId: string;
+    latestStatus: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    lastRunAt: string;
+};
+
+export type Conversation = {
+    id: string;
+    agentId: string;
+    projectId: string;
+    releaseId: string;
+    releaseVersion: number;
+    title: string;
+    createdAt: string;
+};
+
+export type ConversationTrace = {
+    initial: {
+        run: Run;
+        request: {
+            seq: number;
+            chunk: {
+                [key: string]: unknown;
+            };
+            createdAt: string;
+        } | null;
+    } | null;
+    turns: Array<TraceTurn>;
+    totalTurns: number;
+    nextBefore: number | null;
 };
 
 export type Run = {
@@ -237,6 +261,13 @@ export type Run = {
     outputText: string | null;
     inputText?: string | null;
     agentInstructions?: string | null;
+    registeredTools?: Array<{
+        name: string;
+        description: string;
+        inputSchema: {
+            [key: string]: unknown;
+        };
+    }>;
     selectedSkills?: Array<{
         versionId: string;
         name: string;
@@ -244,14 +275,29 @@ export type Run = {
     }>;
 };
 
-export type Conversation = {
-    id: string;
-    agentId: string;
-    projectId: string;
-    releaseId: string;
-    releaseVersion: number;
-    title: string;
+export type TraceTurn = {
+    number: number;
+    run: Run;
+    events: Array<RunEvent>;
+    hasMoreEvents: boolean;
+};
+
+export type RunEvent = {
+    seq: number;
+    chunk: {
+        [key: string]: unknown;
+    };
     createdAt: string;
+};
+
+export type ConversationCapabilities = {
+    skills: Array<{
+        versionId: string;
+        name: string;
+        version: number;
+        description: string;
+        enabled: boolean;
+    }>;
 };
 
 export type ConversationInput = {
@@ -280,14 +326,6 @@ export type RunInput = {
     input: string;
     requestId: string;
     skillVersionIds?: Array<string>;
-};
-
-export type RunEvent = {
-    seq: number;
-    chunk: {
-        [key: string]: unknown;
-    };
-    createdAt: string;
 };
 
 export type RuntimeInfo = {
@@ -1709,6 +1747,115 @@ export type GetSkillFileResponses = {
 };
 
 export type GetSkillFileResponse = GetSkillFileResponses[keyof GetSkillFileResponses];
+
+export type ListConversationRunSummariesData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/v1/projects/{projectId}/conversation-runs';
+};
+
+export type ListConversationRunSummariesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListConversationRunSummariesError = ListConversationRunSummariesErrors[keyof ListConversationRunSummariesErrors];
+
+export type ListConversationRunSummariesResponses = {
+    /**
+     * 成功
+     */
+    200: Array<ConversationRunSummary>;
+};
+
+export type ListConversationRunSummariesResponse = ListConversationRunSummariesResponses[keyof ListConversationRunSummariesResponses];
+
+export type GetConversationTraceData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: {
+        before?: number;
+        limit?: number;
+    };
+    url: '/api/v1/projects/{projectId}/conversations/{id}/trajectory';
+};
+
+export type GetConversationTraceErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetConversationTraceError = GetConversationTraceErrors[keyof GetConversationTraceErrors];
+
+export type GetConversationTraceResponses = {
+    /**
+     * 成功
+     */
+    200: ConversationTrace;
+};
+
+export type GetConversationTraceResponse = GetConversationTraceResponses[keyof GetConversationTraceResponses];
 
 export type GetConversationCapabilitiesData = {
     body?: never;

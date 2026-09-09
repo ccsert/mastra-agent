@@ -3,12 +3,15 @@ import {
   Conversation,
   ConversationCapabilities,
   ConversationInput,
+  ConversationRunSummary,
+  ConversationTrace,
   Message,
   PageQuery,
   Run,
   RunEvent,
   RunInput,
   SkillSelection,
+  TraceQuery,
   z,
 } from "@platform/contracts";
 import type { UIMessageChunk } from "ai";
@@ -25,6 +28,40 @@ import {
 import { ApiError } from "../../infrastructure/errors.ts";
 import type { Conversations } from "./conversations.ts";
 export function registerConversationRoutes(app: ApiApp, conversations: Conversations) {
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversation-runs",
+      operationId: "listConversationRunSummaries",
+      request: { params: projectParams, query: PageQuery },
+      responses: { 200: pageJson(ConversationRunSummary), ...errors },
+    }),
+    async (c) => {
+      const page = await conversations.summaries(
+        c.get("principal"),
+        c.req.valid("param").projectId,
+        c.req.valid("query"),
+      );
+      if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
+      return c.json(page.items, 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/trajectory",
+      operationId: "getConversationTrace",
+      request: { params: itemParams, query: TraceQuery },
+      responses: { 200: json(ConversationTrace), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.trace(c.get("principal"), projectId, id, c.req.valid("query")),
+        200,
+      );
+    },
+  );
   app.openapi(
     createRoute({
       method: "get",

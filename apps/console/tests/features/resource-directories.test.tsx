@@ -4,6 +4,7 @@ import { afterEach, test } from "node:test";
 import type { KnowledgeBase } from "@platform/sdk";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App, ConfigProvider } from "antd";
+import { MemoryRouter } from "react-router";
 import { ChatWorkspace } from "../../src/features/chat/index.ts";
 import { KnowledgeDetails } from "../../src/features/knowledge/KnowledgeDetails.tsx";
 import { ProjectData } from "../../src/shared/data/ProjectData.tsx";
@@ -84,7 +85,9 @@ for (const kind of ["conversations", "documents"] as const) {
         <App>
           <ProjectData projectId="project">
             {kind === "conversations" ? (
-              <ChatWorkspace onSelect={() => {}} onCreate={() => {}} />
+              <MemoryRouter>
+                <ChatWorkspace onSelect={() => {}} onCreate={() => {}} />
+              </MemoryRouter>
             ) : (
               <KnowledgeDetails kb={kb} models={[]} />
             )}

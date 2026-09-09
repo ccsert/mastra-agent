@@ -86,6 +86,41 @@ test("legacy run details and lists recover only the saved input matching that ru
   assert.equal(listed.items.find((r) => r.id === run.id)?.inputText, "first exact input");
   assert.equal(listed.items.find((r) => r.id === next.id)?.inputText, "a different later input");
   await store.conversations.cancel(actor, project.id, next.id);
+  const latest = await store.conversations.trace(actor, project.id, thread.id, { limit: 1 });
+  assert.equal(latest.totalTurns, 2);
+  assert.equal(latest.turns[0].number, 2);
+  assert.equal(latest.nextBefore, 2);
+  assert.equal(latest.initial?.run.inputText, "first exact input");
+  const first = await store.conversations.trace(actor, project.id, thread.id, {
+    before: 2,
+    limit: 1,
+  });
+  assert.equal(first.turns[0].run.id, run.id);
+  assert.equal(first.turns[0].number, 1);
+  assert.equal(first.nextBefore, null);
+  const summaries = await store.conversations.summaries(actor, project.id);
+  assert.equal(summaries.items.length, 1);
+  assert.equal(summaries.items[0].runCount, 2);
+  assert.equal(summaries.items[0].latestRunId, next.id);
+  await assert.rejects(
+    () => store.conversations.trace({ ...actor, id: randomUUID() }, project.id, thread.id),
+    { code: "NOT_FOUND" },
+  );
+  await assert.rejects(
+    () => store.conversations.trace({ ...actor, entry: "sdk" }, project.id, thread.id),
+    { code: "NOT_FOUND" },
+  );
+  await assert.rejects(() => store.conversations.trace(other, project.id, thread.id), {
+    code: "NOT_FOUND",
+  });
+  await db.query(
+    "INSERT INTO run_events(run_id,seq,chunk) SELECT $1,n,jsonb_build_object('type','text-delta','delta','x','id','txt-0') FROM generate_series(0,505) n",
+    [run.id],
+  );
+  const partial = await store.conversations.trace(actor, project.id, thread.id, { before: 2 });
+  assert.equal(partial.turns[0].events.length, 500);
+  assert.equal(partial.turns[0].hasMoreEvents, true);
+  assert.equal((await store.conversations.events(actor, project.id, run.id, 499)).length, 6);
   await assert.rejects(() => store.conversations.run(other, project.id, run.id), {
     code: "NOT_FOUND",
   });

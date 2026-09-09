@@ -39,7 +39,7 @@ export const pageTitles: Record<Page, [string, string]> = {
   models: ["模型服务", "登记团队使用的模型服务，并管理调用凭据。"],
   tools: ["工具", "让 Agent 使用经过登记的业务能力。"],
   mcp: ["MCP 服务", "连接业务服务，发现并审阅可供 Agent 使用的工具。"],
-  runs: ["运行记录", "查看任务状态、发布版本与工具执行结果。"],
+  runs: ["运行记录", "按会话查看全部轮次、模型响应与工具执行结果。"],
   applications: ["应用接入", "通过 OpenAPI 和生成 SDK，将 Agent 接入业务后端。"],
   runtimes: ["Runtime", "查看承接 Agent 执行的运行服务及连接状态。"],
 };

@@ -10,7 +10,7 @@ import type { Agent, Project } from "@platform/sdk";
 import { useIsFetching } from "@tanstack/react-query";
 import { Badge, Button, Drawer, Select, Tag, Tooltip } from "antd";
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useMatch } from "react-router";
 import { Blank } from "../shared/Blank";
 import { useProjectQuery, useProjectRefresh } from "../shared/data/ProjectData";
 import { projectPath } from "../shared/navigation";
@@ -37,6 +37,7 @@ export function ProjectConsole({
 }) {
   const [mobilePath, setMobilePath] = useState<string>();
   const location = useLocation();
+  const conversationPage = !!useMatch("/projects/:projectId/chat/:resourceId");
   const { registerGuard, confirmExit } = useNavigationGuard();
   const agentsQuery = useProjectQuery("agents", { enabled: false });
   const runtimesQuery = useProjectQuery("runtimes", { poll: true });
@@ -176,43 +177,47 @@ export function ProjectConsole({
             </Tooltip>
           </div>
         </header>
-        <main className={`main-content page-${page}`}>
-          <div className="page-heading">
-            <div>
-              <div className="breadcrumb">
-                {selectedProject?.name ?? "工作空间"} <span>/</span> {pageTitles[page][0]}
+        <main
+          className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}`}
+        >
+          {!conversationPage && (
+            <div className="page-heading">
+              <div>
+                <div className="breadcrumb">
+                  {selectedProject?.name ?? "工作空间"} <span>/</span> {pageTitles[page][0]}
+                </div>
+                <h1>{pageTitles[page][0]}</h1>
+                <p>{pageTitles[page][1]}</p>
               </div>
-              <h1>{pageTitles[page][0]}</h1>
-              <p>{pageTitles[page][1]}</p>
-            </div>
-            {projectId && ["agents", "models", "tools"].includes(page) && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined key="PlusOutlined" />}
-                onClick={() =>
-                  openEditor(
+              {projectId && ["agents", "models", "tools"].includes(page) && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined key="PlusOutlined" />}
+                  onClick={() =>
+                    openEditor(
+                      (
+                        {
+                          agents: "agent",
+                          models: "model",
+                          tools: "tool",
+                        } as Record<string, EditorKind>
+                      )[page],
+                    )
+                  }
+                >
+                  {
                     (
                       {
-                        agents: "agent",
-                        models: "model",
-                        tools: "tool",
-                      } as Record<string, EditorKind>
-                    )[page],
-                  )
-                }
-              >
-                {
-                  (
-                    {
-                      agents: "创建 Agent",
-                      models: "接入模型",
-                      tools: "登记工具",
-                    } as Record<string, string>
-                  )[page]
-                }
-              </Button>
-            )}
-          </div>
+                        agents: "创建 Agent",
+                        models: "接入模型",
+                        tools: "登记工具",
+                      } as Record<string, string>
+                    )[page]
+                  }
+                </Button>
+              )}
+            </div>
+          )}
           {!projectId ? (
             <section className="panel">
               <Blank

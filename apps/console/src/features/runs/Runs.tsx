@@ -1,81 +1,87 @@
-import type { Run } from "@platform/sdk";
-import { Button, Drawer, Table } from "antd";
-import { timestamp } from "../../shared/api";
+import * as api from "@platform/sdk";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Table } from "antd";
+import { Link, Navigate } from "react-router";
+import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
-import { useProjectPages } from "../../shared/data/ProjectData";
-import { PageMore, pageItems } from "../../shared/data/pages";
+import { projectKey } from "../../shared/data/ProjectData";
+import { PageMore, pageItems, pageOptions } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
-import type { ResourceSelection } from "../../shared/navigation";
-import { RunDetails } from "./RunDetails";
+import { conversationTracePath, type ResourceSelection } from "../../shared/navigation";
 import { RunStatus } from "./RunStatus";
+
+function RunLocation({ projectId, id }: { projectId: string; id: string }) {
+  const query = useQuery({
+    queryKey: projectKey(projectId, "runs", id, "detail"),
+    queryFn: ({ signal }) => unwrap(api.getRun({ path: { projectId, id }, signal }), signal),
+    gcTime: 0,
+  });
+  return (
+    <QueryState label="运行所属会话" query={query}>
+      {query.data && (
+        <Navigate replace to={conversationTracePath(projectId, query.data.conversationId, id)} />
+      )}
+    </QueryState>
+  );
+}
 export function RunsWorkspace({
   projectId,
   selectedId,
-  onSelect,
 }: ResourceSelection & { projectId: string }) {
-  const query = useProjectPages("runs", { poll: true }),
-    runs = pageItems(query.data);
+  const query = useInfiniteQuery({
+    ...pageOptions(projectKey(projectId, "conversations", "run-summaries"), (cursor, signal) =>
+      unwrapPage(
+        api.listConversationRunSummaries({
+          path: { projectId },
+          query: { cursor, limit: 20 },
+          signal,
+        }),
+      ),
+    ),
+    enabled: !selectedId,
+    refetchInterval: 3000,
+  });
+  const sessions = pageItems(query.data);
+  if (selectedId) return <RunLocation projectId={projectId} id={selectedId} />;
   return (
-    <>
-      <QueryState label="运行记录" query={query}>
-        <section className="panel">
-          <Table<Run>
-            rowKey="id"
-            dataSource={runs}
-            pagination={{ pageSize: 10 }}
-            locale={{
-              emptyText: (
-                <Blank
-                  title="还没有运行记录"
-                  description="发布 Agent 并发起一次对话后，可以在这里查看执行情况。"
-                />
+    <QueryState label="会话运行记录" query={query}>
+      <section className="panel">
+        <Table<api.ConversationRunSummary>
+          rowKey="id"
+          dataSource={sessions}
+          pagination={false}
+          locale={{
+            emptyText: (
+              <Blank
+                title="还没有运行记录"
+                description="发布 Agent 并发起对话后，在这里查看会话的全部轮次。"
+              />
+            ),
+          }}
+          columns={[
+            {
+              title: "会话",
+              dataIndex: "title",
+              render: (_, s) => <Link to={conversationTracePath(projectId, s.id)}>{s.title}</Link>,
+            },
+            { title: "Agent", dataIndex: "agentName" },
+            { title: "轮次", dataIndex: "runCount", render: (v) => `${v} 轮` },
+            {
+              title: "最近一轮",
+              dataIndex: "latestStatus",
+              render: (v) => <RunStatus status={v} />,
+            },
+            { title: "最后运行时间", dataIndex: "lastRunAt", render: timestamp },
+            {
+              title: "操作",
+              render: (_, s) => (
+                <Link to={conversationTracePath(projectId, s.id)}>查看会话轨迹</Link>
               ),
-            }}
-            columns={[
-              {
-                title: "任务",
-                dataIndex: "id",
-                render: (_, r) => (
-                  <Button type="link" onClick={() => onSelect(r.id)}>
-                    {r.id.slice(0, 8)}
-                  </Button>
-                ),
-              },
-              { title: "Agent", dataIndex: "agentName" },
-              {
-                title: "发布版本",
-                dataIndex: "releaseVersion",
-                render: (v) => <code>v{v}</code>,
-              },
-              {
-                title: "状态",
-                dataIndex: "status",
-                render: (v) => <RunStatus status={v} />,
-              },
-              { title: "Runtime", dataIndex: "runtimeId" },
-              { title: "创建时间", dataIndex: "createdAt", render: timestamp },
-              {
-                title: "操作",
-                render: (_, r) => (
-                  <Button type="text" onClick={() => onSelect(r.id)}>
-                    查看详情
-                  </Button>
-                ),
-              },
-            ]}
-          />
-        </section>
-        <PageMore query={query} count={runs.length} label="运行记录" />
-      </QueryState>
-      <Drawer
-        title="运行详情"
-        open={!!selectedId}
-        onClose={() => onSelect()}
-        size={1100}
-        destroyOnHidden
-      >
-        {selectedId && <RunDetails key={selectedId} projectId={projectId} id={selectedId} />}
-      </Drawer>
-    </>
+            },
+          ]}
+        />
+      </section>
+      <PageMore query={query} count={sessions.length} label="会话" />
+    </QueryState>
   );
 }
