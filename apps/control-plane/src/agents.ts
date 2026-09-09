@@ -7,6 +7,8 @@ import { type Projects, requireUser } from "./projects.ts";
 import { data, date } from "./records.ts";
 import { modelDto, type Resources, toolDto } from "./resources.ts";
 
+import type { Skills } from "./skills.ts";
+
 const agentDto = (r: Row) =>
   Agent.parse({
     ...data(r),
@@ -32,6 +34,7 @@ export class Agents {
     private readonly db: Database,
     private readonly projects: Projects,
     private readonly resources: Resources,
+    private readonly skills: Skills,
   ) {}
   async list(actor: Principal, projectId: string) {
     requireUser(actor);
@@ -48,6 +51,11 @@ export class Agents {
     if (model.kind !== "chat") throw new ApiError(400, "MODEL_KIND", "Agent 必须绑定对话模型");
     if (new Set(input.toolIds).size !== input.toolIds.length)
       throw new ApiError(400, "DUPLICATE_TOOLS", "同一工具不能重复绑定");
+    await this.skills.snapshots(
+      tx,
+      { tenantId: actor.tenantId, projectId },
+      AgentInput.parse(input).skillBindings,
+    );
     const names = new Set();
     const knowledgeIds = input.knowledgeBaseIds ?? [];
     if (new Set(knowledgeIds).size !== knowledgeIds.length)
@@ -65,8 +73,13 @@ export class Agents {
           throw new ApiError(409, "MCP_DISABLED", "Agent 绑定的 MCP 服务已停用");
       }
       const name = data(tool).name;
-      if (name === "knowledge_search")
-        throw new ApiError(400, "RESERVED_TOOL_NAME", "knowledge_search 是平台知识检索工具名称");
+      if (
+        typeof name === "string" &&
+        (name === "knowledge_search" ||
+          ["run_skill_script", "skill", "skill_search", "skill_read"].includes(name) ||
+          name.startsWith("mastra_"))
+      )
+        throw new ApiError(400, "RESERVED_TOOL_NAME", "该工具名由平台保留");
       if (names.has(name)) throw new ApiError(400, "DUPLICATE_TOOL_NAMES", "工具名称不能重复");
       names.add(name);
     }
@@ -119,6 +132,11 @@ export class Agents {
         model,
         tools,
         knowledgeBases,
+        skills: await this.skills.snapshots(
+          tx,
+          { tenantId: actor.tenantId, projectId },
+          agent.skillBindings,
+        ),
         adapterVersion: "mastra-agent-v1",
       });
       const digest = sha256(JSON.stringify(snapshot));

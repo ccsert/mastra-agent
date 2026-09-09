@@ -6,6 +6,8 @@ import {
   evaluateCondition,
   Model,
   type Principal,
+  type SkillAccessRequest,
+  SkillErrorCode,
   type VectorQuery,
   validateWorkflowProposal,
   WorkflowCandidate,
@@ -23,9 +25,11 @@ import type { ExecutionContext } from "./execution-context.ts";
 import { executionCredentials, resourceCredential } from "./execution-credentials.ts";
 import type { Knowledge } from "./knowledge.ts";
 import { requireUser } from "./projects.ts";
+import type { Skills } from "./skills.ts";
 import { type Workflows, workflowDate } from "./workflows.ts";
 
 const knownErrors = new Set([
+  ...SkillErrorCode.options,
   "WORKFLOW_FAILED",
   "WORKFLOW_INVALID",
   "WORKFLOW_NODE_FAILED",
@@ -62,6 +66,7 @@ export class WorkflowQueue {
     readonly workflows: Workflows,
     readonly knowledge: Knowledge,
     readonly execution: ExecutionContext,
+    readonly skills: Skills,
   ) {}
   get db() {
     return this.execution.db;
@@ -311,6 +316,20 @@ export class WorkflowQueue {
     const context = await this.context(tx, job, nodeId);
     if (context.current.status !== "running") throw new ApiError(409, "NODE_STATE", "节点已停止");
     return { ...context, job };
+  }
+  async skillAccess(id: string, nodeId: string, input: SkillAccessRequest) {
+    return this.db.transaction(async (tx) => {
+      const { job, snapshot, node } = await this.runningNode(tx, id, nodeId, input.leaseToken);
+      const agent =
+        node.type === "agent" ? snapshot.agents.find((a) => a.id === node.releaseId) : undefined;
+      if (!agent) throw new ApiError(403, "SKILL_ACCESS_DENIED", "该节点未绑定 Skill");
+      return this.skills.access(
+        tx,
+        { tenantId: String(job.tenant_id), projectId: String(job.project_id) },
+        agent.snapshot,
+        input,
+      );
+    });
   }
   async authorizeMcp(id: string, nodeId: string, leaseToken: string, toolId: string) {
     return this.db.transaction(async (tx) => {

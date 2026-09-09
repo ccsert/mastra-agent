@@ -1,3 +1,5 @@
+FROM docker:29.7.2-cli AS docker-client
+
 FROM node:24.13.0-bookworm-slim AS build
 WORKDIR /workspace
 RUN npm install --global pnpm@10.32.1
@@ -24,6 +26,7 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=30s CMD node -e "fetch('h
 CMD ["node", "dist/main.js"]
 
 FROM node:24.13.0-bookworm-slim AS runtime
+COPY --from=docker-client /usr/local/bin/docker /usr/local/bin/docker
 WORKDIR /app
 ENV NODE_ENV=production RUNTIME_HOST=0.0.0.0 RUNTIME_PORT=4112
 COPY --from=build --chown=node:node /bundles/runtime/ ./

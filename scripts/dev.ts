@@ -74,7 +74,14 @@ start("Control plane", [
 start(
   "Runtime",
   ["exec", "node", "--conditions=development", "--import", "tsx", "apps/runtime/src/main.ts"],
-  ["CONTROL_PLANE_URL", "RUNTIME_TOKEN", "RUNTIME_ID", "RUNTIME_HOST", "RUNTIME_PORT"],
+  [
+    "CONTROL_PLANE_URL",
+    "RUNTIME_TOKEN",
+    "RUNTIME_ID",
+    "RUNTIME_HOST",
+    "RUNTIME_PORT",
+    "SKILL_SANDBOX_IMAGE",
+  ],
 );
 start(
   "Console",

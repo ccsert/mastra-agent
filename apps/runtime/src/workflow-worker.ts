@@ -72,6 +72,9 @@ export async function runWorkflowWorker(config: WorkerConfig) {
             }
             if (node.type !== "agent" || !binding.agentJob) throw new Error("WORKFLOW_INVALID");
             const message = await executeJob(binding.agentJob, signal, async () => {}, {
+              skillSandboxImage: config.skillSandboxImage,
+              skillAccess: (input, signal) =>
+                post(`${nodePath}/skills`, { ...input, ...lease }, signal),
               authorizeMcp: (toolId, signal) =>
                 post(`${nodePath}/mcp`, { ...lease, toolId }, signal),
               queryKnowledge: (knowledgeBaseId, vector, signal) =>

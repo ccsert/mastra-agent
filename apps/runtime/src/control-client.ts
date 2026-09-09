@@ -4,6 +4,7 @@ export interface WorkerConfig {
   runtimeId: string;
   runtimeToken: string;
   signal: AbortSignal;
+  skillSandboxImage?: string;
   logger?: Logger;
   onContact?: (status: number) => void;
 }

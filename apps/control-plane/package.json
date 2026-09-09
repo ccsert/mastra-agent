@@ -14,10 +14,12 @@
     "@hono/zod-openapi": "1.6.3",
     "@platform/contracts": "workspace:*",
     "@platform/database": "workspace:*",
+    "@platform/operations": "workspace:*",
     "ai": "7.0.93",
     "ajv": "8.20.0",
     "hono": "4.13.7",
-    "@platform/operations": "workspace:*"
+    "yaml": "2.9.0",
+    "yauzl": "3.2.0"
   },
   "files": [
     "dist"

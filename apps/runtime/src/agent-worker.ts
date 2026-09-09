@@ -1,4 +1,4 @@
-import { ExecutionJob, McpErrorCode, Message } from "@platform/contracts";
+import { ExecutionJob, McpErrorCode, Message, SkillErrorCode } from "@platform/contracts";
 import { createLogger } from "@platform/operations";
 import { runtimeClient, type WorkerConfig, waitForPoll } from "./control-client.ts";
 import { executeJob } from "./execute.ts";
@@ -54,6 +54,13 @@ export async function runAgentWorker(config: WorkerConfig) {
           );
         },
         {
+          skillSandboxImage: config.skillSandboxImage,
+          skillAccess: (input, signal) =>
+            post(
+              `/internal/runtime/runs/${current.runId}/skills`,
+              { ...input, leaseToken: current.leaseToken },
+              signal,
+            ),
           authorizeMcp: (toolId, signal) =>
             post(
               `/internal/runtime/runs/${current.runId}/mcp`,
@@ -75,7 +82,9 @@ export async function runAgentWorker(config: WorkerConfig) {
       });
     } catch (error) {
       controller.abort();
-      const mcpError = McpErrorCode.safeParse(error instanceof Error ? error.message : "");
+      const mcpError = McpErrorCode.or(SkillErrorCode).safeParse(
+        error instanceof Error ? error.message : "",
+      );
       const errorCode =
         cancelled || config.signal.aborted
           ? "CANCELLED"

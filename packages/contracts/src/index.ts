@@ -246,6 +246,9 @@ export const Tool = ToolInput.omit({ bearerToken: true })
     version: z.literal(1),
   })
   .openapi("Tool");
+export * from "./skills.ts";
+
+import { SkillBinding, SkillErrorCode, SkillSnapshot } from "./skills.ts";
 export const AgentInput = z
   .object({
     name: z.string().trim().min(1).max(80),
@@ -254,6 +257,7 @@ export const AgentInput = z
     modelId: Id,
     toolIds: z.array(Id).max(20),
     knowledgeBaseIds: z.array(Id).max(5).default([]),
+    skillBindings: z.array(SkillBinding).max(10).default([]),
     maxSteps: z.number().int().min(1).max(10).default(5),
   })
   .strict()
@@ -274,6 +278,7 @@ export const ReleaseSnapshot = z.object({
   model: Model,
   tools: z.array(Tool),
   knowledgeBases: z.array(KnowledgeSnapshot).default([]),
+  skills: z.array(SkillSnapshot).max(10).default([]),
   adapterVersion: z.literal("mastra-agent-v1"),
 });
 export type ReleaseSnapshot = z.infer<typeof ReleaseSnapshot>;
@@ -465,7 +470,11 @@ export const RuntimeFinishInput = z
     message: Message.optional(),
     outputText: z.string().max(200000).optional(),
     errorCode: z
-      .union([z.enum(["MODEL_ERROR", "RUNTIME_ERROR", "TIMEOUT", "CANCELLED"]), McpErrorCode])
+      .union([
+        z.enum(["MODEL_ERROR", "RUNTIME_ERROR", "TIMEOUT", "CANCELLED"]),
+        McpErrorCode,
+        SkillErrorCode,
+      ])
       .optional(),
   })
   .strict();

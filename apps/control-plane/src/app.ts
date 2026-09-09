@@ -18,6 +18,7 @@ import { registerMcpRoutes } from "./mcp-routes.ts";
 import type { Platform } from "./platform.ts";
 import { Queue } from "./queue.ts";
 import { registerResourceRoutes } from "./resource-routes.ts";
+import { registerSkillRoutes, registerSkillRuntimeRoutes } from "./skill-routes.ts";
 import { WorkflowQueue } from "./workflow-queue.ts";
 import { registerWorkflowRoutes } from "./workflow-routes.ts";
 import { Workflows } from "./workflows.ts";
@@ -68,9 +69,11 @@ export function createApp(platform: Platform, config: AppConfig) {
     bodyLimit({
       maxSize: c.req.path.startsWith("/internal/")
         ? 8388608
-        : /\/knowledge\/[^/]+\/documents$/.test(c.req.path)
-          ? 1048576
-          : 262144,
+        : /\/projects\/[^/]+\/skills$/.test(c.req.path)
+          ? 5700000
+          : /\/knowledge\/[^/]+\/documents$/.test(c.req.path)
+            ? 1048576
+            : 262144,
       onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "请求内容过大" }, 400),
     })(c, next),
   );
@@ -117,6 +120,7 @@ export function createApp(platform: Platform, config: AppConfig) {
   registerIdentityRoutes(app, platform.identity, config.secureCookie);
   registerResourceRoutes(app, platform.projects, platform.resources);
   registerAgentRoutes(app, platform.agents);
+  registerSkillRoutes(app, platform.skills);
   registerConversationRoutes(app, platform.conversations);
   registerAccessRoutes(app, platform.applications, platform.runtimes);
   registerChatRoute(app, platform.conversations);
@@ -142,11 +146,12 @@ export function createApp(platform: Platform, config: AppConfig) {
     await queue.finish(Id.parse(c.req.param("id")), RuntimeFinishInput.parse(await c.req.json()));
     return c.json({ ok: true });
   });
+  registerSkillRuntimeRoutes(app, platform.skills);
   registerKnowledgeRoutes(app, knowledge);
   const mcp = new Mcp(platform);
   registerMcpRoutes(app, mcp);
   const workflows = new Workflows(platform),
-    workflowQueue = new WorkflowQueue(workflows, knowledge, platform);
+    workflowQueue = new WorkflowQueue(workflows, knowledge, platform, platform.skills);
   registerWorkflowRoutes(app, workflows, workflowQueue);
   app.doc31("/openapi.json", {
     openapi: "3.1.0",

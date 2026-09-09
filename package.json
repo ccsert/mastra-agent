@@ -42,6 +42,7 @@
     "@types/pg": "8.23.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
+    "@types/yauzl": "2.10.3",
     "dependency-cruiser": "18.2.0",
     "jsdom": "27.4.0",
     "tsx": "4.23.13",

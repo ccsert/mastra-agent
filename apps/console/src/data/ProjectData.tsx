@@ -7,6 +7,7 @@ import type {
   Model,
   Run,
   RuntimeInfo,
+  SkillVersion,
   Tool,
   WorkflowAsset,
   WorkflowCapability,
@@ -26,6 +27,7 @@ import { pageOptions } from "./pages";
 
 type Resources = {
   agents: Agent[];
+  skills: SkillVersion[];
   applications: Application[];
   conversations: Conversation[];
   knowledgeBases: KnowledgeBase[];
@@ -41,6 +43,19 @@ type Resource = keyof Resources;
 const loaders: {
   [K in Resource]: (projectId: string, signal: AbortSignal) => Promise<Resources[K]>;
 } = {
+  skills: async (projectId, signal) => {
+    const items: SkillVersion[] = [];
+    let cursor: string | undefined;
+    do {
+      signal.throwIfAborted();
+      const page = await unwrapPage(
+        api.listSkills({ path: { projectId }, query: { cursor, limit: 100 }, signal }),
+      );
+      items.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return items;
+  },
   agents: (projectId, signal) => unwrap(api.listAgents({ path: { projectId }, signal })),
   applications: (projectId, signal) =>
     unwrap(api.listApplications({ path: { projectId }, signal })),
@@ -117,6 +132,8 @@ export function useProjectRefresh() {
 }
 
 const pageLoaders = {
+  skills: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
+    unwrapPage(api.listSkills({ path: { projectId }, query: { cursor, limit: 20 }, signal })),
   runs: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>
     unwrapPage(api.listRuns({ path: { projectId }, query: { cursor, limit: 20 }, signal })),
   workflows: (projectId: string, cursor: string | undefined, signal: AbortSignal) =>

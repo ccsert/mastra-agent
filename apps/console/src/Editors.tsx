@@ -1,10 +1,11 @@
-import type { Agent, Application } from "@platform/sdk";
+import type { Agent, Application, SkillBinding } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { Alert, Button, Drawer, Form, Input, InputNumber, Select } from "antd";
 import { useEffect, useState } from "react";
 import { unwrap } from "./api";
 import { useProjectQuery } from "./data/ProjectData";
 import { QueryState } from "./data/QueryState";
+import { SkillBindingsField } from "./skills/SkillBindingsField";
 import { useLifetime } from "./useLifetime";
 export type EditorKind = "project" | "model" | "tool" | "agent" | "application";
 type Values = {
@@ -19,6 +20,7 @@ type Values = {
   toolIds?: string[];
   knowledgeBaseIds?: string[];
   maxSteps?: number;
+  skillBindings?: SkillBinding[];
   kind?: "sum" | "http_get";
   url?: string;
   bearerToken?: string;
@@ -76,6 +78,7 @@ export function Editor({
         outputSchema: '{"type":"object"}',
         toolIds: [],
         knowledgeBaseIds: [],
+        skillBindings: [],
         maxSteps: 5,
         ...(agent ?? {}),
       });
@@ -137,6 +140,7 @@ export function Editor({
           instructions: values.instructions ?? "",
           toolIds: values.toolIds ?? [],
           knowledgeBaseIds: values.knowledgeBaseIds ?? [],
+          skillBindings: values.skillBindings ?? [],
           maxSteps: values.maxSteps ?? 5,
         };
         if (agent)
@@ -388,6 +392,13 @@ export function Editor({
                   label: `${k.name} · ${k.readyCount} 份可检索文档`,
                 }))}
               />
+            </Form.Item>
+            <Form.Item
+              name="skillBindings"
+              label="Skills"
+              extra="发布时固定版本及脚本入口。脚本仅使用本次 JSON 输入和包内文件，无网络或业务凭据；工具授权单独生效。"
+            >
+              <SkillBindingsField />
             </Form.Item>
             <Form.Item name="maxSteps" label="每次运行最多执行轮数">
               <Select options={[1, 3, 5, 8, 10].map((v) => ({ value: v, label: `${v} 轮` }))} />

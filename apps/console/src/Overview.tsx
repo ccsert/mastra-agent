@@ -125,8 +125,8 @@ export function Overview({
       <div className="scope-note">
         <ExperimentOutlined key="ExperimentOutlined" />
         <p>
-          当前已开放 Agent 对话、工具调用、知识库检索和 AI 工作流。Skills
-          与嵌入组件将继续接入这套平台。
+          当前已开放 Agent 对话、工具调用、知识库检索、标准 Skills 和 AI
+          工作流。嵌入组件将继续接入这套平台。
         </p>
       </div>
     </>

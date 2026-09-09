@@ -37,6 +37,7 @@ async function start() {
     runtimeToken,
     runtimeId,
     signal: controller.signal,
+    skillSandboxImage: process.env.SKILL_SANDBOX_IMAGE,
     logger: log,
     onContact: (status) => connection.record(status),
   });

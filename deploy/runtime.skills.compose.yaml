@@ -1,0 +1,12 @@
+# Optional overlay for a trusted Runtime execution manager on Linux/Docker Desktop.
+# Set DOCKER_GID to the socket's group and SKILL_SANDBOX_IMAGE to a local immutable image ID/digest.
+# The daemon socket belongs only to Runtime, never to a script container.
+services:
+  runtime:
+    environment:
+      SKILL_SANDBOX_IMAGE: ${SKILL_SANDBOX_IMAGE:?Set an immutable preloaded sandbox image}
+      DOCKER_HOST: unix:///var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?Set the Docker socket group ID}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

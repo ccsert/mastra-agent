@@ -107,6 +107,11 @@ export type Agent = AgentInput & {
     createdAt: string;
 };
 
+export type SkillBinding = {
+    versionId: string;
+    entrypoints?: Array<string>;
+};
+
 export type AgentInput = {
     name: string;
     description?: string;
@@ -114,6 +119,7 @@ export type AgentInput = {
     modelId: string;
     toolIds: Array<string>;
     knowledgeBaseIds?: Array<string>;
+    skillBindings?: Array<SkillBinding>;
     maxSteps?: number;
 };
 
@@ -141,9 +147,70 @@ export type Release = {
             chunkSize: number;
             chunkOverlap: number;
         }>;
+        skills?: Array<{
+            name: string;
+            description: string;
+            license?: string;
+            compatibility?: string;
+            metadata?: {
+                [key: string]: string;
+            };
+            allowedTools?: string;
+            files: Array<{
+                path: string;
+                hash: string;
+                size: number;
+                encoding: 'utf-8' | 'base64';
+            }>;
+            entrypoints: Array<string>;
+            warnings: Array<string>;
+            id: string;
+            projectId: string;
+            version: number;
+            digest: string;
+            archiveHash: string;
+            createdAt: string;
+            authorizedEntrypoints: Array<string>;
+        }>;
         adapterVersion: 'mastra-agent-v1';
     };
     createdAt: string;
+};
+
+export type SkillVersion = {
+    name: string;
+    description: string;
+    license?: string;
+    compatibility?: string;
+    metadata?: {
+        [key: string]: string;
+    };
+    allowedTools?: string;
+    files: Array<{
+        path: string;
+        hash: string;
+        size: number;
+        encoding: 'utf-8' | 'base64';
+    }>;
+    entrypoints: Array<string>;
+    warnings: Array<string>;
+    id: string;
+    projectId: string;
+    version: number;
+    digest: string;
+    archiveHash: string;
+    enabled: boolean;
+    createdAt: string;
+};
+
+export type SkillUpload = {
+    archiveBase64: string;
+};
+
+export type SkillFileContent = {
+    path: string;
+    contentBase64: string;
+    hash: string;
 };
 
 export type Conversation = {
@@ -1350,6 +1417,271 @@ export type ListReleasesResponses = {
 };
 
 export type ListReleasesResponse = ListReleasesResponses[keyof ListReleasesResponses];
+
+export type ListSkillsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/v1/projects/{projectId}/skills';
+};
+
+export type ListSkillsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListSkillsError = ListSkillsErrors[keyof ListSkillsErrors];
+
+export type ListSkillsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<SkillVersion>;
+};
+
+export type ListSkillsResponse = ListSkillsResponses[keyof ListSkillsResponses];
+
+export type UploadSkillData = {
+    body: SkillUpload;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills';
+};
+
+export type UploadSkillErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UploadSkillError = UploadSkillErrors[keyof UploadSkillErrors];
+
+export type UploadSkillResponses = {
+    /**
+     * 成功
+     */
+    200: SkillVersion;
+};
+
+export type UploadSkillResponse = UploadSkillResponses[keyof UploadSkillResponses];
+
+export type GetSkillData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/{id}';
+};
+
+export type GetSkillErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetSkillError = GetSkillErrors[keyof GetSkillErrors];
+
+export type GetSkillResponses = {
+    /**
+     * 成功
+     */
+    200: SkillVersion;
+};
+
+export type GetSkillResponse = GetSkillResponses[keyof GetSkillResponses];
+
+export type SetSkillAccessData = {
+    body: {
+        enabled: boolean;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/{id}/access';
+};
+
+export type SetSkillAccessErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SetSkillAccessError = SetSkillAccessErrors[keyof SetSkillAccessErrors];
+
+export type SetSkillAccessResponses = {
+    /**
+     * 成功
+     */
+    200: SkillVersion;
+};
+
+export type SetSkillAccessResponse = SetSkillAccessResponses[keyof SetSkillAccessResponses];
+
+export type GetSkillFileData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query: {
+        path: string;
+    };
+    url: '/api/v1/projects/{projectId}/skills/{id}/file';
+};
+
+export type GetSkillFileErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetSkillFileError = GetSkillFileErrors[keyof GetSkillFileErrors];
+
+export type GetSkillFileResponses = {
+    /**
+     * 成功
+     */
+    200: SkillFileContent;
+};
+
+export type GetSkillFileResponse = GetSkillFileResponses[keyof GetSkillFileResponses];
 
 export type ListConversationsData = {
     body?: never;

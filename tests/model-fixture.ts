@@ -5,9 +5,12 @@ export async function startModelFixture(
   options: {
     toolArguments?: Record<string, unknown> | (() => Record<string, unknown>);
     answer?: string;
+    toolSequence?: { name: string; input: Record<string, unknown> }[];
   } = {},
 ) {
   let calls = 0;
+  const advertisedTools = new Set<string>();
+  const toolResults: unknown[] = [];
   const server = createServer(async (req, res) => {
     if (req.url === "/health") {
       res.end("test-fixture");
@@ -31,10 +34,20 @@ export async function startModelFixture(
     for await (const chunk of req) raw += chunk;
     const input = JSON.parse(raw);
     calls++;
+    toolResults.push(
+      ...input.messages
+        .filter((m: { role: string }) => m.role === "tool")
+        .map((m: { content: unknown }) => m.content),
+    );
+    for (const tool of input.tools ?? []) advertisedTools.add(tool.function.name);
+    const planned =
+      options.toolSequence?.[
+        input.messages.filter((m: { role: string }) => m.role === "tool").length
+      ];
     if (input.stream !== true) {
-      const tool = input.tools?.[0]?.function?.name;
+      const tool = options.toolSequence ? planned?.name : input.tools?.[0]?.function?.name;
       const message =
-        tool && input.messages.at(-1)?.role !== "tool"
+        tool && (options.toolSequence || input.messages.at(-1)?.role !== "tool")
           ? {
               role: "assistant",
               content: null,
@@ -45,9 +58,10 @@ export async function startModelFixture(
                   function: {
                     name: tool,
                     arguments: JSON.stringify(
-                      (typeof options.toolArguments === "function"
-                        ? options.toolArguments()
-                        : options.toolArguments) ?? { values: [40, 80] },
+                      planned?.input ??
+                        (typeof options.toolArguments === "function"
+                          ? options.toolArguments()
+                          : options.toolArguments) ?? { values: [40, 80] },
                     ),
                   },
                 },
@@ -81,8 +95,8 @@ export async function startModelFixture(
       res.once("close", () => clearTimeout(timer));
       return;
     }
-    const tool = input.tools?.[0]?.function?.name;
-    if (tool && input.messages.at(-1)?.role !== "tool") {
+    const tool = options.toolSequence ? planned?.name : input.tools?.[0]?.function?.name;
+    if (tool && (options.toolSequence || input.messages.at(-1)?.role !== "tool")) {
       emit({
         role: "assistant",
         content: null,
@@ -94,9 +108,10 @@ export async function startModelFixture(
             function: {
               name: tool,
               arguments: JSON.stringify(
-                (typeof options.toolArguments === "function"
-                  ? options.toolArguments()
-                  : options.toolArguments) ?? { values: [40, 80] },
+                planned?.input ??
+                  (typeof options.toolArguments === "function"
+                    ? options.toolArguments()
+                    : options.toolArguments) ?? { values: [40, 80] },
               ),
             },
           },
@@ -118,6 +133,8 @@ export async function startModelFixture(
   if (!address || typeof address === "string") throw new Error("Fixture listener failed");
   return {
     server,
+    advertisedTools,
+    toolResults,
     url: `http://127.0.0.1:${address.port}`,
     get calls() {
       return calls;

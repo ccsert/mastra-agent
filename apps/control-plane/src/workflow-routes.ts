@@ -3,6 +3,7 @@ import {
   Id,
   PageQuery,
   type Principal,
+  SkillAccessRequest,
   VectorQuery,
   WorkflowAsset,
   WorkflowAssetInput,
@@ -364,6 +365,15 @@ export function registerWorkflowRoutes(
     );
     return c.json({ ok: true });
   });
+  app.post("/internal/runtime/workflows/:id/nodes/:nodeId/skills", async (c) =>
+    c.json(
+      await queue.skillAccess(
+        Id.parse(c.req.param("id")),
+        c.req.param("nodeId"),
+        SkillAccessRequest.parse(await c.req.json()),
+      ),
+    ),
+  );
   app.post("/internal/runtime/workflows/:id/nodes/:nodeId/mcp", async (c) => {
     const input = lease.extend({ toolId: Id }).parse(await c.req.json());
     return c.json(

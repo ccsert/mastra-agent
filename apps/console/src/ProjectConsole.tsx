@@ -25,6 +25,7 @@ import { navigation, type Page, pageTitles } from "./navigation";
 import { Overview } from "./Overview";
 import { RunsWorkspace } from "./Runs";
 import { RuntimeInfoWorkspace } from "./RuntimeInfoWorkspace";
+import { SkillWorkspace } from "./skills/SkillWorkspace";
 import { ToolWorkspace } from "./ToolWorkspace";
 
 const Workflows = lazy(() =>
@@ -296,6 +297,7 @@ export function ProjectConsole({
                   />
                 </QueryState>
               )}
+              {page === "skills" && <SkillWorkspace key={projectId} />}
               {page === "mcp" && <McpWorkspace projectId={projectId} />}
               {page === "workflows" && (
                 <QueryState label="模型服务" query={modelsQuery}>

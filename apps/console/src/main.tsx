@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "antd/dist/reset.css";
 import "./style.css";
+import "./skills/skills.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing application root");

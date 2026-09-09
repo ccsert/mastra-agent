@@ -2,6 +2,7 @@ import {
   ApiOutlined,
   ArrowRightOutlined,
   BookOutlined,
+  FileZipOutlined,
   RobotOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
@@ -85,6 +86,11 @@ export function AgentCollection({
               <span>
                 <ToolOutlined key="ToolOutlined" /> {agent.toolIds.length} 个工具
               </span>
+              {!!agent.skillBindings?.length && (
+                <span>
+                  <FileZipOutlined /> {agent.skillBindings.length} 个 Skill
+                </span>
+              )}
               {!!agent.knowledgeBaseIds?.length && (
                 <span>
                   <BookOutlined /> {agent.knowledgeBaseIds.length} 个知识库

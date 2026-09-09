@@ -12,18 +12,22 @@ import {
   validateUIMessages,
 } from "ai";
 import { retrieve } from "./knowledge.ts";
+import { prepareSkills, type SkillAccess } from "./skills.ts";
 import { executePlatformTool } from "./tool-execute.ts";
 
 export interface AgentExecutionAccess {
+  skillAccess?: SkillAccess;
+  skillSandboxImage?: string;
   authorizeMcp(toolId: string, signal: AbortSignal): Promise<unknown>;
   queryKnowledge(knowledgeBaseId: string, vector: number[], signal: AbortSignal): Promise<unknown>;
 }
 
-export async function executeJob(
+async function executeAgent(
   job: ExecutionJob,
   signal: AbortSignal,
   onChunk: (chunk: UIMessageChunk) => Promise<void>,
   access?: AgentExecutionAccess,
+  prepared?: Awaited<ReturnType<typeof prepareSkills>>,
 ) {
   let mcpFailure: Error | undefined;
   const tools: ToolsInput = Object.fromEntries(
@@ -61,6 +65,7 @@ export async function executeJob(
       return [definition.name, tool];
     }),
   );
+  Object.assign(tools, prepared?.tools);
   if (job.snapshot.knowledgeBases.length) {
     const knowledgeBases = job.snapshot.knowledgeBases;
     tools.knowledge_search = createTool({
@@ -103,6 +108,7 @@ export async function executeJob(
     instructions: job.snapshot.agent.instructions,
     model,
     tools,
+    workspace: prepared?.workspace,
   });
   const history = await validateUIMessages({ messages: job.messages });
   const messages = await convertToModelMessages(history);
@@ -145,4 +151,28 @@ export async function executeJob(
   if (streamFailed || !finalMessage) throw new Error("MODEL_ERROR");
   signal.throwIfAborted();
   return finalMessage;
+}
+
+export async function executeJob(
+  job: ExecutionJob,
+  signal: AbortSignal,
+  onChunk: (chunk: Record<string, unknown>) => Promise<void>,
+  access?: AgentExecutionAccess,
+) {
+  const prepared = await prepareSkills(
+    job.snapshot.skills,
+    access?.skillAccess,
+    signal,
+    access?.skillSandboxImage,
+  );
+  try {
+    const result = await executeAgent(job, prepared.signal, onChunk, access, prepared);
+    prepared.signal.throwIfAborted();
+    return result;
+  } catch (error) {
+    if (prepared.signal.aborted) throw prepared.signal.reason;
+    throw error;
+  } finally {
+    prepared.close();
+  }
 }
