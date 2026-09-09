@@ -43,11 +43,21 @@ test("trajectory pairs interleaved calls by ID and preserves partial records acr
 });
 test("trajectory inspector shows structured input and failure with raw events available", () => {
   render(<RunTrajectory events={events} status="failed" complete />);
-  fireEvent.click(screen.getByRole("button", { name: /order_query/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^order_query/ }));
   const inspector = screen.getByRole("region", { name: "轨迹记录详情" });
   assert.match(inspector.textContent ?? "", /synthetic-42/);
   assert.match(inspector.textContent ?? "", /订单服务超时/);
   fireEvent.change(screen.getByLabelText("搜索轨迹"), { target: { value: "knowledge" } });
-  assert.equal(screen.queryByRole("button", { name: /order_query/ }), null);
-  assert.ok(screen.getByRole("button", { name: /knowledge_search/ }));
+  assert.equal(screen.queryByRole("button", { name: /^order_query/ }), null);
+  assert.ok(screen.getByRole("button", { name: /^knowledge_search/ }));
+  fireEvent.click(screen.getByRole("button", { name: "收起步骤" }));
+  fireEvent.click(screen.getByRole("button", { name: "定位 order_query" }));
+  assert.equal((screen.getByLabelText("搜索轨迹") as HTMLInputElement).value, "");
+  assert.equal(
+    screen.getByRole("button", { name: /^order_query/ }).getAttribute("aria-pressed"),
+    "true",
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "计时" }));
+  assert.match(screen.getByRole("tabpanel").textContent ?? "", /控制面接收事件的时间戳/);
+  assert.match(screen.getByRole("tabpanel").textContent ?? "", /400 ms/);
 });

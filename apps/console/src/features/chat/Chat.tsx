@@ -2,6 +2,7 @@ import { RobotOutlined, ToolOutlined, UserOutlined } from "@ant-design/icons";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/ai-sdk";
 import {
   AssistantRuntimeProvider,
+  groupPartByType,
   MessagePrimitive,
   ThreadPrimitive,
   type ToolCallMessagePartComponent,
@@ -16,6 +17,16 @@ import { useRef, useState } from "react";
 import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 import { unwrap } from "../../shared/api";
+import {
+  ReasoningContent,
+  ReasoningRoot,
+  ReasoningText,
+  ReasoningTrigger,
+  ToolFallback,
+  ToolGroupContent,
+  ToolGroupRoot,
+  ToolGroupTrigger,
+} from "../../shared/assistant-ui";
 import { projectKey, useProjectId } from "../../shared/data/ProjectData";
 import { projectPath } from "../../shared/navigation";
 import { ChatComposer } from "./ChatComposer";
@@ -53,8 +64,9 @@ function citations(value: unknown): Citation[] {
       typeof s.content === "string",
   );
 }
-const ToolCard: ToolCallMessagePartComponent = ({ toolName, args, result }) => {
-  if (toolName === "knowledge_search" && result !== undefined) {
+const ToolCard: ToolCallMessagePartComponent = (props) => {
+  const { toolName, result } = props;
+  if (toolName === "knowledge_search" && result !== undefined && !props.isError) {
     const sources = citations(result);
     return (
       <section className="chat-citations" aria-label="知识库来源">
@@ -79,23 +91,7 @@ const ToolCard: ToolCallMessagePartComponent = ({ toolName, args, result }) => {
       </section>
     );
   }
-  return (
-    <details className="tool-result" open>
-      <summary>
-        <ToolOutlined /> {toolName} <span>{result === undefined ? "执行中" : "已返回"}</span>
-      </summary>
-      <div>
-        <small>输入</small>
-        <pre>{JSON.stringify(args, null, 2)}</pre>
-        {result !== undefined && (
-          <>
-            <small>结果</small>
-            <pre>{JSON.stringify(result, null, 2)}</pre>
-          </>
-        )}
-      </div>
-    </details>
-  );
+  return <ToolFallback {...props} />;
 };
 function UserMessage() {
   return (
@@ -113,14 +109,40 @@ function UserMessage() {
 }
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root className="chat-message assistant-message">
+    <MessagePrimitive.Root className="chat-message assistant-message assistant-elements">
       <span className="message-avatar">
         <RobotOutlined />
       </span>
       <div className="message-body">
         <small>Assistant</small>
-        <MessagePrimitive.Parts>
-          {({ part }) => {
+        <MessagePrimitive.GroupedParts
+          groupBy={groupPartByType({
+            reasoning: ["group-reasoning"],
+            "tool-call": ["group-tool"],
+            "standalone-tool-call": [],
+          })}
+        >
+          {({ part, children }) => {
+            if (part.type === "group-tool")
+              return (
+                <ToolGroupRoot variant="ghost">
+                  <ToolGroupTrigger
+                    count={part.indices.length}
+                    active={part.status.type === "running"}
+                  />
+                  <ToolGroupContent>{children}</ToolGroupContent>
+                </ToolGroupRoot>
+              );
+            if (part.type === "group-reasoning")
+              return (
+                <ReasoningRoot streaming={part.status.type === "running"}>
+                  <ReasoningTrigger active={part.status.type === "running"} />
+                  <ReasoningContent>
+                    <ReasoningText>{children}</ReasoningText>
+                  </ReasoningContent>
+                </ReasoningRoot>
+              );
+            if (part.type === "reasoning") return <span>{part.text}</span>;
             if (part.type === "text")
               return (
                 <MarkdownTextPrimitive
@@ -137,10 +159,10 @@ function AssistantMessage() {
                   }}
                 />
               );
-            if (part.type === "tool-call") return <ToolCard {...part} />;
+            if (part.type === "tool-call") return part.toolUI ?? <ToolCard {...part} />;
             return null;
           }}
-        </MessagePrimitive.Parts>
+        </MessagePrimitive.GroupedParts>
         <MessageContext trace />
         <MessagePrimitive.Error>
           <p className="chat-error">本次运行未完成，请查看错误提示和运行记录。</p>

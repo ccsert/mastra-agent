@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const host = process.env.CONSOLE_HOST ?? "0.0.0.0";
@@ -7,6 +8,7 @@ const proxy = {
   "/openapi.json": process.env.CONTROL_PLANE_URL ?? "http://127.0.0.1:4110",
 };
 export default defineConfig({
+  plugins: [tailwindcss()],
   server: {
     host,
     port,

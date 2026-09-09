@@ -9,6 +9,7 @@ import "./app/auth/auth.css";
 import "./features/overview/styles.css";
 import "./features/agents/styles.css";
 import "./features/chat/styles.css";
+import "./shared/assistant-ui/styles.css";
 import "./features/applications/styles.css";
 import "./features/runtimes/styles.css";
 import "./features/runs/styles.css";

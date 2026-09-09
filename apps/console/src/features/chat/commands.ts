@@ -1,36 +1,29 @@
+import type { Unstable_SlashCommand, Unstable_TriggerMatcher } from "@assistant-ui/react";
 import type { ConversationCapabilities } from "@platform/sdk";
 
-export type ChatCommand = {
-  id: string;
-  label: string;
-  description: string;
-  skillVersionId?: string;
-  disabled?: boolean;
-};
-type CommandProvider = {
-  name: string;
-  entries(skills: ConversationCapabilities["skills"]): ChatCommand[];
-};
-// Providers describe discoverable actions; the server owns the corresponding authorization.
-const providers: CommandProvider[] = [
-  {
-    name: "skill",
-    entries: (skills) =>
-      skills.map((s) => ({
-        id: `skill:${s.versionId}`,
-        label: `/skill ${s.name}`,
-        description: `v${s.version} · ${s.enabled ? s.description : "此版本已停用"}`,
-        skillVersionId: s.versionId,
-        disabled: !s.enabled,
-      })),
-  },
-];
-export function chatCommands(
-  text: string,
+export function skillCommands(
   skills: ConversationCapabilities["skills"],
-): ChatCommand[] {
-  const query = text.replace(/^\//, "").trim().toLowerCase();
-  return providers
-    .flatMap((provider) => provider.entries(skills))
-    .filter((command) => `${command.label} ${command.description}`.toLowerCase().includes(query));
+  selected: string[],
+  onSelect: (ids: string[]) => void,
+): Unstable_SlashCommand[] {
+  if (selected.length >= 10) return [];
+  return skills
+    .filter((s) => s.enabled && !selected.includes(s.versionId))
+    .map((s) => ({
+      id: `skill:${s.versionId}`,
+      label: `/skill ${s.name}`,
+      description: `v${s.version} · ${s.description}`,
+      execute: () => {
+        if (s.enabled && !selected.includes(s.versionId) && selected.length < 10)
+          onSelect([...selected, s.versionId]);
+      },
+    }));
 }
+
+// Extend the official trigger matcher only for the multiword /skill query.
+// The official popover still owns selection, Escape, IME, and keyboard navigation.
+export const skillTriggerMatcher: Unstable_TriggerMatcher = (text, char, cursor) => {
+  const offset = text.lastIndexOf("\n", cursor - 1) + 1;
+  if (cursor <= offset || !text.startsWith(char, offset)) return null;
+  return { query: text.slice(offset + char.length, cursor), offset, endOffset: cursor };
+};

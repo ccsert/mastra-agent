@@ -32,14 +32,20 @@
   },
   "overrides": [
     {
-      "includes": [
-        "**/*.css"
-      ],
+      "includes": ["**/*.css"],
       "linter": {
         "rules": {
           "style": {
             "noDescendingSpecificity": "off"
           }
+        }
+      }
+    },
+    {
+      "includes": ["apps/console/src/shared/assistant-ui/styles.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
         }
       }
     }

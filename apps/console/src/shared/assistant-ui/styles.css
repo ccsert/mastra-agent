@@ -1,0 +1,81 @@
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "tw-animate-css";
+@import "tw-shimmer";
+@source "./elements";
+@source "./ui";
+
+/* Registry styles, without Tailwind Preflight or global component resets. */
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+@custom-variant data-closed (
+  &:where([data-state="closed"], [data-closed]:not([data-closed="false"]))
+);
+
+@theme inline {
+  --color-background: #fff;
+  --color-foreground: #263b36;
+  --color-popover: #fff;
+  --color-popover-foreground: #263b36;
+  --color-primary: #246b59;
+  --color-primary-foreground: #fff;
+  --color-secondary: #edf3ef;
+  --color-secondary-foreground: #263b36;
+  --color-muted: #f1f5f2;
+  --color-muted-foreground: #71807a;
+  --color-accent: #eaf2ee;
+  --color-accent-foreground: #246b59;
+  --color-border: #dce6df;
+  --color-input: #dce6df;
+  --color-ring: #8fb29a;
+  --color-destructive: #b85151;
+  --animate-collapsible-down: collapsible-down var(--animation-duration, 200ms) ease-out;
+  --animate-collapsible-up: collapsible-up var(--animation-duration, 200ms) ease-out;
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@layer theme {
+  .assistant-elements button {
+    cursor: pointer;
+    font-family: inherit;
+    border: 0;
+    background-color: transparent;
+  }
+  .assistant-elements button:disabled {
+    cursor: default;
+  }
+}
+.assistant-elements [data-slot="composer-trigger-popover"] {
+  width: min(440px, 100%);
+  max-height: min(320px, 45vh);
+  overflow-y: auto;
+  box-shadow: 0 12px 32px #183d2420;
+  border: 1px solid #dce6df;
+}
+.assistant-elements [data-slot="composer-trigger-popover"] button:hover,
+.assistant-elements [data-slot="composer-trigger-popover"] [data-highlighted] {
+  background: #eaf2ee;
+}
+.assistant-elements [data-slot="tool-fallback-content"] pre {
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+}
+.assistant-elements [data-slot="tool-group-root"] {
+  margin-block: 8px;
+}

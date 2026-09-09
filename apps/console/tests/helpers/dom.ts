@@ -45,6 +45,7 @@ Object.defineProperty(globalThis, "cancelAnimationFrame", {
 });
 // jsdom has no layout engine; exercise the chat lifecycle without emulating scrolling geometry.
 window.HTMLElement.prototype.scrollTo = () => {};
+window.HTMLElement.prototype.scrollIntoView = () => {};
 window.matchMedia = (query) => ({
   matches: false,
   media: query,
