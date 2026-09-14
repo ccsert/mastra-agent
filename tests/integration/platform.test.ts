@@ -123,7 +123,10 @@ test("legacy run details and lists recover only the saved input matching that ru
     [run.id],
   );
   const partial = await store.conversations.trace(actor, project.id, thread.id, { before: 2 });
-  assert.equal(partial.turns[0].events.length, 500);
+  // Consecutive same-id deltas merge into one chunk; raw cursor reads stay intact.
+  assert.equal(partial.turns[0].events.length, 1);
+  const merged = partial.turns[0].events[0]?.chunk as { delta?: string } | undefined;
+  assert.equal((merged?.delta ?? "").length, 501);
   assert.equal(partial.turns[0].hasMoreEvents, true);
   assert.equal((await store.conversations.events(actor, project.id, run.id, 499)).length, 6);
   await assert.rejects(() => store.conversations.run(other, project.id, run.id), {

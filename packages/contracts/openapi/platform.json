@@ -14794,6 +14794,17 @@
             "required": false,
             "name": "through",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deltas"
+              ]
+            },
+            "required": false,
+            "name": "compact",
+            "in": "query"
           }
         ],
         "responses": {

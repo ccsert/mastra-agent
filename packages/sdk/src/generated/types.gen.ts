@@ -5085,6 +5085,7 @@ export type ListRunEventsData = {
     query?: {
         after?: number | null;
         through?: number | null;
+        compact?: 'deltas';
     };
     url: '/api/v1/projects/{projectId}/runs/{id}/events';
 };

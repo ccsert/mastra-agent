@@ -32,6 +32,7 @@ import {
   projectParams,
 } from "../../http/contracts.ts";
 import { ApiError } from "../../infrastructure/errors.ts";
+import { compactDeltaRuns } from "./compact.ts";
 import type { Conversations } from "./conversations.ts";
 import { conversationStream } from "./stream.ts";
 export function registerConversationRoutes(app: ApiApp, conversations: Conversations) {
@@ -389,22 +390,22 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
         query: z.object({
           after: z.coerce.number().int().min(-1).default(-1),
           through: z.coerce.number().int().min(-1).optional(),
+          // Trace readers merge token-level delta runs; raw protocol stays the default.
+          compact: z.enum(["deltas"]).optional(),
         }),
       },
       responses: { 200: json(z.array(RunEvent)), ...errors },
     }),
     async (c) => {
       const { projectId, id } = c.req.valid("param");
-      return c.json(
-        await conversations.events(
-          c.get("principal"),
-          projectId,
-          id,
-          c.req.valid("query").after,
-          c.req.valid("query").through,
-        ),
-        200,
+      const rows = await conversations.events(
+        c.get("principal"),
+        projectId,
+        id,
+        c.req.valid("query").after,
+        c.req.valid("query").through,
       );
+      return c.json(c.req.valid("query").compact === "deltas" ? compactDeltaRuns(rows) : rows, 200);
     },
   );
   app.openapi(

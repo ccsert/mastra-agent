@@ -8,6 +8,7 @@ import {
 import type { Database, Queryable } from "@platform/database";
 import { cursorPage, type PageInput } from "../../infrastructure/pagination.ts";
 import { date } from "../../infrastructure/records.ts";
+import { compactDeltaRuns } from "./compact.ts";
 import { conversationDto, restoreLegacyInputs, runDto, runEventDto } from "./records.ts";
 
 /** Callers authorize the conversation before entering this read model. Runs remain independent jobs. */
@@ -76,10 +77,13 @@ async function readTraceSnapshot(
     },
     turns: rows.map((r) => {
       const found = events.filter((e) => e.run_id === r.id);
+      // Inline prefixes are compacted so even token-heavy turns stay bounded;
+      // hasMoreEvents still compares raw counts against the checkpoint.
+      const compacted = compactDeltaRuns(found.map(runEventDto));
       return {
         number: r.turn_number,
         run: runDto(r),
-        events: found.slice(0, 500).map(runEventDto),
+        events: compacted.slice(0, 500),
         hasMoreEvents: found.length > 500,
         checkpoint: {
           eventCount: counts.find((c) => c.run_id === r.id)?.event_count ?? 0,

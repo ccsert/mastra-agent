@@ -1444,3 +1444,77 @@
   outline: 2px solid #537f65;
   outline-offset: -2px;
 }
+
+/* ZCode-style question marks beside the conversation thread. */
+.chat-turn-rail-host {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  z-index: 5;
+  pointer-events: none;
+}
+.chat-turn-rail {
+  position: absolute;
+  right: 6px;
+  top: 34%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+.chat-turn-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 3px 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.chat-turn-dash {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: #b9c6be;
+  transition:
+    width 0.15s ease,
+    background 0.15s ease;
+}
+.chat-turn-mark:hover .chat-turn-dash,
+.chat-turn-mark.active .chat-turn-dash {
+  width: 22px;
+  background: #3c6551;
+}
+.chat-turn-pop {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  width: max-content;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid #dce5e0;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #3f4c45;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.chat-turn-pop strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: #6f7d75;
+}
+.chat-turn-mark:hover .chat-turn-pop,
+.chat-turn-mark:focus-visible .chat-turn-pop {
+  display: block;
+}

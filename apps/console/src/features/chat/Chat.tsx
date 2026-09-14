@@ -31,6 +31,7 @@ import { ChatReasoning, ChatToolGroup } from "./ChatProcess";
 import { ChatRecovery } from "./ChatRecovery";
 import { chatToolkit, ToolTraceContext } from "./ChatToolCards";
 import { ChatTurn } from "./ChatTurn";
+import { ChatTurnRail } from "./ChatTurnRail";
 import { chatCommands, parseChatCommand } from "./commands";
 import {
   type ConversationDraft,
@@ -497,6 +498,7 @@ export function Chat({
               }
               footer={<p className="chat-footnote">内容由 AI 生成，请结合业务事实核对</p>}
             />
+            <ChatTurnRail />
           </ArtifactCanvas>
         </ChatEditContext.Provider>
       </ToolTraceContext.Provider>

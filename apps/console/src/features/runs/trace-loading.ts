@@ -17,7 +17,7 @@ export async function loadTraceTail(
     const batch = await unwrap(
       api.listRunEvents({
         path: { projectId, id: turn.run.id },
-        query: { after, through },
+        query: { after, through, compact: "deltas" },
         signal,
       }),
       signal,
@@ -31,7 +31,10 @@ export async function loadTraceTail(
       progress([...events]);
       publishedAt = performance.now();
     }
-    if (batch.length < 500) break;
+    // A short batch only ends an unbounded legacy read. Merged delta runs shrink
+    // checkpointed pages far below the raw page size, so the seq bound decides.
+    if (!batch.length) break;
+    if (through === undefined && batch.length < 500) break;
   }
   if (through !== undefined && after < through) throw new Error("轨迹事件不完整，请刷新后重试");
   return events;
@@ -65,8 +68,10 @@ export async function loadFullTrace(
       const events = [...new Map([...turn.events, ...tail].map((e) => [e.seq, e])).values()].sort(
         (a, b) => a.seq - b.seq,
       );
-      if (turn.checkpoint && events.length !== turn.checkpoint.eventCount)
-        throw new Error(`第 ${turn.number} 轮事件数量不一致，请刷新后重试`);
+      // Merged delta runs make event counts smaller than the raw checkpoint
+      // count; reaching the checkpoint's last seq is the completeness contract.
+      if (turn.checkpoint && (events.at(-1)?.seq ?? -1) !== turn.checkpoint.lastSeq)
+        throw new Error(`第 ${turn.number} 轮事件不完整，请刷新后重试`);
       turns.set(turn.run.id, { ...turn, events, hasMoreEvents: false });
       progress(turns.size, first.totalTurns, { ...first, turns: [...turns.values()] });
     }

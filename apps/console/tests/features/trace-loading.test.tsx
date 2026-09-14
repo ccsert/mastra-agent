@@ -73,10 +73,37 @@ test("complete trace reads every turn and bounds a growing live tail at its chec
 });
 
 test("a short or stalled tail cannot be exported as complete", async (t) => {
-  t.mock.method(globalThis, "fetch", async () => Response.json([event(500)]));
+  t.mock.method(globalThis, "fetch", async () => Response.json([]));
   await assert.rejects(loadTraceTail("A", turn(1, 503), new AbortController().signal), /不完整/);
   t.mock.method(globalThis, "fetch", async () => Response.json([event(499)]));
   await assert.rejects(loadTraceTail("A", turn(1, 503), new AbortController().signal), /没有前进/);
+});
+
+test("merged delta batches keep paging to the checkpoint while legacy reads end on a short batch", async (t) => {
+  const calls: number[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(new Request(input, init).url);
+    assert.equal(url.searchParams.get("compact"), "deltas");
+    const after = Number(url.searchParams.get("after"));
+    const bound = url.searchParams.get("through");
+    const through = bound === null ? Infinity : Number(bound);
+    calls.push(after);
+    // 500 raw events compact into three merged chunks per page.
+    return Response.json([
+      { ...event(after + 1), seq: Math.min(through, after + 300) },
+      { ...event(after + 1), seq: Math.min(through, after + 450) },
+      { ...event(after + 1), seq: Math.min(through, after + 500) },
+    ]);
+  });
+  const merged = await loadTraceTail("A", turn(1, 1501), new AbortController().signal);
+  assert.equal(merged.at(-1)?.seq, 1500);
+  assert.ok(calls.length >= 2, "压缩后的短批次必须继续读取到 checkpoint");
+  const legacy = await loadTraceTail(
+    "A",
+    { ...turn(1, 1501), checkpoint: undefined },
+    new AbortController().signal,
+  );
+  assert.equal(legacy.length, 3);
 });
 
 test("cancelling a full read aborts its fetch and prevents a completed snapshot", async (t) => {

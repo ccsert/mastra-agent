@@ -56,7 +56,8 @@ function ConversationTraceReader({
           formatVersion: 1,
           conversationId,
           exportedAt: new Date().toISOString(),
-          scope: "全部轮次，每轮截至 checkpoint.lastSeq；导出期间的新事件不包含在内",
+          scope:
+            "全部轮次，每轮截至 checkpoint.lastSeq；连续文本/推理/工具输入增量已合并为单块；导出期间的新事件不包含在内",
           complete: true,
           live: full.turns.some((t) => ["running", "queued"].includes(t.run.status)),
           records: sessionLog(projectConversation(full.initial, full.turns)),
