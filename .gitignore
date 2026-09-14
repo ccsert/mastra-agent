@@ -9,3 +9,10 @@ output/
 .scratch/
 *.log
 .DS_Store
+
+# Persistent local Agent artifacts; never source code for the platform.
+.data/
+
+# Local editor preferences and assistant session memory.
+.vscode/
+.workbuddy/memory/

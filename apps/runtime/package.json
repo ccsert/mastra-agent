@@ -11,15 +11,16 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.44",
+    "@mastra/agent-browser": "0.5.2",
     "@mastra/ai-sdk": "1.10.1",
     "@mastra/core": "1.64.0",
     "@mastra/rag": "2.6.1",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@platform/contracts": "workspace:*",
+    "@platform/operations": "workspace:*",
     "ai": "7.0.93",
     "ajv": "8.20.0",
-    "zod": "4.5.4",
-    "@platform/operations": "workspace:*"
+    "zod": "4.5.4"
   },
   "files": [
     "dist"

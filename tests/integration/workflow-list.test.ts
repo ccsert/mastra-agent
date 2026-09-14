@@ -69,6 +69,10 @@ test("workflow lists use a constant query budget and preserve scope, draft and r
     const tenantId = randomUUID();
     await db.query("INSERT INTO tenants(id,name) VALUES($1,'Other tenant')", [tenantId]);
     const other: Principal = { ...actor, id: randomUUID(), tenantId };
+    await db.query(
+      "INSERT INTO users(id,tenant_id,username,password_hash,display_name,role) VALUES($1,$2,$3,'test-only-unused','Other','owner')",
+      [other.id, tenantId, `other_${other.id}`],
+    );
     const foreignProject = await store.projects.create(other, { name: "Foreign", description: "" });
     await workflows.create(other, foreignProject.id, { ...input, name: "Other tenant private" });
     await assert.rejects(workflows.list(other, project.id), { status: 404 });

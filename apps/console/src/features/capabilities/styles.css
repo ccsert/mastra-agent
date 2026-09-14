@@ -1,0 +1,266 @@
+.capability-directory {
+  min-width: 0;
+  color: #293c32;
+}
+.capability-intro {
+  padding: 6px 0 22px;
+}
+.capability-eyebrow {
+  font-size: 11px;
+  color: #658472;
+  letter-spacing: 1px;
+}
+.capability-intro h2 {
+  margin: 9px 0;
+  font-size: 25px;
+  font-weight: 550;
+  letter-spacing: -0.7px;
+}
+.capability-intro p,
+.capability-section-heading p {
+  color: #7b8a80;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 5px 0;
+}
+.capability-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 15px;
+}
+.capability-permissions .ant-tag {
+  margin: 0;
+}
+.capability-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 10px 0 18px;
+}
+.capability-section-heading h3 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 550;
+}
+.capability-search {
+  max-width: 440px;
+  margin-bottom: 18px;
+}
+.capability-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+  gap: 14px;
+}
+.capability-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 20px;
+  border: 1px solid #dce5df;
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background 140ms,
+    border-color 140ms;
+}
+.capability-card:hover {
+  background: #f7faf7;
+  border-color: #8eb79e;
+}
+.capability-card:focus-visible {
+  outline: 2px solid #428063;
+  outline-offset: 3px;
+}
+.capability-card-top {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.capability-icon {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 10px;
+  background: #ecf3ed;
+  color: #557e65;
+  font-size: 17px;
+  margin-right: auto;
+}
+.capability-card-top small {
+  color: #91a196;
+  font-size: 11px;
+}
+.capability-card h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 5px;
+}
+.capability-card > code {
+  font-size: 11px;
+  color: #809389;
+  overflow-wrap: anywhere;
+}
+.capability-card > p {
+  font-size: 12px;
+  line-height: 1.85;
+  color: #75877a;
+  flex: 1;
+  margin: 12px 0 18px;
+}
+.capability-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #819687;
+  border-top: 1px solid #edf0eb;
+  padding-top: 12px;
+}
+.capability-card .capability-used {
+  color: #317652;
+}
+.capability-footnote {
+  font-size: 11px;
+  line-height: 1.85;
+  color: #839389;
+  margin: 18px 0;
+  overflow-wrap: anywhere;
+}
+.capability-operations {
+  margin-top: 32px;
+}
+.capability-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.capability-filters .ant-input-affix-wrapper {
+  max-width: 440px;
+}
+.capability-operation {
+  border-bottom: 1px solid #e6ece7;
+}
+.capability-operation summary {
+  cursor: pointer;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 5px;
+  color: #7a8d80;
+  font-size: 11px;
+}
+.capability-operation summary::before {
+  content: "+";
+  width: 12px;
+  flex-shrink: 0;
+  color: #5a7e67;
+}
+.capability-operation[open] summary::before {
+  content: "−";
+}
+.capability-operation summary:hover {
+  background: #f6f9f6;
+}
+.capability-operation-name {
+  flex: 1;
+  min-width: 0;
+}
+.capability-operation-name strong {
+  font-size: 12px;
+  font-weight: 550;
+  display: block;
+  color: #3d5846;
+}
+.capability-operation-name code {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.capability-operation summary .ant-tag {
+  margin: 0;
+}
+.capability-operation-body {
+  padding: 0 28px 18px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.capability-operation-body pre,
+.capability-detail pre {
+  background: #f6f8f5;
+  color: #526658;
+  padding: 18px;
+  border: 1px solid #e1e7df;
+  border-radius: 8px;
+  font:
+    12px / 1.9 ui-monospace,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 460px;
+  overflow: auto;
+}
+.capability-detail p,
+.capability-project p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #738478;
+}
+.capability-detail dl {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 26px 0;
+}
+.capability-detail dt {
+  color: #8c9b90;
+}
+.capability-detail dd {
+  margin: 0;
+}
+.capability-detail h3,
+.capability-project h3 {
+  font-size: 15px;
+  font-weight: 550;
+}
+.capability-project-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.assistant-starters > button.assistant-launch-note {
+  display: block;
+  background: transparent;
+  border: 0;
+  padding: 5px;
+  color: #718d7b;
+}
+@media (max-width: 640px) {
+  .capability-section-heading {
+    flex-wrap: wrap;
+  }
+  .capability-operation summary {
+    gap: 8px;
+  }
+  .capability-operation summary > span:nth-child(2) {
+    display: none;
+  }
+  .assistant-desk-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .capability-card {
+    transition: none;
+  }
+}

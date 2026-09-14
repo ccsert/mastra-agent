@@ -95,7 +95,7 @@ export async function loadWorkflowCatalog(
     `SELECT r.id,r.version,r.snapshot->'agent'->>'name' AS name,
        r.snapshot->'agent'->>'description' AS description
      FROM releases r
-     WHERE r.project_id=$1 AND r.tenant_id=$2
+     WHERE r.project_id=$1 AND r.tenant_id=$2 AND r.kind='published'
        AND EXISTS (
          SELECT 1 FROM resources m WHERE m.id=(r.snapshot->'model'->>'id')::uuid
            AND m.project_id=$1 AND m.tenant_id=$2 AND m.kind='model'

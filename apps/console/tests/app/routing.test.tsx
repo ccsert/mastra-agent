@@ -8,6 +8,7 @@ import { mountConsole } from "../helpers/console.tsx";
 const user = {
   id: "owner",
   tenantId: "tenant",
+  tenantRole: "owner",
   displayName: "Owner",
   kind: "user",
   entry: "console",
@@ -20,10 +21,46 @@ const projects = ["A", "B"].map((id) => ({
 }));
 function fixture(req: Request) {
   const path = new URL(req.url).pathname;
+  if (path.endsWith("/access"))
+    return Response.json({
+      projectId: path.split("/")[4],
+      tenantRole: "owner",
+      role: "admin",
+      permissions: [
+        "project.read",
+        "project.manage",
+        "agent.edit",
+        "agent.publish",
+        "agent.run",
+        "resource.read",
+        "resource.edit",
+        "resource.manage",
+      ],
+    });
   if (path.endsWith("/auth/status")) return Response.json({ initialized: true });
   if (path.endsWith("/me") || path.endsWith("/auth/login")) return Response.json(user);
   if (path === "/api/v1/projects") return Response.json(projects);
   return Response.json([]);
+}
+
+for (const endpoint of ["/auth/status", "/me"]) {
+  test(`a transient ${endpoint} outage preserves the requested conversation route and retries without initialization`, async (t) => {
+    let unavailable = true;
+    t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const req = new Request(input, init);
+      if (unavailable && req.url.endsWith(endpoint))
+        return new Response("Proxy unavailable", { status: 502 });
+      return fixture(req);
+    });
+    const view = mountConsole({ initialEntries: ["/projects/B/tools"] });
+    await screen.findByText("暂时无法连接平台");
+    assert.equal(view.router.state.location.pathname, "/projects/B/tools");
+    assert.equal(screen.queryByRole("button", { name: /创建并进入平台/ }), null);
+    unavailable = false;
+    fireEvent.click(screen.getByRole("button", { name: "重新连接" }));
+    await screen.findByRole("heading", { name: "工具", level: 1 });
+    assert.equal(view.router.state.location.pathname, "/projects/B/tools");
+  });
 }
 
 test("project URLs drive the page, link destinations, reload and browser history", async (t) => {
@@ -41,9 +78,10 @@ test("project URLs drive the page, link destinations, reload and browser history
     false,
   );
   const links = [...document.querySelectorAll<HTMLAnchorElement>("nav a")];
+  // The project-wide run list is retired; per-conversation trajectories replace it.
   assert.deepEqual(
     links.map((a) => a.getAttribute("href")),
-    pages.map((p) => projectPath("B", p)),
+    pages.filter((page) => page !== "runs" && page !== "team").map((p) => projectPath("B", p)),
   );
   fireEvent.click(screen.getByRole("link", { name: "模型服务" }));
   await screen.findByRole("heading", { name: "模型服务", level: 1 });
@@ -116,7 +154,7 @@ test("sign-in returns to a deep conversation URL and loads its metadata independ
     if (path.endsWith("/auth/login")) signedIn = true;
     if (path.endsWith("/conversations/old"))
       return Response.json({ id: "old", title: "更早的对话", releaseVersion: 2 });
-    if (path.endsWith("/old/messages"))
+    if (path.endsWith("/old/session"))
       return Response.json({ message: "合成历史暂不可用" }, { status: 503 });
     return fixture(req);
   });
@@ -156,7 +194,7 @@ test("detail routes expose missing resources and loading failures instead of sil
   const view = mountConsole({ initialEntries: ["/projects/A/chat/missing"] });
   await screen.findByText("会话信息加载失败");
   assert.equal(
-    reads.some((p) => p.endsWith("/messages")),
+    reads.some((p) => p.endsWith("/session")),
     false,
   );
   await act(() => view.router.navigate("/projects/A/knowledge/missing"));
@@ -242,4 +280,19 @@ test("legacy run links open the conversation trace and switching view cancels pe
   await waitFor(() =>
     assert.equal(screen.getByRole("tab", { name: "轨迹" }).getAttribute("aria-selected"), "true"),
   );
+});
+
+test("global team settings retain the project context used to return to work", async (t) => {
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) =>
+    fixture(new Request(input, init)),
+  );
+  const { router } = mountConsole({ initialEntries: ["/projects/B/agents"] });
+  fireEvent.click(await screen.findByRole("link", { name: /团队设置/ }));
+  await screen.findByRole("heading", { name: "团队设置", level: 1 });
+  assert.equal(router.state.location.pathname, "/team");
+  assert.equal(
+    screen.getByRole("link", { name: "Agents" }).getAttribute("href"),
+    "/projects/B/agents",
+  );
+  assert.ok(document.querySelector(".topbar-project")?.textContent?.includes("项目B"));
 });

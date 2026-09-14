@@ -1,6 +1,11 @@
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
 import {
+  DocumentImportInput,
   DocumentInput,
+  DocumentPreview,
+  DocumentPreviewInput,
+  DocumentSource,
+  DocumentVersion,
   Id,
   KnowledgeBase,
   KnowledgeBatch,
@@ -159,6 +164,83 @@ export function registerKnowledgeRoutes(
     async (c) => {
       const p = c.req.valid("param");
       return c.json(await knowledge.getSearch(c.get("principal"), p.projectId, p.kbId, p.id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/{kbId}/document-previews`,
+      operationId: "previewKnowledgeDocument",
+      request: { params: kb, body: body(DocumentPreviewInput) },
+      responses: { 200: json(DocumentPreview), ...errors },
+    }),
+    async (c) => {
+      const p = c.req.valid("param");
+      return c.json(
+        await knowledge.previewDocument(
+          c.get("principal"),
+          p.projectId,
+          p.kbId,
+          c.req.valid("json"),
+        ),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/{kbId}/document-imports`,
+      operationId: "importKnowledgeDocument",
+      request: { params: kb, body: body(DocumentImportInput) },
+      responses: { 200: json(KnowledgeDocument), ...errors },
+    }),
+    async (c) => {
+      const p = c.req.valid("param");
+      return c.json(
+        await knowledge.importDocument(
+          c.get("principal"),
+          p.projectId,
+          p.kbId,
+          c.req.valid("json").previewId,
+        ),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: `${root}/{kbId}/documents/{id}/versions`,
+      operationId: "listKnowledgeDocumentVersions",
+      request: { params: item },
+      responses: { 200: json(z.array(DocumentVersion)), ...errors },
+    }),
+    async (c) => {
+      const p = c.req.valid("param");
+      return c.json(await knowledge.versions(c.get("principal"), p.projectId, p.kbId, p.id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: `${root}/{kbId}/documents/{id}/source`,
+      operationId: "getKnowledgeDocumentSource",
+      request: { params: item, query: z.object({ versionId: Id.optional() }) },
+      responses: { 200: json(DocumentSource), ...errors },
+    }),
+    async (c) => {
+      const p = c.req.valid("param");
+      return c.json(
+        await knowledge.source(
+          c.get("principal"),
+          p.projectId,
+          p.kbId,
+          p.id,
+          c.req.valid("query").versionId,
+        ),
+        200,
+      );
     },
   );
   app.post("/internal/runtime/knowledge/claim", async (c) =>

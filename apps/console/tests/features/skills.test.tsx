@@ -4,6 +4,7 @@ import { afterEach, test } from "node:test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App, ConfigProvider } from "antd";
 import { SkillWorkspace } from "../../src/features/skills/SkillWorkspace.tsx";
+import { ProjectAccessContext } from "../../src/shared/access.ts";
 import { ProjectData } from "../../src/shared/data/ProjectData.tsx";
 import { Selection } from "../helpers/selection.tsx";
 
@@ -48,7 +49,16 @@ function mount() {
     <ConfigProvider theme={{ token: { motion: false } }}>
       <App>
         <ProjectData projectId="skill-project">
-          <Selection>{(selection) => <SkillWorkspace {...selection} />}</Selection>
+          <ProjectAccessContext.Provider
+            value={{
+              projectId: "skill-project",
+              role: "admin",
+              tenantRole: "owner",
+              permissions: ["resource.read", "resource.edit", "resource.manage", "agent.edit"],
+            }}
+          >
+            <Selection>{(selection) => <SkillWorkspace {...selection} />}</Selection>
+          </ProjectAccessContext.Provider>
         </ProjectData>
       </App>
     </ConfigProvider>,
@@ -118,17 +128,18 @@ test("failed Skill imports retain the chosen file for retry and a closed importe
     });
   };
   mount();
-  fireEvent.click(screen.getByRole("button", { name: /导入 Skill 包/ }));
+  fireEvent.click(screen.getByRole("button", { name: /导入 Skill/ }));
+  fireEvent.click(screen.getByRole("tab", { name: /本地 ZIP/ }));
   const input = document.querySelector("input[type=file]");
   assert.ok(input);
   fireEvent.change(input, {
     target: { files: [new File(["zip-test"], "sample.zip", { type: "application/zip" })] },
   });
   await screen.findByText("sample.zip");
-  fireEvent.click(screen.getByRole("button", { name: "校验并导入" }));
+  fireEvent.click(screen.getByRole("button", { name: "校验并预览" }));
   await screen.findByText("ZIP 根目录缺少 SKILL.md");
   assert.ok(screen.getByText("sample.zip"));
-  fireEvent.click(screen.getByRole("button", { name: "校验并导入" }));
+  fireEvent.click(screen.getByRole("button", { name: "校验并预览" }));
   await waitFor(() => assert.equal(uploads, 2));
   fireEvent.click(screen.getByRole("button", { name: /取\s*消/ }));
   await waitFor(() => assert.ok(uploadSignal?.aborted));

@@ -1,4 +1,14 @@
-import { Conversation, Message, ReleaseSnapshot, Run, SkillSelection } from "@platform/contracts";
+import {
+  Conversation,
+  ExecutionObservation,
+  Message,
+  ReleaseSnapshot,
+  Run,
+  RunEvent,
+  reportedTokenUsage,
+  SkillSelection,
+  TraceObservation,
+} from "@platform/contracts";
 import type { Queryable, Row } from "@platform/database";
 import { sha256 } from "../../infrastructure/crypto.ts";
 import { date } from "../../infrastructure/records.ts";
@@ -8,6 +18,15 @@ export const selectedSkills = (snapshot: ReleaseSnapshot, ids: string[]) =>
     .filter((s) => ids.includes(s.id))
     .map((s) => ({ versionId: s.id, name: s.name, version: s.version }));
 
+/** First meaningful line of the opening message, bounded for the session list. */
+export function conversationTitle(input: string) {
+  const line = input
+    .split(/\r?\n/)
+    .map((part) => part.trim())
+    .find(Boolean);
+  const compact = (line ?? "").replace(/\s+/g, " ");
+  return compact.length > 30 ? `${compact.slice(0, 30)}…` : compact;
+}
 export const conversationDto = (r: Row) =>
   Conversation.parse({
     id: r.id,
@@ -17,6 +36,8 @@ export const conversationDto = (r: Row) =>
     releaseVersion: r.version,
     title: r.title,
     createdAt: date(r.created_at),
+    parentConversationId: r.parent_conversation_id ?? null,
+    parentMessageId: r.parent_message_id ?? null,
   });
 export const runDto = (r: Row) =>
   Run.parse({
@@ -44,6 +65,30 @@ export const runDto = (r: Row) =>
       ? selectedSkills(ReleaseSnapshot.parse(r.snapshot), SkillSelection.parse(r.skill_version_ids))
       : [],
   });
+// A runtime-reported time is preferred. Events persisted before runtimes sent one
+// keep the receipt time and say so; neither is recomputed or backfilled.
+export const runEventDto = (r: Row) => {
+  const observation = TraceObservation.safeParse(r.chunk).data;
+  if (observation?.type === "data-subagent-event")
+    observation.data.observation = ExecutionObservation.safeParse(observation.data.chunk).data;
+  if (observation?.type === "data-model-step")
+    observation.data.usage = reportedTokenUsage(observation.data.usage);
+  if (observation?.type === "data-run-usage") {
+    observation.data.usage = reportedTokenUsage(observation.data.usage);
+    observation.data.perStep = observation.data.perStep.map((step) => ({
+      ...step,
+      usage: reportedTokenUsage(step.usage),
+    }));
+  }
+  return RunEvent.parse({
+    seq: r.seq,
+    chunk: r.chunk,
+    createdAt: date(r.created_at),
+    occurredAt: r.occurred_at ? date(r.occurred_at) : date(r.created_at),
+    timeSource: r.occurred_at ? "runtime" : "control-plane",
+    observation,
+  });
+};
 // Old runs retain a plain-text hash, but migration 8 did not backfill input_text.
 // Recover only an exact match within the authorized run's own conversation.
 export async function restoreLegacyInputs(db: Queryable, rows: Row[]): Promise<Row[]> {

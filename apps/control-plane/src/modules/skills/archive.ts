@@ -39,7 +39,7 @@ const frontmatter = z
     metadata: z.record(z.string(), z.string()).optional(),
     "allowed-tools": z.string().optional(),
   })
-  .strict();
+  .loose();
 
 /** ZIP decoding is bounded before and during inflation; no archive path ever reaches the host filesystem. */
 async function unzip(archive: Buffer): Promise<Map<string, Buffer>> {
@@ -170,10 +170,24 @@ export async function importSkillArchive(base64: string) {
           parsed.error.issues.map((i) => i.path.join(".") || "frontmatter").join("、"),
       );
     const meta = parsed.data;
+    const extensionFields = Object.keys(meta)
+      .filter(
+        (key) =>
+          ![
+            "name",
+            "description",
+            "license",
+            "compatibility",
+            "metadata",
+            "allowed-tools",
+          ].includes(key),
+      )
+      .sort();
     if (prefix && prefix !== `${meta.name}/`) throw invalid("外层目录名必须与 Skill name 一致");
     const manifest = SkillManifest.parse({
       ...meta,
       allowedTools: meta["allowed-tools"],
+      extensionFields,
       files: [...files]
         .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
         .map(([path, bytes]) => {
@@ -189,6 +203,11 @@ export async function importSkillArchive(base64: string) {
         .filter((p) => /^scripts\/.*\.(m?js|cjs|py|sh)$/.test(p))
         .sort(),
       warnings: [
+        ...(extensionFields.length
+          ? [
+              `扩展字段 ${extensionFields.join("、")} 保留在原文中，平台不会应用其中的模型、工具、钩子或执行配置`,
+            ]
+          : []),
         ...(markdown.split("\n").length > 500
           ? ["建议将超过 500 行的正文拆到 references/；本项不影响格式通过"]
           : []),

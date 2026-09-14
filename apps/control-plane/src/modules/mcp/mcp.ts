@@ -74,8 +74,8 @@ export class Mcp {
     return r;
   }
   async list(actor: Principal, projectId: string) {
+    await this.deps.projects.access.require(actor, projectId, "resource.read");
     requireUser(actor);
-    await this.deps.projects.get(actor, projectId);
     return (
       await this.deps.db.query(
         "SELECT * FROM mcp_servers WHERE project_id=$1 ORDER BY created_at DESC",
@@ -84,8 +84,8 @@ export class Mcp {
     ).map(serverDto);
   }
   async create(actor: Principal, projectId: string, input: z.infer<typeof McpServerInput>) {
+    await this.deps.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
-    await this.deps.projects.get(actor, projectId);
     const url = new URL(input.url);
     if (
       !["http:", "https:"].includes(url.protocol) ||
@@ -118,6 +118,7 @@ export class Mcp {
     id: string,
     input: z.infer<typeof McpServerUpdate>,
   ) {
+    await this.deps.projects.access.require(actor, projectId, "resource.manage");
     return this.deps.db.transaction(async (tx) => {
       const r = await this.server(actor, projectId, id, tx, true);
       const [updated] = await tx.query(
@@ -150,6 +151,7 @@ export class Mcp {
   }
 
   async discover(actor: Principal, projectId: string, id: string) {
+    await this.deps.projects.access.require(actor, projectId, "resource.manage");
     return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);
       if (!server.enabled) throw new ApiError(409, "MCP_DISABLED", "请先启用 MCP 服务");
@@ -171,6 +173,7 @@ export class Mcp {
     id: string,
     input: z.infer<typeof McpImport>,
   ) {
+    await this.deps.projects.access.require(actor, projectId, "resource.manage");
     return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);
       if (!server.enabled) throw new ApiError(409, "MCP_DISABLED", "MCP 服务已停用");

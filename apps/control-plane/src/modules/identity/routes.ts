@@ -1,7 +1,8 @@
 import { createRoute } from "@hono/zod-openapi";
-import { Principal, z } from "@platform/contracts";
+import { JoinInput, Principal, z } from "@platform/contracts";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { ApiError } from "../../infrastructure/errors.ts";
+import type { Members } from "../members/index.ts";
 import type { Identity } from "./identity.ts";
 
 const loginInput = z
@@ -15,7 +16,12 @@ const loginInput = z
   .strict();
 
 import { type ApiApp, body, errors, json } from "../../http/contracts.ts";
-export function registerIdentityRoutes(app: ApiApp, identity: Identity, secureCookie = false) {
+export function registerIdentityRoutes(
+  app: ApiApp,
+  identity: Identity,
+  secureCookie = false,
+  members?: Members,
+) {
   const authTimes: number[] = [];
   app.use("/api/v1/auth/*", async (c, next) => {
     if (c.req.method === "POST") {
@@ -89,6 +95,23 @@ export function registerIdentityRoutes(app: ApiApp, identity: Identity, secureCo
       await identity.logout(getCookie(c, "platform_session") ?? "");
       deleteCookie(c, "platform_session", { path: "/" });
       return c.json({ ok: true }, 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/auth/join",
+      operationId: "acceptInvitation",
+      request: { body: body(JoinInput) },
+      responses: { 200: json(Principal), ...errors },
+    }),
+    async (c) => {
+      if (!members) throw new ApiError(503, "UNAVAILABLE", "成员服务暂不可用");
+      const input = c.req.valid("json");
+      await members.join(input);
+      const token = await identity.login(input.username, input.password);
+      cookie(c, token);
+      return c.json(await identity.session(token), 200);
     },
   );
   app.openapi(

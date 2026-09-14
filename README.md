@@ -2,7 +2,9 @@
 
 面向业务团队的 Agent、知识库、工具/MCP、标准 Agent Skills 和 AI 工作流平台。目标支持平台内使用，以及 OpenAPI、生成 SDK、React 组件与 iframe 接入；集中控制面管理平台托管和客户私有 Runtime。
 
-**当前已实现：AI 工作流与平台托管 Agent Skills。** 在真实模型、知识库和 MCP Agent 闭环上，增加正式 FlowGram 画布、AI 完整候选与修订冲突检查、固定发布版本，以及 Mastra 串行/条件执行。平台和生成 SDK 均已使用真实 Qwen 验证订单采购报告；标准 Skills 已支持 ZIP 导入、固定版本绑定、Mastra 原生读取和授权 Docker 脚本执行；私网包存储、连接器与嵌入组件尚未完成。
+**当前代码覆盖：Agent 对话与执行轨迹、AI 工作流、Skills 导入与执行、知识库、成员权限，以及全局平台助手。** 对话提供工具与思考展示、子代理记录、消息编辑、基础指令和右侧产物预览；平台助手提供能力查询、资源变更提案与页面协作。第三方页面协作目前支持读取、视图操作和未保存草稿，SDK 为仓库内部包；第三方嵌入式助手及完整生产验收尚未完成。
+
+工作流使用 FlowGram 画布与 Mastra 执行，包含候选审阅、修订冲突检查和固定发布版本。Skills 支持 ZIP 与来源导入、固定版本绑定、Mastra 原生读取和授权 Docker 脚本执行。各阶段实现与验收边界记录在 `docs/development`、`docs/research` 和 `docs/evaluations` 中。
 
 ## 本地启动
 
@@ -63,12 +65,16 @@ SDK 请求与类型由 Hey API 从 OpenAPI 生成；`pnpm sdk:generate` 更新�
 | `apps/console` | React + Vite + AntD 6 控制台，assistant-ui 聊天 |
 | `apps/control-plane` | Hono API、用户/应用身份、资源/发布、会话、任务与 PostgreSQL |
 | `apps/runtime` | 独立 Mastra Agent 执行进程，无数据库依赖或数据库凭据 |
+| `apps/agent-ui-example` | 第三方页面协作示例：原生 JavaScript 订单工作台 |
+| `packages/agent-ui` | 框架无关的页面状态、业务动作与 iframe 协作 SDK |
 | `packages/contracts` | Zod 领域契约和导出的 OpenAPI |
 | `packages/database` | PostgreSQL 连接、迁移和事务 |
 | `packages/operations` | 服务配置、结构化日志、请求关联与本机开发来源解析 |
 | `packages/sdk` | Hey API 生成 SDK、服务端签名辅助函数及分发产物 |
 
-后续继续接入更多文档格式与可视化处理流程、Skills 输入文件/产物与受控工具网关、更丰富的工作流结构、私网 Runtime/连接器和嵌入组件。统一身份中心、细粒度成员权限、内容治理、生产部署与容量验收继续按既定决策推进。当前是开发里程碑，尚未完成企业级生产验收。
+第三方应用接入步骤、权限关系、部署配置和已知限制见 [应用协作接入指南](docs/development/agent-application-sdk.md)。平台助手与管理功能的开发记录见 [平台助手任务台](docs/research/platform-assistant-taskdesk-2026-09-13.md) 和 [团队权限与 Agent 定义](docs/research/team-access-and-agent-workspace-delivery-2026-09-13.md)。
+
+后续重点包括第三方嵌入式助手、用户身份委托、业务提交的审阅协议、更多组件适配、内容治理、私网连接器和容量验证。当前是开发里程碑，尚未完成企业级生产验收。
 
 已有方案：[领域术语](CONTEXT.md)、[架构草案](docs/planning/agent-platform-discovery.md)、[FlowGram/Mastra ADR](docs/adr/0001-flowgram-authoring-mastra-execution.md)、[assistant-ui ADR](docs/adr/0002-assistant-ui-chat-foundation.md)。
 

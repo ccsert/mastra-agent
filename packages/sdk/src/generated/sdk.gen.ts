@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client/index.js';
-import type { AcceptWorkflowGenerationData, AcceptWorkflowGenerationErrors, AcceptWorkflowGenerationResponses, CancelRunData, CancelRunErrors, CancelRunResponses, CancelWorkflowGenerationData, CancelWorkflowGenerationErrors, CancelWorkflowGenerationResponses, CancelWorkflowRunData, CancelWorkflowRunErrors, CancelWorkflowRunResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateMcpServerData, CreateMcpServerErrors, CreateMcpServerResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, CreateWorkflowData, CreateWorkflowErrors, CreateWorkflowResponses, CreateWorkflowRunData, CreateWorkflowRunErrors, CreateWorkflowRunResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, DiscoverMcpToolsData, DiscoverMcpToolsErrors, DiscoverMcpToolsResponses, GenerateWorkflowData, GenerateWorkflowErrors, GenerateWorkflowResponses, GetConversationCapabilitiesData, GetConversationCapabilitiesErrors, GetConversationCapabilitiesResponses, GetConversationData, GetConversationErrors, GetConversationResponses, GetConversationTraceData, GetConversationTraceErrors, GetConversationTraceResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetRunData, GetRunErrors, GetRunResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, GetSkillData, GetSkillErrors, GetSkillFileData, GetSkillFileErrors, GetSkillFileResponses, GetSkillResponses, GetWorkflowCatalogData, GetWorkflowCatalogErrors, GetWorkflowCatalogResponses, GetWorkflowData, GetWorkflowErrors, GetWorkflowGenerationData, GetWorkflowGenerationErrors, GetWorkflowGenerationResponses, GetWorkflowResponses, GetWorkflowRunData, GetWorkflowRunErrors, GetWorkflowRunResponses, HealthData, HealthResponses, ImportMcpToolData, ImportMcpToolErrors, ImportMcpToolResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListConversationRunsData, ListConversationRunsErrors, ListConversationRunsResponses, ListConversationRunSummariesData, ListConversationRunSummariesErrors, ListConversationRunSummariesResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListMcpDiscoveriesData, ListMcpDiscoveriesErrors, ListMcpDiscoveriesResponses, ListMcpServersData, ListMcpServersErrors, ListMcpServersResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListToolsData, ListToolsErrors, ListToolsResponses, ListWorkflowGenerationsData, ListWorkflowGenerationsErrors, ListWorkflowGenerationsResponses, ListWorkflowNodeRunsData, ListWorkflowNodeRunsErrors, ListWorkflowNodeRunsResponses, ListWorkflowReleasesData, ListWorkflowReleasesErrors, ListWorkflowReleasesResponses, ListWorkflowRunsData, ListWorkflowRunsErrors, ListWorkflowRunsResponses, ListWorkflowsData, ListWorkflowsErrors, ListWorkflowsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, PublishWorkflowData, PublishWorkflowErrors, PublishWorkflowResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetSkillAccessData, SetSkillAccessErrors, SetSkillAccessResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UpdateMcpServerData, UpdateMcpServerErrors, UpdateMcpServerResponses, UpdateWorkflowData, UpdateWorkflowErrors, UpdateWorkflowResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses, UploadSkillData, UploadSkillErrors, UploadSkillResponses, ValidateWorkflowData, ValidateWorkflowErrors, ValidateWorkflowResponses } from './types.gen.js';
+import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, AcceptWorkflowGenerationData, AcceptWorkflowGenerationErrors, AcceptWorkflowGenerationResponses, ApplyAssistantProposalData, ApplyAssistantProposalErrors, ApplyAssistantProposalResponses, CancelAssistantRunData, CancelAssistantRunErrors, CancelAssistantRunResponses, CancelRunData, CancelRunErrors, CancelRunResponses, CancelWorkflowGenerationData, CancelWorkflowGenerationErrors, CancelWorkflowGenerationResponses, CancelWorkflowRunData, CancelWorkflowRunErrors, CancelWorkflowRunResponses, CompleteAssistantAppData, CompleteAssistantAppErrors, CompleteAssistantAppResponses, CompleteAssistantUiData, CompleteAssistantUiErrors, CompleteAssistantUiResponses, ConfigurePlatformAssistantData, ConfigurePlatformAssistantErrors, ConfigurePlatformAssistantResponses, ConfirmSkillImportData, ConfirmSkillImportErrors, ConfirmSkillImportResponses, CreateAgentData, CreateAgentErrors, CreateAgentResponses, CreateApplicationData, CreateApplicationErrors, CreateApplicationResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateInvitationData, CreateInvitationErrors, CreateInvitationResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, CreateMcpServerData, CreateMcpServerErrors, CreateMcpServerResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRunData, CreateRunErrors, CreateRunResponses, CreateToolData, CreateToolErrors, CreateToolResponses, CreateWorkflowData, CreateWorkflowErrors, CreateWorkflowResponses, CreateWorkflowRunData, CreateWorkflowRunErrors, CreateWorkflowRunResponses, DeleteConversationData, DeleteConversationErrors, DeleteConversationResponses, DeleteKnowledgeDocumentData, DeleteKnowledgeDocumentErrors, DeleteKnowledgeDocumentResponses, DiscoverMcpToolsData, DiscoverMcpToolsErrors, DiscoverMcpToolsResponses, DiscoverModelsData, DiscoverModelsErrors, DiscoverModelsResponses, DiscoverSkillsData, DiscoverSkillsErrors, DiscoverSkillsResponses, DownloadRunArtifactData, DownloadRunArtifactErrors, DownloadRunArtifactResponses, EditConversationMessageData, EditConversationMessageErrors, EditConversationMessageResponses, FindProjectMemberCandidatesData, FindProjectMemberCandidatesErrors, FindProjectMemberCandidatesResponses, GenerateWorkflowData, GenerateWorkflowErrors, GenerateWorkflowResponses, GetAssistantCapabilitiesData, GetAssistantCapabilitiesErrors, GetAssistantCapabilitiesResponses, GetAssistantOperationData, GetAssistantOperationErrors, GetAssistantOperationResponses, GetConversationCapabilitiesData, GetConversationCapabilitiesErrors, GetConversationCapabilitiesResponses, GetConversationContextData, GetConversationContextErrors, GetConversationContextResponses, GetConversationData, GetConversationErrors, GetConversationResponses, GetConversationSessionData, GetConversationSessionErrors, GetConversationSessionResponses, GetConversationTraceData, GetConversationTraceErrors, GetConversationTraceResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetKnowledgeDocumentSourceData, GetKnowledgeDocumentSourceErrors, GetKnowledgeDocumentSourceResponses, GetKnowledgeSearchData, GetKnowledgeSearchErrors, GetKnowledgeSearchResponses, GetPlatformAssistantData, GetPlatformAssistantErrors, GetPlatformAssistantResponses, GetProjectAccessData, GetProjectAccessErrors, GetProjectAccessResponses, GetRunData, GetRunErrors, GetRunResponses, GetRunWorkspaceData, GetRunWorkspaceErrors, GetRunWorkspaceResponses, GetSetupStatusData, GetSetupStatusErrors, GetSetupStatusResponses, GetSkillData, GetSkillErrors, GetSkillFileData, GetSkillFileErrors, GetSkillFileResponses, GetSkillPreviewFileData, GetSkillPreviewFileErrors, GetSkillPreviewFileResponses, GetSkillResponses, GetWorkflowCatalogData, GetWorkflowCatalogErrors, GetWorkflowCatalogResponses, GetWorkflowData, GetWorkflowErrors, GetWorkflowGenerationData, GetWorkflowGenerationErrors, GetWorkflowGenerationResponses, GetWorkflowResponses, GetWorkflowRunData, GetWorkflowRunErrors, GetWorkflowRunResponses, HealthData, HealthResponses, ImportKnowledgeDocumentData, ImportKnowledgeDocumentErrors, ImportKnowledgeDocumentResponses, ImportMcpToolData, ImportMcpToolErrors, ImportMcpToolResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApplicationsData, ListApplicationsErrors, ListApplicationsResponses, ListAssistantAppsData, ListAssistantAppsErrors, ListAssistantAppsResponses, ListAssistantProposalsData, ListAssistantProposalsErrors, ListAssistantProposalsResponses, ListConversationRunsData, ListConversationRunsErrors, ListConversationRunsResponses, ListConversationRunSummariesData, ListConversationRunSummariesErrors, ListConversationRunSummariesResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListKnowledgeChunksData, ListKnowledgeChunksErrors, ListKnowledgeChunksResponses, ListKnowledgeDocumentsData, ListKnowledgeDocumentsErrors, ListKnowledgeDocumentsResponses, ListKnowledgeDocumentVersionsData, ListKnowledgeDocumentVersionsErrors, ListKnowledgeDocumentVersionsResponses, ListMcpDiscoveriesData, ListMcpDiscoveriesErrors, ListMcpDiscoveriesResponses, ListMcpServersData, ListMcpServersErrors, ListMcpServersResponses, ListMessagesData, ListMessagesErrors, ListMessagesResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListModelVendorsData, ListModelVendorsErrors, ListModelVendorsResponses, ListProjectAuditData, ListProjectAuditErrors, ListProjectAuditResponses, ListProjectInvitationsData, ListProjectInvitationsErrors, ListProjectInvitationsResponses, ListProjectMembersData, ListProjectMembersErrors, ListProjectMembersResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReleasesData, ListReleasesErrors, ListReleasesResponses, ListRunEventsData, ListRunEventsErrors, ListRunEventsResponses, ListRunsData, ListRunsErrors, ListRunsResponses, ListRuntimesData, ListRuntimesErrors, ListRuntimesResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListTeamAuditData, ListTeamAuditErrors, ListTeamAuditResponses, ListTeamInvitationsData, ListTeamInvitationsErrors, ListTeamInvitationsResponses, ListTeamMembersData, ListTeamMembersErrors, ListTeamMembersResponses, ListToolsData, ListToolsErrors, ListToolsResponses, ListWorkflowGenerationsData, ListWorkflowGenerationsErrors, ListWorkflowGenerationsResponses, ListWorkflowNodeRunsData, ListWorkflowNodeRunsErrors, ListWorkflowNodeRunsResponses, ListWorkflowReleasesData, ListWorkflowReleasesErrors, ListWorkflowReleasesResponses, ListWorkflowRunsData, ListWorkflowRunsErrors, ListWorkflowRunsResponses, ListWorkflowsData, ListWorkflowsErrors, ListWorkflowsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PreviewAgentData, PreviewAgentErrors, PreviewAgentResponses, PreviewKnowledgeDocumentData, PreviewKnowledgeDocumentErrors, PreviewKnowledgeDocumentResponses, PreviewSkillImportData, PreviewSkillImportErrors, PreviewSkillImportResponses, PreviewSkillUpdateData, PreviewSkillUpdateErrors, PreviewSkillUpdateResponses, ProbeModelData, ProbeModelErrors, ProbeModelResponses, ProbeToolData, ProbeToolErrors, ProbeToolResponses, PublishAgentData, PublishAgentErrors, PublishAgentResponses, PublishWorkflowData, PublishWorkflowErrors, PublishWorkflowResponses, RegisterAssistantAppData, RegisterAssistantAppErrors, RegisterAssistantAppResponses, RemoveAssistantAppData, RemoveAssistantAppErrors, RemoveAssistantAppResponses, ResetConversationData, ResetConversationErrors, ResetConversationResponses, ResumeConversationData, ResumeConversationErrors, ResumeConversationResponse, ResumeConversationResponses, RetryKnowledgeDocumentData, RetryKnowledgeDocumentErrors, RetryKnowledgeDocumentResponses, RevokeApplicationData, RevokeApplicationErrors, RevokeApplicationResponses, RevokeInvitationData, RevokeInvitationErrors, RevokeInvitationResponses, RevokeMemberSessionsData, RevokeMemberSessionsErrors, RevokeMemberSessionsResponses, SearchKnowledgeData, SearchKnowledgeErrors, SearchKnowledgeResponses, SetProjectMemberData, SetProjectMemberErrors, SetProjectMemberResponses, SetSkillAccessData, SetSkillAccessErrors, SetSkillAccessResponses, SetupPlatformData, SetupPlatformErrors, SetupPlatformResponses, StartPlatformAssistantData, StartPlatformAssistantErrors, StartPlatformAssistantResponses, StreamConversationData, StreamConversationErrors, StreamConversationResponse, StreamConversationResponses, StreamPlatformAssistantData, StreamPlatformAssistantErrors, StreamPlatformAssistantResponse, StreamPlatformAssistantResponses, SubmitRunFeedbackData, SubmitRunFeedbackErrors, SubmitRunFeedbackResponses, SyncAssistantAppData, SyncAssistantAppErrors, SyncAssistantAppResponses, SyncAssistantUiData, SyncAssistantUiErrors, SyncAssistantUiResponses, TransferTeamOwnerData, TransferTeamOwnerErrors, TransferTeamOwnerResponses, UpdateAgentData, UpdateAgentErrors, UpdateAgentResponses, UpdateMcpServerData, UpdateMcpServerErrors, UpdateMcpServerResponses, UpdateModelData, UpdateModelErrors, UpdateModelResponses, UpdateTeamMemberData, UpdateTeamMemberErrors, UpdateTeamMemberResponses, UpdateToolData, UpdateToolErrors, UpdateToolResponses, UpdateWorkflowData, UpdateWorkflowErrors, UpdateWorkflowResponses, UploadKnowledgeDocumentData, UploadKnowledgeDocumentErrors, UploadKnowledgeDocumentResponses, UploadSkillData, UploadSkillErrors, UploadSkillResponses, ValidateWorkflowData, ValidateWorkflowErrors, ValidateWorkflowResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -49,7 +49,86 @@ export const logout = <ThrowOnError extends boolean = false>(options: Options<Lo
     }
 });
 
+export const acceptInvitation = <ThrowOnError extends boolean = false>(options: Options<AcceptInvitationData, ThrowOnError>): RequestResult<AcceptInvitationResponses, AcceptInvitationErrors, ThrowOnError> => (options.client ?? client).post<AcceptInvitationResponses, AcceptInvitationErrors, ThrowOnError>({
+    url: '/api/v1/auth/join',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentUserData, ThrowOnError>): RequestResult<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError>({ url: '/api/v1/me', ...options });
+
+export const listTeamMembers = <ThrowOnError extends boolean = false>(options?: Options<ListTeamMembersData, ThrowOnError>): RequestResult<ListTeamMembersResponses, ListTeamMembersErrors, ThrowOnError> => (options?.client ?? client).get<ListTeamMembersResponses, ListTeamMembersErrors, ThrowOnError>({ url: '/api/v1/team/members', ...options });
+
+export const updateTeamMember = <ThrowOnError extends boolean = false>(options: Options<UpdateTeamMemberData, ThrowOnError>): RequestResult<UpdateTeamMemberResponses, UpdateTeamMemberErrors, ThrowOnError> => (options.client ?? client).put<UpdateTeamMemberResponses, UpdateTeamMemberErrors, ThrowOnError>({
+    url: '/api/v1/team/members/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const revokeMemberSessions = <ThrowOnError extends boolean = false>(options: Options<RevokeMemberSessionsData, ThrowOnError>): RequestResult<RevokeMemberSessionsResponses, RevokeMemberSessionsErrors, ThrowOnError> => (options.client ?? client).post<RevokeMemberSessionsResponses, RevokeMemberSessionsErrors, ThrowOnError>({
+    url: '/api/v1/team/members/{id}/revoke-sessions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const transferTeamOwner = <ThrowOnError extends boolean = false>(options: Options<TransferTeamOwnerData, ThrowOnError>): RequestResult<TransferTeamOwnerResponses, TransferTeamOwnerErrors, ThrowOnError> => (options.client ?? client).post<TransferTeamOwnerResponses, TransferTeamOwnerErrors, ThrowOnError>({
+    url: '/api/v1/team/transfer-owner',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getProjectAccess = <ThrowOnError extends boolean = false>(options: Options<GetProjectAccessData, ThrowOnError>): RequestResult<GetProjectAccessResponses, GetProjectAccessErrors, ThrowOnError> => (options.client ?? client).get<GetProjectAccessResponses, GetProjectAccessErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/access', ...options });
+
+export const findProjectMemberCandidates = <ThrowOnError extends boolean = false>(options: Options<FindProjectMemberCandidatesData, ThrowOnError>): RequestResult<FindProjectMemberCandidatesResponses, FindProjectMemberCandidatesErrors, ThrowOnError> => (options.client ?? client).get<FindProjectMemberCandidatesResponses, FindProjectMemberCandidatesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/members/candidates', ...options });
+
+export const listProjectMembers = <ThrowOnError extends boolean = false>(options: Options<ListProjectMembersData, ThrowOnError>): RequestResult<ListProjectMembersResponses, ListProjectMembersErrors, ThrowOnError> => (options.client ?? client).get<ListProjectMembersResponses, ListProjectMembersErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/members', ...options });
+
+export const setProjectMember = <ThrowOnError extends boolean = false>(options: Options<SetProjectMemberData, ThrowOnError>): RequestResult<SetProjectMemberResponses, SetProjectMemberErrors, ThrowOnError> => (options.client ?? client).put<SetProjectMemberResponses, SetProjectMemberErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/members/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const createInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
+    url: '/api/v1/invitations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listTeamInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListTeamInvitationsData, ThrowOnError>): RequestResult<ListTeamInvitationsResponses, ListTeamInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListTeamInvitationsResponses, ListTeamInvitationsErrors, ThrowOnError>({ url: '/api/v1/team/invitations', ...options });
+
+export const listProjectInvitations = <ThrowOnError extends boolean = false>(options: Options<ListProjectInvitationsData, ThrowOnError>): RequestResult<ListProjectInvitationsResponses, ListProjectInvitationsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectInvitationsResponses, ListProjectInvitationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/invitations', ...options });
+
+export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).post<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+    url: '/api/v1/invitations/{id}/revoke',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listTeamAudit = <ThrowOnError extends boolean = false>(options?: Options<ListTeamAuditData, ThrowOnError>): RequestResult<ListTeamAuditResponses, ListTeamAuditErrors, ThrowOnError> => (options?.client ?? client).get<ListTeamAuditResponses, ListTeamAuditErrors, ThrowOnError>({ url: '/api/v1/team/audit', ...options });
+
+export const listProjectAudit = <ThrowOnError extends boolean = false>(options: Options<ListProjectAuditData, ThrowOnError>): RequestResult<ListProjectAuditResponses, ListProjectAuditErrors, ThrowOnError> => (options.client ?? client).get<ListProjectAuditResponses, ListProjectAuditErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/audit', ...options });
 
 export const listProjects = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsData, ThrowOnError>): RequestResult<ListProjectsResponses, ListProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListProjectsResponses, ListProjectsErrors, ThrowOnError>({ url: '/api/v1/projects', ...options });
 
@@ -73,10 +152,81 @@ export const createModel = <ThrowOnError extends boolean = false>(options: Optio
     }
 });
 
+export const updateModel = <ThrowOnError extends boolean = false>(options: Options<UpdateModelData, ThrowOnError>): RequestResult<UpdateModelResponses, UpdateModelErrors, ThrowOnError> => (options.client ?? client).patch<UpdateModelResponses, UpdateModelErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/models/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 从平台侧按 Runtime 实际使用的方式探测模型服务。outcome 为 unreachable 时表示平台网络不可达，不代表 Runtime 不可达。
+ */
+export const probeModel = <ThrowOnError extends boolean = false>(options: Options<ProbeModelData, ThrowOnError>): RequestResult<ProbeModelResponses, ProbeModelErrors, ThrowOnError> => (options.client ?? client).post<ProbeModelResponses, ProbeModelErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/models/probe',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 读取模型服务提供的模型列表，用于在控制台中选择模型 ID。列表只说明服务声明了哪些 ID，不表示它们可用或具备某种能力；outcome 为 unsupported 表示服务未提供该接口。
+ */
+export const discoverModels = <ThrowOnError extends boolean = false>(options: Options<DiscoverModelsData, ThrowOnError>): RequestResult<DiscoverModelsResponses, DiscoverModelsErrors, ThrowOnError> => (options.client ?? client).post<DiscoverModelsResponses, DiscoverModelsErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/models/discovery',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 平台的供应商预设目录。仅包含 OpenAI 兼容接口；baseUrl 为 null 表示需自行填写，note 记录地址本身看不出的限制。
+ */
+export const listModelVendors = <ThrowOnError extends boolean = false>(options?: Options<ListModelVendorsData, ThrowOnError>): RequestResult<ListModelVendorsResponses, ListModelVendorsErrors, ThrowOnError> => (options?.client ?? client).get<ListModelVendorsResponses, ListModelVendorsErrors, ThrowOnError>({ url: '/api/v1/model-vendors', ...options });
+
 export const listTools = <ThrowOnError extends boolean = false>(options: Options<ListToolsData, ThrowOnError>): RequestResult<ListToolsResponses, ListToolsErrors, ThrowOnError> => (options.client ?? client).get<ListToolsResponses, ListToolsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/tools', ...options });
 
 export const createTool = <ThrowOnError extends boolean = false>(options: Options<CreateToolData, ThrowOnError>): RequestResult<CreateToolResponses, CreateToolErrors, ThrowOnError> => (options.client ?? client).post<CreateToolResponses, CreateToolErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/tools',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * MCP 工具不可编辑：它是远端描述符的固定投影，编辑会让它与所声明的描述符不一致。
+ */
+export const updateTool = <ThrowOnError extends boolean = false>(options: Options<UpdateToolData, ThrowOnError>): RequestResult<UpdateToolResponses, UpdateToolErrors, ThrowOnError> => (options.client ?? client).patch<UpdateToolResponses, UpdateToolErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/tools/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 按 Runtime 实际调用工具的方式执行一次，并校验返回是否符合声明的输出 schema。outcome 区分 invalid（样例参数不合格）、rejected（服务拒绝）、mismatch（返回 JSON 但不符合 schema）与 unreachable（平台网络不通）。
+ */
+export const probeTool = <ThrowOnError extends boolean = false>(options: Options<ProbeToolData, ThrowOnError>): RequestResult<ProbeToolResponses, ProbeToolErrors, ThrowOnError> => (options.client ?? client).post<ProbeToolResponses, ProbeToolErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/tools/probe',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const previewAgent = <ThrowOnError extends boolean = false>(options: Options<PreviewAgentData, ThrowOnError>): RequestResult<PreviewAgentResponses, PreviewAgentErrors, ThrowOnError> => (options.client ?? client).post<PreviewAgentResponses, PreviewAgentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/agents/{id}/preview',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -115,6 +265,44 @@ export const publishAgent = <ThrowOnError extends boolean = false>(options: Opti
 
 export const listReleases = <ThrowOnError extends boolean = false>(options: Options<ListReleasesData, ThrowOnError>): RequestResult<ListReleasesResponses, ListReleasesErrors, ThrowOnError> => (options.client ?? client).get<ListReleasesResponses, ListReleasesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/agents/{id}/releases', ...options });
 
+export const discoverSkills = <ThrowOnError extends boolean = false>(options: Options<DiscoverSkillsData, ThrowOnError>): RequestResult<DiscoverSkillsResponses, DiscoverSkillsErrors, ThrowOnError> => (options.client ?? client).post<DiscoverSkillsResponses, DiscoverSkillsErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/skills/discover',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const previewSkillImport = <ThrowOnError extends boolean = false>(options: Options<PreviewSkillImportData, ThrowOnError>): RequestResult<PreviewSkillImportResponses, PreviewSkillImportErrors, ThrowOnError> => (options.client ?? client).post<PreviewSkillImportResponses, PreviewSkillImportErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/skills/previews',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const previewSkillUpdate = <ThrowOnError extends boolean = false>(options: Options<PreviewSkillUpdateData, ThrowOnError>): RequestResult<PreviewSkillUpdateResponses, PreviewSkillUpdateErrors, ThrowOnError> => (options.client ?? client).post<PreviewSkillUpdateResponses, PreviewSkillUpdateErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/skills/{id}/update-preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const confirmSkillImport = <ThrowOnError extends boolean = false>(options: Options<ConfirmSkillImportData, ThrowOnError>): RequestResult<ConfirmSkillImportResponses, ConfirmSkillImportErrors, ThrowOnError> => (options.client ?? client).post<ConfirmSkillImportResponses, ConfirmSkillImportErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/skills/previews/{id}/confirm',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getSkillPreviewFile = <ThrowOnError extends boolean = false>(options: Options<GetSkillPreviewFileData, ThrowOnError>): RequestResult<GetSkillPreviewFileResponses, GetSkillPreviewFileErrors, ThrowOnError> => (options.client ?? client).get<GetSkillPreviewFileResponses, GetSkillPreviewFileErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/skills/previews/{id}/file', ...options });
+
 export const listSkills = <ThrowOnError extends boolean = false>(options: Options<ListSkillsData, ThrowOnError>): RequestResult<ListSkillsResponses, ListSkillsErrors, ThrowOnError> => (options.client ?? client).get<ListSkillsResponses, ListSkillsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/skills', ...options });
 
 export const uploadSkill = <ThrowOnError extends boolean = false>(options: Options<UploadSkillData, ThrowOnError>): RequestResult<UploadSkillResponses, UploadSkillErrors, ThrowOnError> => (options.client ?? client).post<UploadSkillResponses, UploadSkillErrors, ThrowOnError>({
@@ -139,6 +327,43 @@ export const setSkillAccess = <ThrowOnError extends boolean = false>(options: Op
 
 export const getSkillFile = <ThrowOnError extends boolean = false>(options: Options<GetSkillFileData, ThrowOnError>): RequestResult<GetSkillFileResponses, GetSkillFileErrors, ThrowOnError> => (options.client ?? client).get<GetSkillFileResponses, GetSkillFileErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/skills/{id}/file', ...options });
 
+export const getConversationContext = <ThrowOnError extends boolean = false>(options: Options<GetConversationContextData, ThrowOnError>): RequestResult<GetConversationContextResponses, GetConversationContextErrors, ThrowOnError> => (options.client ?? client).get<GetConversationContextResponses, GetConversationContextErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/conversations/{id}/context', ...options });
+
+export const resetConversation = <ThrowOnError extends boolean = false>(options: Options<ResetConversationData, ThrowOnError>): RequestResult<ResetConversationResponses, ResetConversationErrors, ThrowOnError> => (options.client ?? client).post<ResetConversationResponses, ResetConversationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/conversations/{id}/reset',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const submitRunFeedback = <ThrowOnError extends boolean = false>(options: Options<SubmitRunFeedbackData, ThrowOnError>): RequestResult<SubmitRunFeedbackResponses, SubmitRunFeedbackErrors, ThrowOnError> => (options.client ?? client).post<SubmitRunFeedbackResponses, SubmitRunFeedbackErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/runs/{id}/feedback',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const editConversationMessage = <ThrowOnError extends boolean = false>(options: Options<EditConversationMessageData, ThrowOnError>): RequestResult<EditConversationMessageResponses, EditConversationMessageErrors, ThrowOnError> => (options.client ?? client).post<EditConversationMessageResponses, EditConversationMessageErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/conversations/{id}/edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getRunWorkspace = <ThrowOnError extends boolean = false>(options: Options<GetRunWorkspaceData, ThrowOnError>): RequestResult<GetRunWorkspaceResponses, GetRunWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<GetRunWorkspaceResponses, GetRunWorkspaceErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/runs/{id}/workspace', ...options });
+
+export const downloadRunArtifact = <ThrowOnError extends boolean = false>(options: Options<DownloadRunArtifactData, ThrowOnError>): RequestResult<DownloadRunArtifactResponses, DownloadRunArtifactErrors, ThrowOnError> => (options.client ?? client).get<DownloadRunArtifactResponses, DownloadRunArtifactErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/runs/{id}/artifacts/{artifactId}', ...options });
+
+export const getConversationSession = <ThrowOnError extends boolean = false>(options: Options<GetConversationSessionData, ThrowOnError>): RequestResult<GetConversationSessionResponses, GetConversationSessionErrors, ThrowOnError> => (options.client ?? client).get<GetConversationSessionResponses, GetConversationSessionErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/conversations/{id}/session', ...options });
+
+export const resumeConversation = <ThrowOnError extends boolean = false>(options: Options<ResumeConversationData, ThrowOnError, ResumeConversationResponse>): Promise<ServerSentEventsResult<ResumeConversationResponses>> => (options.client ?? client).sse.get<ResumeConversationResponses, ResumeConversationErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/conversations/{id}/stream', ...options });
+
 export const listConversationRunSummaries = <ThrowOnError extends boolean = false>(options: Options<ListConversationRunSummariesData, ThrowOnError>): RequestResult<ListConversationRunSummariesResponses, ListConversationRunSummariesErrors, ThrowOnError> => (options.client ?? client).get<ListConversationRunSummariesResponses, ListConversationRunSummariesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/conversation-runs', ...options });
 
 export const getConversationTrace = <ThrowOnError extends boolean = false>(options: Options<GetConversationTraceData, ThrowOnError>): RequestResult<GetConversationTraceResponses, GetConversationTraceErrors, ThrowOnError> => (options.client ?? client).get<GetConversationTraceResponses, GetConversationTraceErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/conversations/{id}/trajectory', ...options });
@@ -151,6 +376,15 @@ export const listConversations = <ThrowOnError extends boolean = false>(options:
 
 export const createConversation = <ThrowOnError extends boolean = false>(options: Options<CreateConversationData, ThrowOnError>): RequestResult<CreateConversationResponses, CreateConversationErrors, ThrowOnError> => (options.client ?? client).post<CreateConversationResponses, CreateConversationErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/conversations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const deleteConversation = <ThrowOnError extends boolean = false>(options: Options<DeleteConversationData, ThrowOnError>): RequestResult<DeleteConversationResponses, DeleteConversationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteConversationResponses, DeleteConversationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/conversations/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -269,6 +503,28 @@ export const searchKnowledge = <ThrowOnError extends boolean = false>(options: O
 });
 
 export const getKnowledgeSearch = <ThrowOnError extends boolean = false>(options: Options<GetKnowledgeSearchData, ThrowOnError>): RequestResult<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError> => (options.client ?? client).get<GetKnowledgeSearchResponses, GetKnowledgeSearchErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/searches/{id}', ...options });
+
+export const previewKnowledgeDocument = <ThrowOnError extends boolean = false>(options: Options<PreviewKnowledgeDocumentData, ThrowOnError>): RequestResult<PreviewKnowledgeDocumentResponses, PreviewKnowledgeDocumentErrors, ThrowOnError> => (options.client ?? client).post<PreviewKnowledgeDocumentResponses, PreviewKnowledgeDocumentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/document-previews',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const importKnowledgeDocument = <ThrowOnError extends boolean = false>(options: Options<ImportKnowledgeDocumentData, ThrowOnError>): RequestResult<ImportKnowledgeDocumentResponses, ImportKnowledgeDocumentErrors, ThrowOnError> => (options.client ?? client).post<ImportKnowledgeDocumentResponses, ImportKnowledgeDocumentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/document-imports',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listKnowledgeDocumentVersions = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeDocumentVersionsData, ThrowOnError>): RequestResult<ListKnowledgeDocumentVersionsResponses, ListKnowledgeDocumentVersionsErrors, ThrowOnError> => (options.client ?? client).get<ListKnowledgeDocumentVersionsResponses, ListKnowledgeDocumentVersionsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/versions', ...options });
+
+export const getKnowledgeDocumentSource = <ThrowOnError extends boolean = false>(options: Options<GetKnowledgeDocumentSourceData, ThrowOnError>): RequestResult<GetKnowledgeDocumentSourceResponses, GetKnowledgeDocumentSourceErrors, ThrowOnError> => (options.client ?? client).get<GetKnowledgeDocumentSourceResponses, GetKnowledgeDocumentSourceErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/source', ...options });
 
 export const listMcpServers = <ThrowOnError extends boolean = false>(options: Options<ListMcpServersData, ThrowOnError>): RequestResult<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/mcp-servers', ...options });
 
@@ -402,6 +658,108 @@ export const acceptWorkflowGeneration = <ThrowOnError extends boolean = false>(o
 
 export const cancelWorkflowGeneration = <ThrowOnError extends boolean = false>(options: Options<CancelWorkflowGenerationData, ThrowOnError>): RequestResult<CancelWorkflowGenerationResponses, CancelWorkflowGenerationErrors, ThrowOnError> => (options.client ?? client).post<CancelWorkflowGenerationResponses, CancelWorkflowGenerationErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/workflow-generations/{id}/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listAssistantApps = <ThrowOnError extends boolean = false>(options: Options<ListAssistantAppsData, ThrowOnError>): RequestResult<ListAssistantAppsResponses, ListAssistantAppsErrors, ThrowOnError> => (options.client ?? client).get<ListAssistantAppsResponses, ListAssistantAppsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant/apps', ...options });
+
+export const registerAssistantApp = <ThrowOnError extends boolean = false>(options: Options<RegisterAssistantAppData, ThrowOnError>): RequestResult<RegisterAssistantAppResponses, RegisterAssistantAppErrors, ThrowOnError> => (options.client ?? client).post<RegisterAssistantAppResponses, RegisterAssistantAppErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/apps',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const removeAssistantApp = <ThrowOnError extends boolean = false>(options: Options<RemoveAssistantAppData, ThrowOnError>): RequestResult<RemoveAssistantAppResponses, RemoveAssistantAppErrors, ThrowOnError> => (options.client ?? client).delete<RemoveAssistantAppResponses, RemoveAssistantAppErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant/apps/{id}', ...options });
+
+export const syncAssistantApp = <ThrowOnError extends boolean = false>(options: Options<SyncAssistantAppData, ThrowOnError>): RequestResult<SyncAssistantAppResponses, SyncAssistantAppErrors, ThrowOnError> => (options.client ?? client).post<SyncAssistantAppResponses, SyncAssistantAppErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/apps/sync',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const completeAssistantApp = <ThrowOnError extends boolean = false>(options: Options<CompleteAssistantAppData, ThrowOnError>): RequestResult<CompleteAssistantAppResponses, CompleteAssistantAppErrors, ThrowOnError> => (options.client ?? client).post<CompleteAssistantAppResponses, CompleteAssistantAppErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/apps/actions/{actionId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const syncAssistantUi = <ThrowOnError extends boolean = false>(options: Options<SyncAssistantUiData, ThrowOnError>): RequestResult<SyncAssistantUiResponses, SyncAssistantUiErrors, ThrowOnError> => (options.client ?? client).post<SyncAssistantUiResponses, SyncAssistantUiErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/ui',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const completeAssistantUi = <ThrowOnError extends boolean = false>(options: Options<CompleteAssistantUiData, ThrowOnError>): RequestResult<CompleteAssistantUiResponses, CompleteAssistantUiErrors, ThrowOnError> => (options.client ?? client).post<CompleteAssistantUiResponses, CompleteAssistantUiErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/ui/{actionId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getPlatformAssistant = <ThrowOnError extends boolean = false>(options: Options<GetPlatformAssistantData, ThrowOnError>): RequestResult<GetPlatformAssistantResponses, GetPlatformAssistantErrors, ThrowOnError> => (options.client ?? client).get<GetPlatformAssistantResponses, GetPlatformAssistantErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant', ...options });
+
+export const getAssistantCapabilities = <ThrowOnError extends boolean = false>(options: Options<GetAssistantCapabilitiesData, ThrowOnError>): RequestResult<GetAssistantCapabilitiesResponses, GetAssistantCapabilitiesErrors, ThrowOnError> => (options.client ?? client).get<GetAssistantCapabilitiesResponses, GetAssistantCapabilitiesErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant/capabilities', ...options });
+
+export const getAssistantOperation = <ThrowOnError extends boolean = false>(options: Options<GetAssistantOperationData, ThrowOnError>): RequestResult<GetAssistantOperationResponses, GetAssistantOperationErrors, ThrowOnError> => (options.client ?? client).get<GetAssistantOperationResponses, GetAssistantOperationErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant/capabilities/operations/{operationId}', ...options });
+
+export const configurePlatformAssistant = <ThrowOnError extends boolean = false>(options: Options<ConfigurePlatformAssistantData, ThrowOnError>): RequestResult<ConfigurePlatformAssistantResponses, ConfigurePlatformAssistantErrors, ThrowOnError> => (options.client ?? client).post<ConfigurePlatformAssistantResponses, ConfigurePlatformAssistantErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const startPlatformAssistant = <ThrowOnError extends boolean = false>(options: Options<StartPlatformAssistantData, ThrowOnError>): RequestResult<StartPlatformAssistantResponses, StartPlatformAssistantErrors, ThrowOnError> => (options.client ?? client).post<StartPlatformAssistantResponses, StartPlatformAssistantErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listAssistantProposals = <ThrowOnError extends boolean = false>(options: Options<ListAssistantProposalsData, ThrowOnError>): RequestResult<ListAssistantProposalsResponses, ListAssistantProposalsErrors, ThrowOnError> => (options.client ?? client).get<ListAssistantProposalsResponses, ListAssistantProposalsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/proposals', ...options });
+
+export const applyAssistantProposal = <ThrowOnError extends boolean = false>(options: Options<ApplyAssistantProposalData, ThrowOnError>): RequestResult<ApplyAssistantProposalResponses, ApplyAssistantProposalErrors, ThrowOnError> => (options.client ?? client).post<ApplyAssistantProposalResponses, ApplyAssistantProposalErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/proposals/{proposalId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const cancelAssistantRun = <ThrowOnError extends boolean = false>(options: Options<CancelAssistantRunData, ThrowOnError>): RequestResult<CancelAssistantRunResponses, CancelAssistantRunErrors, ThrowOnError> => (options.client ?? client).post<CancelAssistantRunResponses, CancelAssistantRunErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/runs/{id}/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const streamPlatformAssistant = <ThrowOnError extends boolean = false>(options: Options<StreamPlatformAssistantData, ThrowOnError, StreamPlatformAssistantResponse>): Promise<ServerSentEventsResult<StreamPlatformAssistantResponses>> => (options.client ?? client).sse.post<StreamPlatformAssistantResponses, StreamPlatformAssistantErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/assistant/conversations/{id}/chat',
     ...options,
     headers: {
         'Content-Type': 'application/json',

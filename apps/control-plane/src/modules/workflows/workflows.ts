@@ -130,8 +130,8 @@ export class Workflows {
     return assetDto(row);
   }
   async list(actor: Principal, projectId: string, input: PageInput = {}) {
+    await this.deps.projects.access.require(actor, projectId, "resource.read");
     requireUser(actor);
-    await this.deps.projects.get(actor, projectId);
     const page = cursorPage(["workflows", actor.tenantId, projectId], input);
     const rows = await this.db.query(
       `SELECT w.*,r.version,${page.select("w")} FROM workflows w
@@ -150,8 +150,8 @@ export class Workflows {
       throw new ApiError(400, "WORKFLOW_LAYOUT", "布局必须引用当前节点，草稿不能超过大小限制");
   }
   async create(actor: Principal, projectId: string, input: z.infer<typeof WorkflowAssetInput>) {
+    await this.deps.projects.access.require(actor, projectId, "agent.edit");
     requireUser(actor);
-    await this.deps.projects.get(actor, projectId);
     this.checkLayout(input);
     const id = randomUUID();
     await this.db.query("INSERT INTO workflows(id,tenant_id,project_id,data) VALUES($1,$2,$3,$4)", [
@@ -169,6 +169,7 @@ export class Workflows {
     input: z.infer<typeof WorkflowAssetInput>,
     baseRevision: number,
   ) {
+    await this.deps.projects.access.require(actor, projectId, "agent.edit");
     requireUser(actor);
     await this.asset(actor, projectId, id);
     this.checkLayout(input);
@@ -191,7 +192,7 @@ export class Workflows {
   }
   async catalog(actor: Principal, projectId: string) {
     requireUser(actor);
-    await this.deps.projects.get(actor, projectId);
+    await this.deps.projects.access.require(actor, projectId, "resource.read");
     return loadWorkflowCatalog(this.db, { projectId, tenantId: actor.tenantId });
   }
 
@@ -213,7 +214,7 @@ export class Workflows {
       }
       if (node.type === "agent" && !agents.some((a) => a.id === node.releaseId)) {
         const [row] = await tx.query(
-          "SELECT * FROM releases WHERE id=$1 AND project_id=$2 AND tenant_id=$3",
+          "SELECT * FROM releases WHERE id=$1 AND project_id=$2 AND tenant_id=$3 AND kind='published'",
           [node.releaseId, projectId, actor.tenantId],
         );
         if (!row) throw notFound();
@@ -233,6 +234,7 @@ export class Workflows {
     });
   }
   async validate(actor: Principal, projectId: string, id: string, baseRevision: number) {
+    await this.deps.projects.access.require(actor, projectId, "agent.edit");
     requireUser(actor);
     const asset = await this.asset(actor, projectId, id);
     if (asset.revision !== baseRevision)
@@ -241,6 +243,7 @@ export class Workflows {
     return { issues: validateWorkflow(snapshot.definition, snapshot.catalog) };
   }
   async publish(actor: Principal, projectId: string, id: string, baseRevision: number) {
+    await this.deps.projects.access.require(actor, projectId, "agent.publish");
     requireUser(actor);
     return this.db.transaction(async (tx) => {
       const asset = await this.asset(actor, projectId, id, tx, true);
@@ -389,6 +392,7 @@ export class Workflows {
     workflowId: string,
     input: z.infer<typeof WorkflowRunInput>,
   ) {
+    await this.deps.projects.access.require(actor, projectId, "agent.run");
     const id = await this.db.transaction(async (tx) => {
       await this.asset(actor, projectId, workflowId, tx, true);
       const [release] = await tx.query(
@@ -450,6 +454,7 @@ export class Workflows {
     workflowId: string,
     input: z.infer<typeof WorkflowGenerationInput>,
   ) {
+    await this.deps.projects.access.require(actor, projectId, "agent.edit");
     requireUser(actor);
     const id = await this.db.transaction(async (tx) => {
       const asset = await this.asset(actor, projectId, workflowId, tx, true);
@@ -480,6 +485,7 @@ export class Workflows {
     return this.generation(actor, projectId, id);
   }
   async accept(actor: Principal, projectId: string, id: string, baseRevision: number) {
+    await this.deps.projects.access.require(actor, projectId, "agent.edit");
     requireUser(actor);
     return this.db.transaction(async (tx) => {
       // Use the same asset-before-job order as enqueue and publishing.

@@ -1,14 +1,14 @@
 import {
   ConversationRunSummary,
   ConversationTrace,
+  Message,
   type Principal,
-  RunEvent,
   TraceQuery,
 } from "@platform/contracts";
 import type { Database, Queryable } from "@platform/database";
 import { cursorPage, type PageInput } from "../../infrastructure/pagination.ts";
 import { date } from "../../infrastructure/records.ts";
-import { conversationDto, restoreLegacyInputs, runDto } from "./records.ts";
+import { conversationDto, restoreLegacyInputs, runDto, runEventDto } from "./records.ts";
 
 /** Callers authorize the conversation before entering this read model. Runs remain independent jobs. */
 export async function readConversationTrace(
@@ -47,28 +47,49 @@ async function readTraceSnapshot(
   if (!initial)
     return ConversationTrace.parse({ initial: null, turns: [], totalTurns: 0, nextBefore: null });
   const rows = await restoreLegacyInputs(db, pageRows.reverse());
+  const counts = await db.query(
+    `SELECT run_id,count(*)::int AS event_count,max(seq)::int AS last_seq
+      FROM run_events WHERE run_id=ANY($1::uuid[]) GROUP BY run_id`,
+    [rows.map((r) => r.id)],
+  );
+  const messages = await db.query(
+    `SELECT data FROM messages WHERE conversation_id=$1
+      AND data->'metadata'->>'runId'=ANY($2::text[]) ORDER BY created_at,id`,
+    [conversationId, rows.map((r) => r.id)],
+  );
+  const capturedAt = new Date().toISOString();
   const events = await db.query(
     `SELECT q.id AS run_id,e.* FROM unnest($1::uuid[]) AS q(id)
-      CROSS JOIN LATERAL (SELECT seq,chunk,created_at FROM run_events WHERE run_id=q.id ORDER BY seq LIMIT 501) e
+      CROSS JOIN LATERAL (SELECT seq,chunk,created_at,occurred_at FROM run_events WHERE run_id=q.id ORDER BY seq LIMIT 501) e
       ORDER BY q.id,e.seq`,
     [rows.map((r) => r.id)],
   );
   const requests = await db.query(
-    "SELECT seq,chunk,created_at FROM run_events WHERE run_id=$1 AND chunk->>'type'='data-model-request' ORDER BY seq LIMIT 1",
+    "SELECT seq,chunk,created_at,occurred_at FROM run_events WHERE run_id=$1 AND chunk->>'type'='data-model-request' ORDER BY seq LIMIT 1",
     [initial.id],
   );
   const initialInput = await restoreLegacyInputs(db, [initial]);
-  const eventDto = (r: (typeof events)[number]) =>
-    RunEvent.parse({ seq: r.seq, chunk: r.chunk, createdAt: date(r.created_at) });
   return ConversationTrace.parse({
-    initial: { run: runDto(initialInput[0]), request: requests[0] ? eventDto(requests[0]) : null },
+    initial: {
+      run: runDto(initialInput[0]),
+      request: requests[0] ? runEventDto(requests[0]) : null,
+    },
     turns: rows.map((r) => {
       const found = events.filter((e) => e.run_id === r.id);
       return {
         number: r.turn_number,
         run: runDto(r),
-        events: found.slice(0, 500).map(eventDto),
+        events: found.slice(0, 500).map(runEventDto),
         hasMoreEvents: found.length > 500,
+        checkpoint: {
+          eventCount: counts.find((c) => c.run_id === r.id)?.event_count ?? 0,
+          lastSeq: counts.find((c) => c.run_id === r.id)?.last_seq ?? -1,
+          capturedAt,
+        },
+        messages: messages.flatMap((m) => {
+          const parsed = Message.safeParse(m.data);
+          return parsed.success && parsed.data.metadata?.runId === r.id ? [parsed.data] : [];
+        }),
       };
     }),
     totalTurns: initial.total_turns,
@@ -81,6 +102,7 @@ export async function listConversationSummaries(
   actor: Principal,
   projectId: string,
   input: PageInput,
+  includePreviews = false,
 ) {
   const page = cursorPage(
     ["conversation-runs", actor.tenantId, projectId, actor.id, actor.entry],
@@ -92,9 +114,9 @@ export async function listConversationSummaries(
       (SELECT count(*) FROM runs WHERE conversation_id=c.id)::int AS run_count,${page.select("c")}
     FROM conversations c JOIN releases r ON r.id=c.release_id
     JOIN LATERAL (SELECT id,status,created_at FROM runs WHERE conversation_id=c.id ORDER BY created_at DESC,id DESC LIMIT 1) latest ON true
-    WHERE c.project_id=$1 AND c.tenant_id=$2 AND c.actor_id=$3 AND c.entry=$4 AND ${page.where("c", 5)}
+    WHERE c.project_id=$1 AND c.tenant_id=$2 AND c.actor_id=$3 AND c.entry=$4 AND (r.kind='published' OR $8::boolean) AND ${page.where("c", 5)}
     ORDER BY c.created_at DESC,c.id DESC LIMIT $7`,
-    [projectId, actor.tenantId, actor.id, actor.entry, ...page.values],
+    [projectId, actor.tenantId, actor.id, actor.entry, ...page.values, includePreviews],
   );
   return page.result(rows, (r) =>
     ConversationRunSummary.parse({

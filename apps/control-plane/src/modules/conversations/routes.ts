@@ -2,20 +2,26 @@ import { createRoute } from "@hono/zod-openapi";
 import {
   Conversation,
   ConversationCapabilities,
+  ConversationContext,
   ConversationInput,
   ConversationRunSummary,
+  ConversationSession,
   ConversationTrace,
+  EditConversationInput,
+  Id,
   Message,
   PageQuery,
   Run,
+  RunArtifact,
   RunEvent,
   RunInput,
+  RunWorkspace,
   SkillSelection,
+  TaskFeedback,
+  TaskFeedbackInput,
   TraceQuery,
   z,
 } from "@platform/contracts";
-import type { UIMessageChunk } from "ai";
-import { createUIMessageStreamResponse, uiMessageChunkSchema } from "ai";
 import {
   type ApiApp,
   body,
@@ -27,7 +33,153 @@ import {
 } from "../../http/contracts.ts";
 import { ApiError } from "../../infrastructure/errors.ts";
 import type { Conversations } from "./conversations.ts";
+import { conversationStream } from "./stream.ts";
 export function registerConversationRoutes(app: ApiApp, conversations: Conversations) {
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/context",
+      operationId: "getConversationContext",
+      request: { params: itemParams },
+      responses: { 200: json(ConversationContext), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.context(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/reset",
+      operationId: "resetConversation",
+      request: { params: itemParams, body: body(z.object({ requestId: Id }).strict()) },
+      responses: { 200: json(Conversation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.reset(c.get("principal"), projectId, id, c.req.valid("json").requestId),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/runs/{id}/feedback",
+      operationId: "submitRunFeedback",
+      request: { params: itemParams, body: body(TaskFeedbackInput) },
+      responses: { 200: json(TaskFeedback), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.feedback(c.get("principal"), projectId, id, c.req.valid("json")),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/edit",
+      operationId: "editConversationMessage",
+      request: { params: itemParams, body: body(EditConversationInput) },
+      responses: { 200: json(Conversation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.edit(c.get("principal"), projectId, id, c.req.valid("json")),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/runs/{id}/workspace",
+      operationId: "getRunWorkspace",
+      request: { params: itemParams },
+      responses: { 200: json(RunWorkspace), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        (await conversations.workspace(c.get("principal"), projectId, id)).workspace,
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/runs/{id}/artifacts/{artifactId}",
+      operationId: "downloadRunArtifact",
+      request: { params: itemParams.extend({ artifactId: RunArtifact.shape.id }) },
+      responses: {
+        200: {
+          description: "Recorded tool result file",
+          content: {
+            "application/octet-stream": { schema: z.string().openapi({ format: "binary" }) },
+          },
+        },
+        ...errors,
+      },
+    }),
+    async (c) => {
+      const { projectId, id, artifactId } = c.req.valid("param");
+      const { files } = await conversations.workspace(c.get("principal"), projectId, id);
+      const file = files.find((f) => f.metadata.id === artifactId);
+      if (!file) throw new ApiError(404, "NOT_FOUND", "文件不存在");
+      return new Response(new Uint8Array(file.bytes), {
+        headers: {
+          "content-type": `${file.metadata.mediaType}; charset=utf-8`,
+          "content-disposition": `attachment; filename="result.${artifactId.split("-").at(-1)}"; filename*=UTF-8''${encodeURIComponent(file.metadata.name)}`,
+          "content-length": String(file.bytes.length),
+          "x-content-type-options": "nosniff",
+          "cache-control": "private, no-store",
+        },
+      });
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/session",
+      operationId: "getConversationSession",
+      request: { params: itemParams },
+      responses: { 200: json(ConversationSession), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.session(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/stream",
+      operationId: "resumeConversation",
+      request: { params: itemParams, query: z.object({ runId: Id }) },
+      responses: {
+        200: {
+          description: "Replay and follow the existing run",
+          content: { "text/event-stream": { schema: z.string() } },
+        },
+        ...errors,
+      },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param"),
+        actor = c.get("principal");
+      await conversations.get(actor, projectId, id);
+      const run = await conversations.run(actor, projectId, c.req.valid("query").runId);
+      if (run.conversationId !== id) throw new ApiError(404, "NOT_FOUND", "运行不存在");
+      return conversationStream(conversations, actor, projectId, run);
+    },
+  );
   app.openapi(
     createRoute({
       method: "get",
@@ -149,6 +301,19 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
   );
   app.openapi(
     createRoute({
+      method: "delete",
+      path: "/api/v1/projects/{projectId}/conversations/{id}",
+      operationId: "deleteConversation",
+      request: { params: itemParams, body: body(z.object({}).strict()) },
+      responses: { 200: json(z.object({ id: Id })), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.remove(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
       method: "get",
       path: "/api/v1/projects/{projectId}/conversations/{id}/messages",
       operationId: "listMessages",
@@ -221,14 +386,23 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       operationId: "listRunEvents",
       request: {
         params: itemParams,
-        query: z.object({ after: z.coerce.number().int().min(-1).default(-1) }),
+        query: z.object({
+          after: z.coerce.number().int().min(-1).default(-1),
+          through: z.coerce.number().int().min(-1).optional(),
+        }),
       },
       responses: { 200: json(z.array(RunEvent)), ...errors },
     }),
     async (c) => {
       const { projectId, id } = c.req.valid("param");
       return c.json(
-        await conversations.events(c.get("principal"), projectId, id, c.req.valid("query").after),
+        await conversations.events(
+          c.get("principal"),
+          projectId,
+          id,
+          c.req.valid("query").after,
+          c.req.valid("query").through,
+        ),
         200,
       );
     },
@@ -247,7 +421,11 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
     },
   );
 }
-export function registerChatRoute(app: ApiApp, conversations: Conversations) {
+export function registerChatRoute(
+  app: ApiApp,
+  conversations: Conversations,
+  assistantOnly = false,
+) {
   const chatBody = z
     .object({
       messages: z
@@ -263,8 +441,10 @@ export function registerChatRoute(app: ApiApp, conversations: Conversations) {
   app.openapi(
     createRoute({
       method: "post",
-      path: "/api/v1/projects/{projectId}/conversations/{id}/chat",
-      operationId: "streamConversation",
+      path: assistantOnly
+        ? "/api/v1/projects/{projectId}/assistant/conversations/{id}/chat"
+        : "/api/v1/projects/{projectId}/conversations/{id}/chat",
+      operationId: assistantOnly ? "streamPlatformAssistant" : "streamConversation",
       request: { params: itemParams, body: body(chatBody) },
       responses: {
         200: {
@@ -297,59 +477,9 @@ export function registerChatRoute(app: ApiApp, conversations: Conversations) {
           prompt,
           last.id,
           input.skillVersionIds,
+          assistantOnly,
         );
-      let stopped = false,
-        after = -1,
-        errorSent = false;
-      const stream = new ReadableStream<UIMessageChunk>({
-        async start(controller) {
-          try {
-            while (!stopped) {
-              // Read status first: a terminal state guarantees all prior events are committed.
-              const current = await conversations.run(actor, projectId, run.id);
-              const events = await conversations.events(actor, projectId, run.id, after);
-              for (const event of events) {
-                const checked = await uiMessageChunkSchema().validate?.(event.chunk);
-                if (!checked?.success) throw new Error("Invalid stream event");
-                const chunk = checked.value;
-                controller.enqueue(
-                  chunk.type === "start"
-                    ? {
-                        ...chunk,
-                        messageMetadata: { runId: run.id, selectedSkills: run.selectedSkills },
-                      }
-                    : chunk,
-                );
-                if (chunk.type === "error") errorSent = true;
-                after = event.seq;
-              }
-              if (!["queued", "running"].includes(current.status) && events.length < 500) {
-                if (current.status === "failed" && !errorSent)
-                  controller.enqueue({
-                    type: "error",
-                    errorText: `运行失败：${current.errorCode ?? "UNKNOWN"}`,
-                  });
-                if (current.status === "cancelled") controller.enqueue({ type: "abort" });
-                controller.close();
-                return;
-              }
-              await new Promise((resolve) => setTimeout(resolve, 100));
-            }
-          } catch {
-            if (!stopped) {
-              controller.enqueue({ type: "error", errorText: "连接中断，请查看运行记录" });
-              controller.close();
-            }
-          }
-        },
-        cancel() {
-          stopped = true;
-        },
-      });
-      return createUIMessageStreamResponse({
-        stream,
-        headers: { "x-platform-run-id": run.id, "cache-control": "no-store" },
-      });
+      return conversationStream(conversations, actor, projectId, run);
     },
   );
 }

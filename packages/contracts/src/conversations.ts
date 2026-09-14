@@ -1,7 +1,10 @@
 import { ReleaseSnapshot } from "./agents.ts";
 import { Id, RunStatus, z } from "./common.ts";
+import { AgentLimitError, TaskStateInput } from "./long-tasks.ts";
 import { McpErrorCode } from "./mcp.ts";
+import { AssistantSystemContext } from "./platform-assistant.ts";
 import { SkillErrorCode } from "./skills.ts";
+import { TraceObservation } from "./trajectory.ts";
 export const ConversationInput = z
   .object({ agentId: Id, title: z.string().trim().min(1).max(100).default("新会话") })
   .strict()
@@ -15,6 +18,8 @@ export const Conversation = z
     releaseVersion: z.number().int(),
     title: z.string(),
     createdAt: z.string(),
+    parentConversationId: Id.nullable().default(null),
+    parentMessageId: z.string().nullable().default(null),
   })
   .openapi("Conversation");
 export const SelectedSkill = z.object({
@@ -23,6 +28,14 @@ export const SelectedSkill = z.object({
   version: z.number().int(),
 });
 export const SkillSelection = z.array(Id).max(10).default([]);
+export const EditConversationInput = z
+  .object({
+    messageId: z.string().min(1).max(200),
+    input: z.string().trim().min(1).max(16000),
+    requestId: z.string().min(1).max(100),
+  })
+  .strict()
+  .openapi("EditConversationInput");
 export const ConversationCapabilities = z
   .object({
     skills: z.array(SelectedSkill.extend({ description: z.string(), enabled: z.boolean() })),
@@ -34,7 +47,13 @@ export const Message = z
     role: z.enum(["user", "assistant"]),
     parts: z.array(z.record(z.string(), z.unknown())),
     metadata: z
-      .object({ runId: Id, selectedSkills: z.array(SelectedSkill).default([]) })
+      .object({
+        runId: Id,
+        originConversationId: Id.optional(),
+        selectedSkills: z.array(SelectedSkill).default([]),
+        runStatus: RunStatus.optional(),
+        errorCode: z.string().nullable().optional(),
+      })
       .optional(),
   })
   .openapi("Message");
@@ -47,6 +66,12 @@ export const RunInput = z
   })
   .strict()
   .openapi("RunInput");
+export const ConversationSession = z
+  .object({
+    messages: z.array(Message),
+    resumeRun: z.object({ id: Id, status: RunStatus }).nullable(),
+  })
+  .openapi("ConversationSession");
 export const Run = z
   .object({
     id: Id,
@@ -78,7 +103,16 @@ export const RunEvent = z
   .object({
     seq: z.number().int(),
     chunk: z.record(z.string(), z.unknown()),
+    /** When the control plane received the event. */
     createdAt: z.string(),
+    /**
+     * When the Runtime produced the event. Falls back to `createdAt` for events
+     * persisted before runtimes reported their own clock.
+     */
+    occurredAt: z.string(),
+    /** Which clock `occurredAt` came from; a runtime time is never fabricated for old runs. */
+    timeSource: z.enum(["runtime", "control-plane"]),
+    observation: TraceObservation.optional(),
   })
   .openapi("RunEvent");
 export const ConversationRunSummary = Conversation.extend({
@@ -94,6 +128,16 @@ export const TraceTurn = z
     run: Run,
     events: z.array(RunEvent),
     hasMoreEvents: z.boolean(),
+    /** A per-turn read boundary. Events appended later belong to the next refresh. */
+    checkpoint: z
+      .object({
+        eventCount: z.number().int().nonnegative(),
+        lastSeq: z.number().int().min(-1),
+        capturedAt: z.string(),
+      })
+      .optional(),
+    /** Exact stored messages linked by runId; never matched by similar text. */
+    messages: z.array(Message).optional(),
   })
   .openapi("TraceTurn");
 export const ConversationTrace = z
@@ -108,8 +152,25 @@ export const TraceQuery = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(20).default(10),
 });
+export const ConversationContext = z
+  .object({
+    totalMessages: z.number().int().nonnegative(),
+    coveredMessages: z.number().int().nonnegative(),
+    summary: z.string().nullable(),
+    runId: Id.nullable(),
+    createdAt: z.string().nullable(),
+  })
+  .openapi("ConversationContext");
 export const ExecutionJob = z.object({
+  compaction: z.object({ transcript: z.string(), focus: z.string() }).optional(),
+  systemAssistant: AssistantSystemContext.optional(),
   runId: Id,
+  conversationId: Id.optional(),
+  nextEventSeq: z.number().int().nonnegative().default(0),
+  recoveryCount: z.number().int().nonnegative().default(0),
+  nextStepIndex: z.number().int().nonnegative().default(0),
+  previousMessage: Message.optional(),
+  taskState: TaskStateInput.extend({ revision: z.number().int(), runId: Id }).optional(),
   leaseToken: z.string(),
   snapshot: ReleaseSnapshot,
   messages: z.array(Message),
@@ -126,6 +187,8 @@ export const RuntimeEventInput = z
   .object({
     leaseToken: z.string(),
     seq: z.number().int().nonnegative(),
+    /** The Runtime's own clock for this event. Omitted by runtimes predating it. */
+    occurredAt: z.iso.datetime({ offset: true }).optional(),
     chunk: z.record(z.string(), z.unknown()),
   })
   .strict();
@@ -140,6 +203,7 @@ export const RuntimeFinishInput = z
         z.enum(["MODEL_ERROR", "RUNTIME_ERROR", "TIMEOUT", "CANCELLED"]),
         McpErrorCode,
         SkillErrorCode,
+        AgentLimitError,
       ])
       .optional(),
   })

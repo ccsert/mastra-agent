@@ -131,6 +131,11 @@ test("SDK cursor pages preserve microseconds, scope and version ordering through
         { baseRevision: 1, intent: "synthetic", modelId: randomUUID() },
       ],
     );
+    const otherActor = { ...actor, id: randomUUID() };
+    await db.query(
+      "INSERT INTO users(id,tenant_id,username,password_hash,display_name,role) VALUES($1,$2,$3,'test-only-unused','Cursor other','admin')",
+      [otherActor.id, actor.tenantId, `cursor_${otherActor.id}`],
+    );
     const queries = t.mock.method(db, "query");
     for (const list of [workflows.runs.bind(workflows), workflows.generations.bind(workflows)]) {
       const seen: string[] = [];
@@ -146,10 +151,9 @@ test("SDK cursor pages preserve microseconds, scope and version ordering through
         seen.push(...page.items.map((r) => r.id));
         next = page.nextCursor ?? undefined;
         if (next)
-          await assert.rejects(
-            list({ ...actor, id: randomUUID() }, project.id, asset.id, { cursor: next }),
-            { code: "INVALID_CURSOR" },
-          );
+          await assert.rejects(list(otherActor, project.id, asset.id, { cursor: next }), {
+            code: "INVALID_CURSOR",
+          });
       } while (next);
       assert.equal(seen.length, 125);
       assert.equal(new Set(seen).size, 125);

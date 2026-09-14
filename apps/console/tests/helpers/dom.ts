@@ -9,6 +9,7 @@ const { window } = new JSDOM("<!doctype html><html><body></body></html>", {
 for (const name of [
   "window",
   "document",
+  "Document",
   "navigator",
   "HTMLElement",
   "HTMLBodyElement",

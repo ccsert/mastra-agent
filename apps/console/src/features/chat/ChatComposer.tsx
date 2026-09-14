@@ -1,42 +1,86 @@
-import { ArrowUpOutlined, BorderOutlined, FileZipOutlined } from "@ant-design/icons";
+import {
+  ArrowUpOutlined,
+  AudioMutedOutlined,
+  AudioOutlined,
+  BorderOutlined,
+  ClearOutlined,
+  CompressOutlined,
+  FileZipOutlined,
+  InfoCircleOutlined,
+  QuestionCircleOutlined,
+} from "@ant-design/icons";
 import {
   AuiIf,
   ComposerPrimitive,
+  unstable_useComposerInputHistory,
   unstable_useSlashCommandAdapter,
-  useAui,
   useAuiState,
 } from "@assistant-ui/react";
 import type { ConversationCapabilities } from "@platform/sdk";
 import { Button, Tag } from "antd";
-import { useRef } from "react";
-import { ComposerTriggerPopover } from "../../shared/assistant-ui";
-import { skillCommands, skillTriggerMatcher } from "./commands";
+
+import { ComposerTriggerPopover, TooltipIconButton } from "../../shared/assistant-ui";
+import { skillCommands, skillTriggerMatcher, systemCommands } from "./commands";
+import { SkillPicker } from "./SkillPicker";
+import { dictationSupported } from "./voice";
 
 export function ChatComposer({
   skills,
   selected,
   onSelect,
-  stop,
+  cancelRun,
+  cancelling,
+  recovering = false,
   loading,
   error,
+  onRetry,
+  onCommand,
 }: {
   skills: ConversationCapabilities["skills"];
   selected: string[];
   onSelect(ids: string[]): void;
-  stop(): Promise<void>;
+  /** Cancels the run on the platform; stopping the stream alone leaves it running. */
+  cancelRun(): void;
+  cancelling: boolean;
+  recovering?: boolean;
   loading: boolean;
   error: boolean;
+  onRetry(): void;
+  onCommand?: (text: string) => boolean;
 }) {
-  const aui = useAui();
-  const input = useRef<HTMLTextAreaElement>(null);
-  const running = useAuiState((s) => s.thread.isRunning);
+  const composerText = useAuiState((s) => s.composer.text);
+  const running = useAuiState((s) => s.thread.isRunning) || recovering;
+  // ArrowUp/ArrowDown recall of previously sent messages. The hook derives the
+  // ring from the current thread's user messages, so it needs no persistence,
+  // and it yields to an open popover — which is what keeps it compatible with
+  // the `/` slash-command menu below.
+  const history = unstable_useComposerInputHistory();
+  const dictation = dictationSupported;
+  const unavailable = selected.some(
+    (id) => !skills.some((skill) => skill.versionId === id && skill.enabled),
+  );
   const slash = unstable_useSlashCommandAdapter({
-    commands: running ? [] : skillCommands(skills, selected, onSelect),
+    commands: [
+      ...(onCommand &&
+      /^\s*\/[^/]*$/.test(composerText) &&
+      !/^\s*\/skill(?:\s|$)/i.test(composerText)
+        ? systemCommands(onCommand, running)
+        : []),
+      ...(running ? [] : skillCommands(skills, selected, onSelect)),
+    ],
+    iconMap: {
+      clear: ClearOutlined,
+      compact: CompressOutlined,
+      context: InfoCircleOutlined,
+      help: QuestionCircleOutlined,
+      stop: BorderOutlined,
+      skill: FileZipOutlined,
+    },
     removeOnExecute: true,
     fallbackIcon: FileZipOutlined,
   });
   const emptyLabel = error
-    ? "无法加载快捷指令，请刷新后重试。"
+    ? "无法加载 Skills，请在 Skills 面板中重试。"
     : selected.length >= 10
       ? "一次任务最多指定 10 个 Skill。"
       : skills.some((s) => s.enabled)
@@ -44,13 +88,23 @@ export function ChatComposer({
         : "此会话没有可用 Skill。请绑定并发布 Agent，再创建新会话。";
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
-      <ComposerPrimitive.Root className="composer assistant-elements">
+      <ComposerPrimitive.Root
+        className="composer assistant-elements"
+        aria-busy={cancelling}
+        onSubmitCapture={(e) => {
+          if (onCommand?.(composerText)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+      >
         <ComposerTriggerPopover
           char="/"
           {...slash}
           matcher={skillTriggerMatcher}
-          isLoading={loading}
-          aria-label="聊天快捷指令"
+          isLoading={loading && !onCommand}
+          className="chat-skill-slash"
+          aria-label="对话指令与 Skills"
           backLabel="返回"
           emptyItemsLabel={emptyLabel}
           emptyCategoriesLabel={emptyLabel}
@@ -58,6 +112,7 @@ export function ChatComposer({
         />
         {!!selected.length && (
           <section className="chat-command-selection" aria-label="本次指定的 Skills">
+            <span className="chat-skill-selection-label">本次使用</span>
             {selected.map((id) => {
               const skill = skills.find((s) => s.versionId === id);
               return (
@@ -65,51 +120,97 @@ export function ChatComposer({
                   key={id}
                   closable={!running}
                   onClose={() => onSelect(selected.filter((s) => s !== id))}
+                  title={skill?.description}
+                  color={loading || error || skill?.enabled ? undefined : "error"}
                   icon={<FileZipOutlined />}
                 >
-                  {skill?.name ?? id} · v{skill?.version}
+                  {skill?.name ?? (loading || error ? "待确认的 Skill" : "不可用的 Skill")}
+                  {skill && ` · v${skill.version}`}
                 </Tag>
               );
             })}
+            <Button type="text" size="small" disabled={running} onClick={() => onSelect([])}>
+              清空
+            </Button>
           </section>
         )}
+        {selected.length > 0 && !loading && (error || unavailable) && (
+          <p className="chat-skill-warning" role="status">
+            {error
+              ? "尚未确认所选 Skill 是否可用，请重新加载或移除选择。"
+              : "所选 Skill 已停用或不再可用，请移除后发送。"}
+          </p>
+        )}
         <ComposerPrimitive.Input
-          ref={input}
+          {...history}
           aria-label="消息"
-          placeholder="描述你的任务，输入 / 指定 Skill…"
+          placeholder="发送消息，或输入 / 查看指令与 Skills…"
           className="composer-input"
-          rows={2}
+          rows={1}
+          enterKeyHint="send"
         />
         <div className="composer-footer">
-          <Button
-            type="text"
-            size="small"
-            icon={<FileZipOutlined />}
-            disabled={running}
-            onClick={() => {
-              const text = aui.composer.getState().text;
-              aui.composer.setText(text ? `${text}\n/` : "/");
-              input.current?.focus();
-            }}
-          >
-            快捷指令 /
-          </Button>
-          <span>Enter 发送 · Shift + Enter 换行</span>
-          <AuiIf condition={(s) => !s.thread.isRunning}>
-            <ComposerPrimitive.Send className="send-button" aria-label="发送消息">
-              <ArrowUpOutlined />
-            </ComposerPrimitive.Send>
-          </AuiIf>
-          <AuiIf condition={(s) => s.thread.isRunning}>
-            <button
-              type="button"
-              className="send-button cancel-button"
-              aria-label="停止生成"
-              onClick={() => void stop()}
-            >
-              <BorderOutlined />
-            </button>
-          </AuiIf>
+          <div className="composer-tools">
+            <SkillPicker
+              skills={skills}
+              selected={selected}
+              onSelect={onSelect}
+              disabled={running}
+              loading={loading}
+              error={error}
+              onRetry={onRetry}
+            />
+            {dictation && (
+              <AuiIf condition={(s) => s.composer.dictation == null}>
+                <ComposerPrimitive.Dictate asChild>
+                  <TooltipIconButton tooltip="语音输入">
+                    <AudioOutlined />
+                  </TooltipIconButton>
+                </ComposerPrimitive.Dictate>
+              </AuiIf>
+            )}
+            {dictation && (
+              <AuiIf condition={(s) => s.composer.dictation != null}>
+                <ComposerPrimitive.StopDictation asChild>
+                  <TooltipIconButton tooltip="停止语音输入" className="text-destructive">
+                    <AudioMutedOutlined />
+                  </TooltipIconButton>
+                </ComposerPrimitive.StopDictation>
+              </AuiIf>
+            )}
+          </div>
+          <div className="composer-submit">
+            <span className="composer-key-hint">Shift + Enter 换行</span>
+            {!running && (
+              <ComposerPrimitive.Send
+                asChild
+                onClickCapture={(e) => {
+                  if (onCommand?.(composerText)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
+              >
+                <TooltipIconButton tooltip="发送消息" className="send-button" variant="default">
+                  <ArrowUpOutlined />
+                </TooltipIconButton>
+              </ComposerPrimitive.Send>
+            )}
+            {running && (
+              <button
+                type="button"
+                className="send-button cancel-button"
+                aria-label={cancelling ? "正在停止" : "停止生成"}
+                disabled={cancelling}
+                onClick={(event) => {
+                  event.preventDefault();
+                  cancelRun();
+                }}
+              >
+                <BorderOutlined />
+              </button>
+            )}
+          </div>
         </div>
       </ComposerPrimitive.Root>
     </ComposerPrimitive.Unstable_TriggerPopoverRoot>

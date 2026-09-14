@@ -16,6 +16,76 @@ export type Principal = {
     kind: 'user' | 'application';
     projectId?: string;
     entry: string;
+    tenantRole?: TenantRole;
+};
+
+export type TenantRole = 'owner' | 'admin' | 'member';
+
+export type JoinInput = {
+    token: string;
+    username: string;
+    displayName: string;
+    password: string;
+};
+
+export type TeamMember = {
+    id: string;
+    username: string;
+    displayName: string;
+    role: TenantRole;
+    active: boolean;
+};
+
+export type MemberUpdate = {
+    role: 'admin' | 'member';
+    active: boolean;
+};
+
+export type ProjectAccess = {
+    projectId: string;
+    role: ProjectRole | null;
+    tenantRole: TenantRole & (string | null);
+    permissions: Array<Permission>;
+};
+
+export type ProjectRole = 'admin' | 'editor' | 'member' | 'viewer';
+
+export type Permission = 'project.read' | 'project.manage' | 'agent.edit' | 'agent.publish' | 'agent.run' | 'resource.read' | 'resource.edit' | 'resource.manage';
+
+export type ProjectMember = TeamMember & {
+    projectRole: ProjectRole;
+};
+
+export type InvitationCreated = {
+    invitation: Invitation;
+    token: string;
+};
+
+export type Invitation = {
+    id: string;
+    label: string;
+    projectId: string | null;
+    projectRole: ProjectRole;
+    expiresAt: string;
+    status: 'pending' | 'accepted' | 'revoked' | 'expired';
+    createdAt: string;
+};
+
+export type InvitationInput = {
+    label: string;
+    projectId?: string;
+    projectRole?: ProjectRole;
+};
+
+export type AuditEntry = {
+    id: string;
+    actorName: string;
+    action: string;
+    targetId: string;
+    details: {
+        [key: string]: unknown;
+    };
+    createdAt: string;
 };
 
 export type Project = ProjectInput & {
@@ -33,6 +103,8 @@ export type Model = {
     name: string;
     baseUrl: string;
     kind?: 'chat' | 'embedding' | 'rerank';
+    vendor?: ModelVendor;
+    capabilities?: ModelCapabilities;
     dimensions?: number;
     modelId: string;
     id: string;
@@ -42,13 +114,64 @@ export type Model = {
     provider: 'openai-compatible';
 };
 
+export type ModelVendor = 'custom' | 'openai' | 'deepseek' | 'moonshot' | 'zhipu' | 'dashscope' | 'volcengine' | 'siliconflow' | 'minimax' | 'qianfan' | 'openrouter' | 'ollama';
+
+export type ModelCapabilities = {
+    vision?: boolean;
+    toolUse?: boolean;
+};
+
 export type ModelInput = {
     name: string;
     baseUrl: string;
     kind?: 'chat' | 'embedding' | 'rerank';
+    vendor?: ModelVendor;
+    capabilities?: ModelCapabilities;
     dimensions?: number;
     modelId: string;
     apiKey?: string;
+};
+
+export type ModelUpdate = ModelInput & {
+    apiKey?: string;
+};
+
+export type ModelProbe = {
+    outcome: 'ok' | 'rejected' | 'unreachable' | 'timeout';
+    httpStatus: number | null;
+    latencyMs: number | null;
+    message: string;
+    dimensions: number | null;
+};
+
+export type ModelProbeInput = {
+    kind?: 'chat' | 'embedding' | 'rerank';
+    baseUrl: string;
+    modelId: string;
+    dimensions?: number;
+    apiKey?: string;
+    credentialFrom?: string;
+};
+
+export type ModelDiscovery = {
+    outcome: 'ok' | 'unsupported' | 'rejected' | 'unreachable' | 'timeout';
+    httpStatus: number | null;
+    latencyMs: number | null;
+    message: string;
+    models: Array<string>;
+};
+
+export type ModelDiscoverInput = {
+    baseUrl: string;
+    apiKey?: string;
+    credentialFrom?: string;
+};
+
+export type ModelVendorPreset = {
+    vendor: ModelVendor;
+    label: string;
+    baseUrl: string | null;
+    note: string;
 };
 
 export type Tool = {
@@ -91,11 +214,47 @@ export type McpDescriptor = {
 export type ToolInput = {
     name: string;
     description: string;
-    kind: 'sum' | 'http_get';
+    kind: AuthoredToolKind;
     url?: string;
     bearerToken?: string;
     inputSchema: JsonSchema;
     outputSchema: JsonSchema;
+};
+
+export type AuthoredToolKind = 'sum' | 'http_get';
+
+export type ToolUpdate = ToolInput & {
+    bearerToken?: string;
+};
+
+export type ToolProbe = {
+    outcome: 'ok' | 'invalid' | 'rejected' | 'mismatch' | 'unreachable' | 'timeout';
+    httpStatus: number | null;
+    latencyMs: number | null;
+    message: string;
+    requestUrl: string | null;
+    preview: string | null;
+};
+
+export type ToolProbeInput = {
+    kind?: AuthoredToolKind;
+    url?: string;
+    bearerToken?: string;
+    credentialFrom?: string;
+    inputSchema: JsonSchema;
+    outputSchema: JsonSchema;
+    input?: JsonSchema;
+};
+
+export type AgentPreview = {
+    conversationId: string;
+    releaseId: string;
+    draftRevision: number;
+};
+
+export type AgentPreviewInput = {
+    baseRevision: number;
+    requestId: string;
 };
 
 export type Agent = AgentInput & {
@@ -105,11 +264,27 @@ export type Agent = AgentInput & {
     publishedReleaseId: string | null;
     publishedVersion: number | null;
     createdAt: string;
+    hasUnpublishedChanges?: boolean;
 };
 
 export type SkillBinding = {
     versionId: string;
     entrypoints?: Array<string>;
+};
+
+export type ExecutionLimits = {
+    timeoutSeconds?: number;
+    maxModelCalls?: number;
+    maxTokens?: number;
+    contextTokens?: number;
+    maxOutputTokens?: number;
+};
+
+export type DelegationConfig = {
+    enabled?: boolean;
+    maxCalls?: number;
+    maxParallel?: number;
+    maxSteps?: number;
 };
 
 export type AgentInput = {
@@ -121,6 +296,10 @@ export type AgentInput = {
     knowledgeBaseIds?: Array<string>;
     skillBindings?: Array<SkillBinding>;
     maxSteps?: number;
+    executionLimits?: ExecutionLimits;
+    workspaceEnabled?: boolean;
+    delegation?: DelegationConfig;
+    planningEnabled?: boolean;
 };
 
 export type AgentUpdate = AgentInput & {
@@ -164,17 +343,185 @@ export type Release = {
             }>;
             entrypoints: Array<string>;
             warnings: Array<string>;
+            extensionFields?: Array<string>;
             id: string;
             projectId: string;
             version: number;
             digest: string;
             archiveHash: string;
             createdAt: string;
+            source?: {
+                kind: 'zip';
+                fileName: string;
+            } | {
+                kind: 'github' | 'gitlab' | 'skills-sh';
+                url: string;
+                repository: string;
+                ref: string;
+                commit: string;
+                path: '' | string;
+            } | null;
             authorizedEntrypoints: Array<string>;
         }>;
         adapterVersion: 'mastra-agent-v1';
     };
+    sourceRevision?: number | null;
     createdAt: string;
+};
+
+export type SkillDiscovery = {
+    source: {
+        kind: 'github' | 'gitlab' | 'skills-sh';
+        url: string;
+        repository: string;
+        ref: string;
+        commit: string;
+        path: '' | string;
+    };
+    candidates: Array<{
+        path: '' | string;
+        name: string;
+        fileCount: number;
+    }>;
+};
+
+export type SkillSourceInput = {
+    url: string;
+    ref?: string;
+    path?: '' | string;
+};
+
+export type SkillImportPreview = {
+    id: string;
+    expiresAt: string;
+    source: {
+        kind: 'zip';
+        fileName: string;
+    } | {
+        kind: 'github' | 'gitlab' | 'skills-sh';
+        url: string;
+        repository: string;
+        ref: string;
+        commit: string;
+        path: '' | string;
+    };
+    manifest: {
+        name: string;
+        description: string;
+        license?: string;
+        compatibility?: string;
+        metadata?: {
+            [key: string]: string;
+        };
+        allowedTools?: string;
+        files: Array<{
+            path: string;
+            hash: string;
+            size: number;
+            encoding: 'utf-8' | 'base64';
+        }>;
+        entrypoints: Array<string>;
+        warnings: Array<string>;
+        extensionFields?: Array<string>;
+    };
+    digest: string;
+    baseVersion: {
+        name: string;
+        description: string;
+        license?: string;
+        compatibility?: string;
+        metadata?: {
+            [key: string]: string;
+        };
+        allowedTools?: string;
+        files: Array<{
+            path: string;
+            hash: string;
+            size: number;
+            encoding: 'utf-8' | 'base64';
+        }>;
+        entrypoints: Array<string>;
+        warnings: Array<string>;
+        extensionFields?: Array<string>;
+        id: string;
+        projectId: string;
+        version: number;
+        digest: string;
+        archiveHash: string;
+        enabled: boolean;
+        createdAt: string;
+        source?: {
+            kind: 'zip';
+            fileName: string;
+        } | {
+            kind: 'github' | 'gitlab' | 'skills-sh';
+            url: string;
+            repository: string;
+            ref: string;
+            commit: string;
+            path: '' | string;
+        } | null;
+    } | null;
+    existingVersion: {
+        name: string;
+        description: string;
+        license?: string;
+        compatibility?: string;
+        metadata?: {
+            [key: string]: string;
+        };
+        allowedTools?: string;
+        files: Array<{
+            path: string;
+            hash: string;
+            size: number;
+            encoding: 'utf-8' | 'base64';
+        }>;
+        entrypoints: Array<string>;
+        warnings: Array<string>;
+        extensionFields?: Array<string>;
+        id: string;
+        projectId: string;
+        version: number;
+        digest: string;
+        archiveHash: string;
+        enabled: boolean;
+        createdAt: string;
+        source?: {
+            kind: 'zip';
+            fileName: string;
+        } | {
+            kind: 'github' | 'gitlab' | 'skills-sh';
+            url: string;
+            repository: string;
+            ref: string;
+            commit: string;
+            path: '' | string;
+        } | null;
+    } | null;
+    changes: Array<{
+        path: string;
+        kind: 'added' | 'modified' | 'removed';
+    }>;
+};
+
+export type SkillPreviewInput = (SkillUpload & {
+    kind: 'zip';
+    fileName?: string;
+}) | {
+    kind: 'remote';
+    source: SkillSourceInput;
+    commit: string;
+    path: '' | string;
+};
+
+export type SkillUpload = {
+    archiveBase64: string;
+};
+
+export type SkillImportResult = {
+    skill: SkillVersion;
+    reused: boolean;
 };
 
 export type SkillVersion = {
@@ -194,6 +541,7 @@ export type SkillVersion = {
     }>;
     entrypoints: Array<string>;
     warnings: Array<string>;
+    extensionFields?: Array<string>;
     id: string;
     projectId: string;
     version: number;
@@ -201,10 +549,17 @@ export type SkillVersion = {
     archiveHash: string;
     enabled: boolean;
     createdAt: string;
-};
-
-export type SkillUpload = {
-    archiveBase64: string;
+    source?: {
+        kind: 'zip';
+        fileName: string;
+    } | {
+        kind: 'github' | 'gitlab' | 'skills-sh';
+        url: string;
+        repository: string;
+        ref: string;
+        commit: string;
+        path: '' | string;
+    } | null;
 };
 
 export type SkillFileContent = {
@@ -213,12 +568,12 @@ export type SkillFileContent = {
     hash: string;
 };
 
-export type ConversationRunSummary = Conversation & {
-    agentName: string;
-    runCount: number;
-    latestRunId: string;
-    latestStatus: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-    lastRunAt: string;
+export type ConversationContext = {
+    totalMessages: number;
+    coveredMessages: number;
+    summary: string | null;
+    runId: string | null;
+    createdAt: string | null;
 };
 
 export type Conversation = {
@@ -229,6 +584,134 @@ export type Conversation = {
     releaseVersion: number;
     title: string;
     createdAt: string;
+    parentConversationId?: string | null;
+    parentMessageId?: string | null;
+};
+
+export type TaskFeedback = {
+    id: string;
+    runId: string;
+    text: string;
+    createdAt: string;
+    readAt: string | null;
+};
+
+export type TaskFeedbackInput = {
+    requestId: string;
+    text: string;
+};
+
+export type EditConversationInput = {
+    messageId: string;
+    input: string;
+    requestId: string;
+};
+
+export type RunWorkspace = {
+    feedback?: Array<TaskFeedback>;
+    execution?: {
+        maxSteps: number;
+        maxModelCalls: number;
+        modelCalls: number;
+        reservedTokens: number;
+        maxTokens: number;
+        recoveries: number;
+        deadline: string;
+    };
+    taskState?: {
+        baseRevision: number;
+        objective: string;
+        constraints: Array<string>;
+        progress: string;
+        nextSteps: Array<string>;
+        evidence: Array<{
+            reference: string;
+            finding: string;
+        }>;
+        status: 'in_progress' | 'needs_review' | 'completed';
+        revision: number;
+        runId: string;
+    };
+    skills: Array<{
+        versionId: string;
+        name: string;
+        version: number;
+        source: 'selected' | 'model';
+        loadedAt: string;
+        toolCallId: string | null;
+        subagentId: string | null;
+    }>;
+    artifacts: Array<RunArtifact>;
+    subagents: Array<SubagentLifecycle & {
+        toolCount: number;
+        completedTools: number;
+        activity: string;
+    }>;
+};
+
+export type RunArtifact = {
+    id: string;
+    name: string;
+    mediaType: string;
+    size: number;
+    sha256: string;
+    toolCallId: string;
+    subagentId: string | null;
+    createdAt: string;
+    source: 'tool-result' | 'script-stdout' | 'workspace';
+};
+
+export type SubagentLifecycle = {
+    id: string;
+    parentRunId: string;
+    parentToolCallId: string;
+    name: string;
+    task: string;
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'rejected';
+    queuedAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    maxSteps: number;
+    depth: 1;
+    modelId: string;
+    allowedTools: Array<string>;
+    outputText?: string;
+    errorCode?: string;
+};
+
+export type ConversationSession = {
+    messages: Array<Message>;
+    resumeRun: {
+        id: string;
+        status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    } | null;
+};
+
+export type Message = {
+    id: string;
+    role: 'user' | 'assistant';
+    parts: Array<{
+        [key: string]: unknown;
+    }>;
+    metadata?: {
+        runId: string;
+        originConversationId?: string;
+        selectedSkills?: Array<{
+            versionId: string;
+            name: string;
+            version: number;
+        }>;
+        runStatus?: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+        errorCode?: string | null;
+    };
+};
+
+export type ConversationRunSummary = Conversation & {
+    agentName: string;
+    runCount: number;
+    latestRunId: string;
+    latestStatus: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    lastRunAt: string;
 };
 
 export type ConversationTrace = {
@@ -240,6 +723,9 @@ export type ConversationTrace = {
                 [key: string]: unknown;
             };
             createdAt: string;
+            occurredAt: string;
+            timeSource: 'runtime' | 'control-plane';
+            observation?: TraceObservation;
         } | null;
     } | null;
     turns: Array<TraceTurn>;
@@ -275,11 +761,158 @@ export type Run = {
     }>;
 };
 
+export type TraceObservation = {
+    type: 'data-task-plan';
+    data: TaskPlan;
+} | {
+    type: 'data-model-response';
+    data: ModelRequestTiming;
+} | {
+    type: 'data-tool-execution';
+    data: ToolExecution;
+} | {
+    type: 'data-run-usage';
+    data: RunUsage;
+} | {
+    type: 'data-model-step';
+    data: ModelStep;
+} | {
+    type: 'data-tool-start';
+    data: ToolExecutionStart;
+} | {
+    type: 'data-subagent';
+    data: SubagentLifecycle;
+} | {
+    type: 'data-subagent-event';
+    data: SubagentEvent;
+};
+
+export type TaskPlan = {
+    title: string;
+    explanation: string;
+    items: Array<PlanItem>;
+    revision: number;
+    toolCallId: string;
+    updatedAt: string;
+};
+
+export type PlanItem = {
+    id: string;
+    title: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
+    detail?: string;
+};
+
+export type ModelRequestTiming = {
+    requestIndex: number;
+    httpStatus: number | null;
+    startedAt: string;
+    responseAt: string | null;
+    firstByteAt: string | null;
+    completedAt: string;
+    durationMs: number;
+    firstByteMs: number | null;
+    responseBytes: number;
+    outcome: 'completed' | 'incomplete' | 'failed';
+};
+
+export type ToolExecution = {
+    toolCallId: string;
+    toolName: string;
+    source: 'sum' | 'http_get' | 'mcp' | 'skill' | 'knowledge' | 'subagent' | 'planning' | 'workspace' | 'browser';
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    outcome: 'succeeded' | 'failed';
+    errorCode?: string;
+};
+
+export type RunUsage = {
+    usage: {
+        inputTokens: number | null;
+        outputTokens: number | null;
+        totalTokens: number | null;
+        reasoningTokens: number | null;
+        cachedInputTokens: number | null;
+    };
+    finishReason: string | null;
+    steps: number;
+    traceId: string | null;
+    spanId: string | null;
+    perStep: Array<{
+        stepIndex: number;
+        modelId: string | null;
+        finishReason: string | null;
+        usage: {
+            inputTokens: number | null;
+            outputTokens: number | null;
+            totalTokens: number | null;
+            reasoningTokens: number | null;
+            cachedInputTokens: number | null;
+        };
+    }>;
+};
+
+export type ModelStep = {
+    stepIndex: number;
+    completedAt: string;
+    modelId: string | null;
+    finishReason: string | null;
+    usage: {
+        inputTokens: number | null;
+        outputTokens: number | null;
+        totalTokens: number | null;
+        reasoningTokens: number | null;
+        cachedInputTokens: number | null;
+    };
+};
+
+export type ToolExecutionStart = {
+    toolCallId: string;
+    toolName: string;
+    source: 'sum' | 'http_get' | 'mcp' | 'skill' | 'knowledge' | 'subagent' | 'planning' | 'workspace' | 'browser';
+    startedAt: string;
+};
+
+export type SubagentEvent = {
+    id: string;
+    parentToolCallId: string;
+    occurredAt: string;
+    chunk: {
+        [key: string]: unknown;
+    };
+    observation?: {
+        type: 'data-task-plan';
+        data: TaskPlan;
+    } | {
+        type: 'data-model-response';
+        data: ModelRequestTiming;
+    } | {
+        type: 'data-tool-execution';
+        data: ToolExecution;
+    } | {
+        type: 'data-run-usage';
+        data: RunUsage;
+    } | {
+        type: 'data-model-step';
+        data: ModelStep;
+    } | {
+        type: 'data-tool-start';
+        data: ToolExecutionStart;
+    };
+};
+
 export type TraceTurn = {
     number: number;
     run: Run;
     events: Array<RunEvent>;
     hasMoreEvents: boolean;
+    checkpoint?: {
+        eventCount: number;
+        lastSeq: number;
+        capturedAt: string;
+    };
+    messages?: Array<Message>;
 };
 
 export type RunEvent = {
@@ -288,6 +921,9 @@ export type RunEvent = {
         [key: string]: unknown;
     };
     createdAt: string;
+    occurredAt: string;
+    timeSource: 'runtime' | 'control-plane';
+    observation?: TraceObservation;
 };
 
 export type ConversationCapabilities = {
@@ -303,22 +939,6 @@ export type ConversationCapabilities = {
 export type ConversationInput = {
     agentId: string;
     title?: string;
-};
-
-export type Message = {
-    id: string;
-    role: 'user' | 'assistant';
-    parts: Array<{
-        [key: string]: unknown;
-    }>;
-    metadata?: {
-        runId: string;
-        selectedSkills?: Array<{
-            versionId: string;
-            name: string;
-            version: number;
-        }>;
-    };
 };
 
 export type RunInput = {
@@ -372,6 +992,12 @@ export type KnowledgeDocument = {
     chunkCount: number;
     errorCode: string | null;
     createdAt: string;
+    version?: number;
+    versionId?: string | null;
+    activeVersionId?: string | null;
+    activeVersion?: number | null;
+    indexedCount?: number;
+    totalChunks?: number;
 };
 
 export type DocumentInput = {
@@ -387,6 +1013,13 @@ export type KnowledgeChunk = {
     ordinal: number;
     content: string;
     contentHash: string;
+    versionId?: string;
+    version?: number;
+    location?: {
+        kind: 'page' | 'paragraph';
+        index: number;
+        endIndex?: number;
+    } | null;
 };
 
 export type KnowledgeSearch = {
@@ -407,6 +1040,74 @@ export type SearchHit = KnowledgeChunk & {
 export type SearchInput = {
     query: string;
     topK?: number;
+};
+
+export type DocumentPreview = {
+    filename: string;
+    format: 'pdf' | 'docx' | 'txt' | 'md';
+    contentHash: string;
+    byteSize: number;
+    sections: Array<{
+        location: SourceLocation;
+        content: string;
+    }>;
+    chunks: Array<{
+        ordinal: number;
+        content: string;
+        location: SourceLocation;
+    }>;
+    warnings: Array<string>;
+    id: string;
+    expiresAt: string;
+    documentId: string | null;
+    baseVersion: string | null;
+    unchanged: boolean;
+};
+
+export type SourceLocation = {
+    kind: 'page' | 'paragraph';
+    index: number;
+    endIndex?: number;
+};
+
+export type DocumentPreviewInput = {
+    filename: string;
+    fileBase64: string;
+    documentId?: string;
+};
+
+export type DocumentImportInput = {
+    previewId: string;
+};
+
+export type DocumentVersion = {
+    id: string;
+    documentId: string;
+    version: number;
+    filename: string;
+    contentHash: string;
+    format: 'pdf' | 'docx' | 'txt' | 'md';
+    byteSize: number;
+    status: 'queued' | 'processing' | 'ready' | 'failed';
+    chunkCount: number;
+    indexedCount: number;
+    errorCode: string | null;
+    active: boolean;
+    createdAt: string;
+    warnings: Array<string>;
+};
+
+export type DocumentSource = {
+    version: DocumentVersion;
+    sections: Array<{
+        location: SourceLocation;
+        content: string;
+    }>;
+    chunks: Array<{
+        ordinal: number;
+        content: string;
+        location: SourceLocation;
+    }>;
 };
 
 export type McpServer = {
@@ -645,6 +1346,180 @@ export type WorkflowGenerationInput = {
     requestId: string;
 };
 
+export type AssistantUiSync = {
+    active: boolean;
+    action: AssistantUiReceipt | null;
+};
+
+export type AssistantUiReceipt = {
+    id: string;
+    status: 'pending' | 'executing' | 'succeeded' | 'failed';
+    input: {
+        [key: string]: unknown;
+    };
+    result: {
+        [key: string]: unknown;
+    } | null;
+};
+
+export type AssistantUiSyncInput = {
+    clientId: string;
+    enabled: boolean;
+    grant?: boolean;
+    view: AssistantUiView;
+};
+
+export type AssistantUiView = {
+    revision: string;
+    ready?: boolean;
+    page: 'overview' | 'agents' | 'skills' | 'chat' | 'knowledge' | 'workflows' | 'models' | 'tools' | 'mcp' | 'runs' | 'applications' | 'runtimes' | 'settings' | 'team';
+    resourceId?: string;
+    targets: Array<{
+        id: 'agent.create' | 'agent.section' | 'agent.name' | 'agent.description' | 'agent.instructions' | 'skills.source' | 'tools.source' | 'capability.search' | 'capability.operations.search' | 'capability.operations.available';
+        label: string;
+        kind: 'click' | 'fill' | 'select';
+        value?: string;
+        options?: Array<string>;
+    }>;
+};
+
+export type AssistantUiResultInput = {
+    clientId: string;
+    status: 'succeeded' | 'failed';
+    message: string;
+    view: AssistantUiView;
+};
+
+export type AssistantBootstrap = {
+    configuration: {
+        modelId: string;
+        modelName: string;
+    } | null;
+    canConfigure: boolean;
+    skills: Array<{
+        id: string;
+        name: string;
+        description: string;
+    }>;
+    operations: Array<{
+        id: string;
+        label: string;
+        group: string;
+        mode: 'read' | 'write';
+        risk: 'draft' | 'publish' | 'access';
+    }>;
+    sessions: Array<AssistantSession>;
+};
+
+export type AssistantSession = {
+    id: string;
+    title: string;
+    createdAt: string;
+    context: {
+        page?: 'overview' | 'agents' | 'skills' | 'chat' | 'knowledge' | 'workflows' | 'models' | 'tools' | 'mcp' | 'runs' | 'applications' | 'runtimes' | 'settings' | 'team';
+        resourceId?: string;
+    };
+};
+
+export type AssistantCapabilities = {
+    version: 1;
+    conversationId: string | null;
+    permissions: Array<Permission>;
+    skills: Array<{
+        id: string;
+        name: string;
+        description: string;
+        instructions: string;
+        version: number;
+        digest: string;
+        source: 'system';
+        readOnly: true;
+        bindable: false;
+        usage: {
+            count: number;
+            lastUsedAt: string | null;
+        };
+    }>;
+    tools: Array<{
+        id: string;
+        name: string;
+        description: string;
+        summary: string;
+        version: number;
+        digest: string;
+        source: 'system';
+        readOnly: true;
+        bindable: false;
+        inputSchema: {
+            [key: string]: unknown;
+        };
+        available: boolean;
+        unavailableReason: string | null;
+        usage: {
+            count: number;
+            lastUsedAt: string | null;
+        };
+    }>;
+    operations: Array<AssistantCapabilityOperation>;
+};
+
+export type AssistantCapabilityOperation = {
+    id: string;
+    label: string;
+    group: string;
+    mode: 'read' | 'write';
+    risk: 'draft' | 'publish' | 'access';
+    permission: Permission;
+    tenantAdmin: boolean;
+    available: boolean;
+    unavailableReason: string | null;
+};
+
+export type AssistantOperationDetail = AssistantCapabilityOperation & {
+    inputSchema: {
+        [key: string]: unknown;
+    };
+};
+
+export type AssistantSettingsInput = {
+    modelId: string;
+};
+
+export type AssistantStartInput = {
+    requestId: string;
+    context: {
+        page?: 'overview' | 'agents' | 'skills' | 'chat' | 'knowledge' | 'workflows' | 'models' | 'tools' | 'mcp' | 'runs' | 'applications' | 'runtimes' | 'settings' | 'team';
+        resourceId?: string;
+    };
+    message?: string;
+};
+
+export type AssistantProposal = {
+    id: string;
+    conversationId: string;
+    title: string;
+    reason: string;
+    status: 'pending' | 'applying' | 'succeeded' | 'failed' | 'dismissed';
+    actions: Array<AssistantAction>;
+    createdAt: string;
+    expiresAt: string;
+};
+
+export type AssistantAction = {
+    key: string;
+    operation: string;
+    input: {
+        [key: string]: unknown;
+    };
+    label: string;
+    risk: 'draft' | 'publish' | 'access';
+    status: 'pending' | 'running' | 'succeeded' | 'failed' | 'unknown';
+    result: {
+        [key: string]: unknown;
+    } | null;
+    error: string | null;
+};
+
 export type HealthData = {
     body?: never;
     path?: never;
@@ -872,6 +1747,55 @@ export type LogoutResponses = {
 
 export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
 
+export type AcceptInvitationData = {
+    body: JoinInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/join';
+};
+
+export type AcceptInvitationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type AcceptInvitationError = AcceptInvitationErrors[keyof AcceptInvitationErrors];
+
+export type AcceptInvitationResponses = {
+    /**
+     * 成功
+     */
+    200: Principal;
+};
+
+export type AcceptInvitationResponse = AcceptInvitationResponses[keyof AcceptInvitationResponses];
+
 export type GetCurrentUserData = {
     body?: never;
     path?: never;
@@ -920,6 +1844,729 @@ export type GetCurrentUserResponses = {
 };
 
 export type GetCurrentUserResponse = GetCurrentUserResponses[keyof GetCurrentUserResponses];
+
+export type ListTeamMembersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/team/members';
+};
+
+export type ListTeamMembersErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListTeamMembersError = ListTeamMembersErrors[keyof ListTeamMembersErrors];
+
+export type ListTeamMembersResponses = {
+    /**
+     * 成功
+     */
+    200: Array<TeamMember>;
+};
+
+export type ListTeamMembersResponse = ListTeamMembersResponses[keyof ListTeamMembersResponses];
+
+export type UpdateTeamMemberData = {
+    body: MemberUpdate;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/team/members/{id}';
+};
+
+export type UpdateTeamMemberErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateTeamMemberError = UpdateTeamMemberErrors[keyof UpdateTeamMemberErrors];
+
+export type UpdateTeamMemberResponses = {
+    /**
+     * 成功
+     */
+    200: TeamMember;
+};
+
+export type UpdateTeamMemberResponse = UpdateTeamMemberResponses[keyof UpdateTeamMemberResponses];
+
+export type RevokeMemberSessionsData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/team/members/{id}/revoke-sessions';
+};
+
+export type RevokeMemberSessionsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RevokeMemberSessionsError = RevokeMemberSessionsErrors[keyof RevokeMemberSessionsErrors];
+
+export type RevokeMemberSessionsResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type RevokeMemberSessionsResponse = RevokeMemberSessionsResponses[keyof RevokeMemberSessionsResponses];
+
+export type TransferTeamOwnerData = {
+    body: {
+        userId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/team/transfer-owner';
+};
+
+export type TransferTeamOwnerErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type TransferTeamOwnerError = TransferTeamOwnerErrors[keyof TransferTeamOwnerErrors];
+
+export type TransferTeamOwnerResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type TransferTeamOwnerResponse = TransferTeamOwnerResponses[keyof TransferTeamOwnerResponses];
+
+export type GetProjectAccessData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/access';
+};
+
+export type GetProjectAccessErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetProjectAccessError = GetProjectAccessErrors[keyof GetProjectAccessErrors];
+
+export type GetProjectAccessResponses = {
+    /**
+     * 成功
+     */
+    200: ProjectAccess;
+};
+
+export type GetProjectAccessResponse = GetProjectAccessResponses[keyof GetProjectAccessResponses];
+
+export type FindProjectMemberCandidatesData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        q?: string;
+    };
+    url: '/api/v1/projects/{projectId}/members/candidates';
+};
+
+export type FindProjectMemberCandidatesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type FindProjectMemberCandidatesError = FindProjectMemberCandidatesErrors[keyof FindProjectMemberCandidatesErrors];
+
+export type FindProjectMemberCandidatesResponses = {
+    /**
+     * 成功
+     */
+    200: Array<TeamMember>;
+};
+
+export type FindProjectMemberCandidatesResponse = FindProjectMemberCandidatesResponses[keyof FindProjectMemberCandidatesResponses];
+
+export type ListProjectMembersData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/members';
+};
+
+export type ListProjectMembersErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListProjectMembersError = ListProjectMembersErrors[keyof ListProjectMembersErrors];
+
+export type ListProjectMembersResponses = {
+    /**
+     * 成功
+     */
+    200: Array<ProjectMember>;
+};
+
+export type ListProjectMembersResponse = ListProjectMembersResponses[keyof ListProjectMembersResponses];
+
+export type SetProjectMemberData = {
+    body: {
+        role: ProjectRole | null;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/members/{id}';
+};
+
+export type SetProjectMemberErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SetProjectMemberError = SetProjectMemberErrors[keyof SetProjectMemberErrors];
+
+export type SetProjectMemberResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type SetProjectMemberResponse = SetProjectMemberResponses[keyof SetProjectMemberResponses];
+
+export type CreateInvitationData = {
+    body: InvitationInput;
+    path?: never;
+    query?: never;
+    url: '/api/v1/invitations';
+};
+
+export type CreateInvitationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CreateInvitationError = CreateInvitationErrors[keyof CreateInvitationErrors];
+
+export type CreateInvitationResponses = {
+    /**
+     * 成功
+     */
+    200: InvitationCreated;
+};
+
+export type CreateInvitationResponse = CreateInvitationResponses[keyof CreateInvitationResponses];
+
+export type ListTeamInvitationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/team/invitations';
+};
+
+export type ListTeamInvitationsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListTeamInvitationsError = ListTeamInvitationsErrors[keyof ListTeamInvitationsErrors];
+
+export type ListTeamInvitationsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<Invitation>;
+};
+
+export type ListTeamInvitationsResponse = ListTeamInvitationsResponses[keyof ListTeamInvitationsResponses];
+
+export type ListProjectInvitationsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/invitations';
+};
+
+export type ListProjectInvitationsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListProjectInvitationsError = ListProjectInvitationsErrors[keyof ListProjectInvitationsErrors];
+
+export type ListProjectInvitationsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<Invitation>;
+};
+
+export type ListProjectInvitationsResponse = ListProjectInvitationsResponses[keyof ListProjectInvitationsResponses];
+
+export type RevokeInvitationData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/invitations/{id}/revoke';
+};
+
+export type RevokeInvitationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RevokeInvitationError = RevokeInvitationErrors[keyof RevokeInvitationErrors];
+
+export type RevokeInvitationResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type RevokeInvitationResponse = RevokeInvitationResponses[keyof RevokeInvitationResponses];
+
+export type ListTeamAuditData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/team/audit';
+};
+
+export type ListTeamAuditErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListTeamAuditError = ListTeamAuditErrors[keyof ListTeamAuditErrors];
+
+export type ListTeamAuditResponses = {
+    /**
+     * 成功
+     */
+    200: Array<AuditEntry>;
+};
+
+export type ListTeamAuditResponse = ListTeamAuditResponses[keyof ListTeamAuditResponses];
+
+export type ListProjectAuditData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/audit';
+};
+
+export type ListProjectAuditErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListProjectAuditError = ListProjectAuditErrors[keyof ListProjectAuditErrors];
+
+export type ListProjectAuditResponses = {
+    /**
+     * 成功
+     */
+    200: Array<AuditEntry>;
+};
+
+export type ListProjectAuditResponse = ListProjectAuditResponses[keyof ListProjectAuditResponses];
 
 export type ListProjectsData = {
     body?: never;
@@ -1121,6 +2768,209 @@ export type CreateModelResponses = {
 
 export type CreateModelResponse = CreateModelResponses[keyof CreateModelResponses];
 
+export type UpdateModelData = {
+    body: ModelUpdate;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/models/{id}';
+};
+
+export type UpdateModelErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateModelError = UpdateModelErrors[keyof UpdateModelErrors];
+
+export type UpdateModelResponses = {
+    /**
+     * 成功
+     */
+    200: Model;
+};
+
+export type UpdateModelResponse = UpdateModelResponses[keyof UpdateModelResponses];
+
+export type ProbeModelData = {
+    body: ModelProbeInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/models/probe';
+};
+
+export type ProbeModelErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ProbeModelError = ProbeModelErrors[keyof ProbeModelErrors];
+
+export type ProbeModelResponses = {
+    /**
+     * 成功
+     */
+    200: ModelProbe;
+};
+
+export type ProbeModelResponse = ProbeModelResponses[keyof ProbeModelResponses];
+
+export type DiscoverModelsData = {
+    body: ModelDiscoverInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/models/discovery';
+};
+
+export type DiscoverModelsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DiscoverModelsError = DiscoverModelsErrors[keyof DiscoverModelsErrors];
+
+export type DiscoverModelsResponses = {
+    /**
+     * 成功
+     */
+    200: ModelDiscovery;
+};
+
+export type DiscoverModelsResponse = DiscoverModelsResponses[keyof DiscoverModelsResponses];
+
+export type ListModelVendorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/model-vendors';
+};
+
+export type ListModelVendorsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListModelVendorsError = ListModelVendorsErrors[keyof ListModelVendorsErrors];
+
+export type ListModelVendorsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<ModelVendorPreset>;
+};
+
+export type ListModelVendorsResponse = ListModelVendorsResponses[keyof ListModelVendorsResponses];
+
 export type ListToolsData = {
     body?: never;
     path: {
@@ -1222,6 +3072,161 @@ export type CreateToolResponses = {
 };
 
 export type CreateToolResponse = CreateToolResponses[keyof CreateToolResponses];
+
+export type UpdateToolData = {
+    body: ToolUpdate;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/tools/{id}';
+};
+
+export type UpdateToolErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateToolError = UpdateToolErrors[keyof UpdateToolErrors];
+
+export type UpdateToolResponses = {
+    /**
+     * 成功
+     */
+    200: Tool;
+};
+
+export type UpdateToolResponse = UpdateToolResponses[keyof UpdateToolResponses];
+
+export type ProbeToolData = {
+    body: ToolProbeInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/tools/probe';
+};
+
+export type ProbeToolErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ProbeToolError = ProbeToolErrors[keyof ProbeToolErrors];
+
+export type ProbeToolResponses = {
+    /**
+     * 成功
+     */
+    200: ToolProbe;
+};
+
+export type ProbeToolResponse = ProbeToolResponses[keyof ProbeToolResponses];
+
+export type PreviewAgentData = {
+    body: AgentPreviewInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/agents/{id}/preview';
+};
+
+export type PreviewAgentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type PreviewAgentError = PreviewAgentErrors[keyof PreviewAgentErrors];
+
+export type PreviewAgentResponses = {
+    /**
+     * 成功
+     */
+    200: AgentPreview;
+};
+
+export type PreviewAgentResponse = PreviewAgentResponses[keyof PreviewAgentResponses];
 
 export type ListAgentsData = {
     body?: never;
@@ -1482,6 +3487,270 @@ export type ListReleasesResponses = {
 };
 
 export type ListReleasesResponse = ListReleasesResponses[keyof ListReleasesResponses];
+
+export type DiscoverSkillsData = {
+    body: SkillSourceInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/discover';
+};
+
+export type DiscoverSkillsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DiscoverSkillsError = DiscoverSkillsErrors[keyof DiscoverSkillsErrors];
+
+export type DiscoverSkillsResponses = {
+    /**
+     * 成功
+     */
+    200: SkillDiscovery;
+};
+
+export type DiscoverSkillsResponse = DiscoverSkillsResponses[keyof DiscoverSkillsResponses];
+
+export type PreviewSkillImportData = {
+    body: SkillPreviewInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/previews';
+};
+
+export type PreviewSkillImportErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type PreviewSkillImportError = PreviewSkillImportErrors[keyof PreviewSkillImportErrors];
+
+export type PreviewSkillImportResponses = {
+    /**
+     * 成功
+     */
+    200: SkillImportPreview;
+};
+
+export type PreviewSkillImportResponse = PreviewSkillImportResponses[keyof PreviewSkillImportResponses];
+
+export type PreviewSkillUpdateData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/{id}/update-preview';
+};
+
+export type PreviewSkillUpdateErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type PreviewSkillUpdateError = PreviewSkillUpdateErrors[keyof PreviewSkillUpdateErrors];
+
+export type PreviewSkillUpdateResponses = {
+    /**
+     * 成功
+     */
+    200: SkillImportPreview;
+};
+
+export type PreviewSkillUpdateResponse = PreviewSkillUpdateResponses[keyof PreviewSkillUpdateResponses];
+
+export type ConfirmSkillImportData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/skills/previews/{id}/confirm';
+};
+
+export type ConfirmSkillImportErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ConfirmSkillImportError = ConfirmSkillImportErrors[keyof ConfirmSkillImportErrors];
+
+export type ConfirmSkillImportResponses = {
+    /**
+     * 成功
+     */
+    200: SkillImportResult;
+};
+
+export type ConfirmSkillImportResponse = ConfirmSkillImportResponses[keyof ConfirmSkillImportResponses];
+
+export type GetSkillPreviewFileData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query: {
+        path: string;
+    };
+    url: '/api/v1/projects/{projectId}/skills/previews/{id}/file';
+};
+
+export type GetSkillPreviewFileErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetSkillPreviewFileError = GetSkillPreviewFileErrors[keyof GetSkillPreviewFileErrors];
+
+export type GetSkillPreviewFileResponses = {
+    /**
+     * 成功
+     */
+    200: SkillFileContent;
+};
+
+export type GetSkillPreviewFileResponse = GetSkillPreviewFileResponses[keyof GetSkillPreviewFileResponses];
 
 export type ListSkillsData = {
     body?: never;
@@ -1747,6 +4016,427 @@ export type GetSkillFileResponses = {
 };
 
 export type GetSkillFileResponse = GetSkillFileResponses[keyof GetSkillFileResponses];
+
+export type GetConversationContextData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/context';
+};
+
+export type GetConversationContextErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetConversationContextError = GetConversationContextErrors[keyof GetConversationContextErrors];
+
+export type GetConversationContextResponses = {
+    /**
+     * 成功
+     */
+    200: ConversationContext;
+};
+
+export type GetConversationContextResponse = GetConversationContextResponses[keyof GetConversationContextResponses];
+
+export type ResetConversationData = {
+    body: {
+        requestId: string;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/reset';
+};
+
+export type ResetConversationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ResetConversationError = ResetConversationErrors[keyof ResetConversationErrors];
+
+export type ResetConversationResponses = {
+    /**
+     * 成功
+     */
+    200: Conversation;
+};
+
+export type ResetConversationResponse = ResetConversationResponses[keyof ResetConversationResponses];
+
+export type SubmitRunFeedbackData = {
+    body: TaskFeedbackInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/runs/{id}/feedback';
+};
+
+export type SubmitRunFeedbackErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SubmitRunFeedbackError = SubmitRunFeedbackErrors[keyof SubmitRunFeedbackErrors];
+
+export type SubmitRunFeedbackResponses = {
+    /**
+     * 成功
+     */
+    200: TaskFeedback;
+};
+
+export type SubmitRunFeedbackResponse = SubmitRunFeedbackResponses[keyof SubmitRunFeedbackResponses];
+
+export type EditConversationMessageData = {
+    body: EditConversationInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/edit';
+};
+
+export type EditConversationMessageErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type EditConversationMessageError = EditConversationMessageErrors[keyof EditConversationMessageErrors];
+
+export type EditConversationMessageResponses = {
+    /**
+     * 成功
+     */
+    200: Conversation;
+};
+
+export type EditConversationMessageResponse = EditConversationMessageResponses[keyof EditConversationMessageResponses];
+
+export type GetRunWorkspaceData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/runs/{id}/workspace';
+};
+
+export type GetRunWorkspaceErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetRunWorkspaceError = GetRunWorkspaceErrors[keyof GetRunWorkspaceErrors];
+
+export type GetRunWorkspaceResponses = {
+    /**
+     * 成功
+     */
+    200: RunWorkspace;
+};
+
+export type GetRunWorkspaceResponse = GetRunWorkspaceResponses[keyof GetRunWorkspaceResponses];
+
+export type DownloadRunArtifactData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/runs/{id}/artifacts/{artifactId}';
+};
+
+export type DownloadRunArtifactErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DownloadRunArtifactError = DownloadRunArtifactErrors[keyof DownloadRunArtifactErrors];
+
+export type DownloadRunArtifactResponses = {
+    /**
+     * Recorded tool result file
+     */
+    200: Blob | File;
+};
+
+export type DownloadRunArtifactResponse = DownloadRunArtifactResponses[keyof DownloadRunArtifactResponses];
+
+export type GetConversationSessionData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/session';
+};
+
+export type GetConversationSessionErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetConversationSessionError = GetConversationSessionErrors[keyof GetConversationSessionErrors];
+
+export type GetConversationSessionResponses = {
+    /**
+     * 成功
+     */
+    200: ConversationSession;
+};
+
+export type GetConversationSessionResponse = GetConversationSessionResponses[keyof GetConversationSessionResponses];
+
+export type ResumeConversationData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query: {
+        runId: string;
+    };
+    url: '/api/v1/projects/{projectId}/conversations/{id}/stream';
+};
+
+export type ResumeConversationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ResumeConversationError = ResumeConversationErrors[keyof ResumeConversationErrors];
+
+export type ResumeConversationResponses = {
+    /**
+     * Replay and follow the existing run
+     */
+    200: string;
+};
+
+export type ResumeConversationResponse = ResumeConversationResponses[keyof ResumeConversationResponses];
 
 export type ListConversationRunSummariesData = {
     body?: never;
@@ -2069,6 +4759,62 @@ export type CreateConversationResponses = {
 
 export type CreateConversationResponse = CreateConversationResponses[keyof CreateConversationResponses];
 
+export type DeleteConversationData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}';
+};
+
+export type DeleteConversationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DeleteConversationError = DeleteConversationErrors[keyof DeleteConversationErrors];
+
+export type DeleteConversationResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        id: string;
+    };
+};
+
+export type DeleteConversationResponse = DeleteConversationResponses[keyof DeleteConversationResponses];
+
 export type GetConversationData = {
     body?: never;
     path: {
@@ -2338,6 +5084,7 @@ export type ListRunEventsData = {
     };
     query?: {
         after?: number | null;
+        through?: number | null;
     };
     url: '/api/v1/projects/{projectId}/runs/{id}/events';
 };
@@ -3192,6 +5939,218 @@ export type GetKnowledgeSearchResponses = {
 };
 
 export type GetKnowledgeSearchResponse = GetKnowledgeSearchResponses[keyof GetKnowledgeSearchResponses];
+
+export type PreviewKnowledgeDocumentData = {
+    body: DocumentPreviewInput;
+    path: {
+        projectId: string;
+        kbId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/document-previews';
+};
+
+export type PreviewKnowledgeDocumentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type PreviewKnowledgeDocumentError = PreviewKnowledgeDocumentErrors[keyof PreviewKnowledgeDocumentErrors];
+
+export type PreviewKnowledgeDocumentResponses = {
+    /**
+     * 成功
+     */
+    200: DocumentPreview;
+};
+
+export type PreviewKnowledgeDocumentResponse = PreviewKnowledgeDocumentResponses[keyof PreviewKnowledgeDocumentResponses];
+
+export type ImportKnowledgeDocumentData = {
+    body: DocumentImportInput;
+    path: {
+        projectId: string;
+        kbId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/document-imports';
+};
+
+export type ImportKnowledgeDocumentErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ImportKnowledgeDocumentError = ImportKnowledgeDocumentErrors[keyof ImportKnowledgeDocumentErrors];
+
+export type ImportKnowledgeDocumentResponses = {
+    /**
+     * 成功
+     */
+    200: KnowledgeDocument;
+};
+
+export type ImportKnowledgeDocumentResponse = ImportKnowledgeDocumentResponses[keyof ImportKnowledgeDocumentResponses];
+
+export type ListKnowledgeDocumentVersionsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/versions';
+};
+
+export type ListKnowledgeDocumentVersionsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListKnowledgeDocumentVersionsError = ListKnowledgeDocumentVersionsErrors[keyof ListKnowledgeDocumentVersionsErrors];
+
+export type ListKnowledgeDocumentVersionsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<DocumentVersion>;
+};
+
+export type ListKnowledgeDocumentVersionsResponse = ListKnowledgeDocumentVersionsResponses[keyof ListKnowledgeDocumentVersionsResponses];
+
+export type GetKnowledgeDocumentSourceData = {
+    body?: never;
+    path: {
+        projectId: string;
+        kbId: string;
+        id: string;
+    };
+    query?: {
+        versionId?: string;
+    };
+    url: '/api/v1/projects/{projectId}/knowledge/{kbId}/documents/{id}/source';
+};
+
+export type GetKnowledgeDocumentSourceErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetKnowledgeDocumentSourceError = GetKnowledgeDocumentSourceErrors[keyof GetKnowledgeDocumentSourceErrors];
+
+export type GetKnowledgeDocumentSourceResponses = {
+    /**
+     * 成功
+     */
+    200: DocumentSource;
+};
+
+export type GetKnowledgeDocumentSourceResponse = GetKnowledgeDocumentSourceResponses[keyof GetKnowledgeDocumentSourceResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -4464,3 +7423,1054 @@ export type CancelWorkflowGenerationResponses = {
 };
 
 export type CancelWorkflowGenerationResponse = CancelWorkflowGenerationResponses[keyof CancelWorkflowGenerationResponses];
+
+export type ListAssistantAppsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/apps';
+};
+
+export type ListAssistantAppsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListAssistantAppsError = ListAssistantAppsErrors[keyof ListAssistantAppsErrors];
+
+export type ListAssistantAppsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<{
+        url: string;
+        manifest: {
+            protocolVersion: '1.0';
+            appId: string;
+            name: string;
+            version: string;
+            actions: Array<{
+                id: string;
+                title: string;
+                description: string;
+                effect: 'read' | 'view' | 'draft';
+                inputSchema: {
+                    [key: string]: unknown;
+                };
+                outputSchema: {
+                    [key: string]: unknown;
+                };
+            }>;
+        };
+        id: string;
+    }>;
+};
+
+export type ListAssistantAppsResponse = ListAssistantAppsResponses[keyof ListAssistantAppsResponses];
+
+export type RegisterAssistantAppData = {
+    body: {
+        url: string;
+        manifest: {
+            protocolVersion: '1.0';
+            appId: string;
+            name: string;
+            version: string;
+            actions: Array<{
+                id: string;
+                title: string;
+                description: string;
+                effect: 'read' | 'view' | 'draft';
+                inputSchema: {
+                    [key: string]: unknown;
+                };
+                outputSchema: {
+                    [key: string]: unknown;
+                };
+            }>;
+        };
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/apps';
+};
+
+export type RegisterAssistantAppErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RegisterAssistantAppError = RegisterAssistantAppErrors[keyof RegisterAssistantAppErrors];
+
+export type RegisterAssistantAppResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        url: string;
+        manifest: {
+            protocolVersion: '1.0';
+            appId: string;
+            name: string;
+            version: string;
+            actions: Array<{
+                id: string;
+                title: string;
+                description: string;
+                effect: 'read' | 'view' | 'draft';
+                inputSchema: {
+                    [key: string]: unknown;
+                };
+                outputSchema: {
+                    [key: string]: unknown;
+                };
+            }>;
+        };
+        id: string;
+    };
+};
+
+export type RegisterAssistantAppResponse = RegisterAssistantAppResponses[keyof RegisterAssistantAppResponses];
+
+export type RemoveAssistantAppData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/apps/{id}';
+};
+
+export type RemoveAssistantAppErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RemoveAssistantAppError = RemoveAssistantAppErrors[keyof RemoveAssistantAppErrors];
+
+export type RemoveAssistantAppResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        removed: boolean;
+    };
+};
+
+export type RemoveAssistantAppResponse = RemoveAssistantAppResponses[keyof RemoveAssistantAppResponses];
+
+export type SyncAssistantAppData = {
+    body: {
+        registrationId: string;
+        clientId: string;
+        enabled: boolean;
+        grant?: boolean;
+        allowDraft?: boolean;
+        view: {
+            appId: string;
+            pageSessionId: string;
+            revision: string;
+            page: {
+                id: string;
+                title: string;
+            };
+            ready: boolean;
+            summary: string;
+            state: {
+                [key: string]: unknown;
+            };
+            actions: Array<{
+                id: string;
+                available: boolean;
+                reason?: string;
+            }>;
+        };
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/apps/sync';
+};
+
+export type SyncAssistantAppErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SyncAssistantAppError = SyncAssistantAppErrors[keyof SyncAssistantAppErrors];
+
+export type SyncAssistantAppResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        active: boolean;
+        action: {
+            id: string;
+            status: 'pending' | 'executing' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+            input: {
+                requestId: string;
+                action: string;
+                expectedRevision: string;
+                args: {
+                    [key: string]: unknown;
+                };
+            };
+            result: {
+                status: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+                message: string;
+                code?: string;
+                output: {
+                    [key: string]: unknown;
+                };
+                view: {
+                    appId: string;
+                    pageSessionId: string;
+                    revision: string;
+                    page: {
+                        id: string;
+                        title: string;
+                    };
+                    ready: boolean;
+                    summary: string;
+                    state: {
+                        [key: string]: unknown;
+                    };
+                    actions: Array<{
+                        id: string;
+                        available: boolean;
+                        reason?: string;
+                    }>;
+                };
+                uiApplied: boolean;
+                persistence: 'not-requested';
+            } | null;
+        } | null;
+    };
+};
+
+export type SyncAssistantAppResponse = SyncAssistantAppResponses[keyof SyncAssistantAppResponses];
+
+export type CompleteAssistantAppData = {
+    body: {
+        clientId: string;
+        result: {
+            status: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+            message: string;
+            code?: string;
+            output: {
+                [key: string]: unknown;
+            };
+            view: {
+                appId: string;
+                pageSessionId: string;
+                revision: string;
+                page: {
+                    id: string;
+                    title: string;
+                };
+                ready: boolean;
+                summary: string;
+                state: {
+                    [key: string]: unknown;
+                };
+                actions: Array<{
+                    id: string;
+                    available: boolean;
+                    reason?: string;
+                }>;
+            };
+            uiApplied: boolean;
+            persistence: 'not-requested';
+        };
+    };
+    path: {
+        projectId: string;
+        id: string;
+        actionId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/apps/actions/{actionId}';
+};
+
+export type CompleteAssistantAppErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CompleteAssistantAppError = CompleteAssistantAppErrors[keyof CompleteAssistantAppErrors];
+
+export type CompleteAssistantAppResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        id: string;
+        status: 'pending' | 'executing' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+        input: {
+            requestId: string;
+            action: string;
+            expectedRevision: string;
+            args: {
+                [key: string]: unknown;
+            };
+        };
+        result: {
+            status: 'succeeded' | 'failed' | 'cancelled' | 'unknown';
+            message: string;
+            code?: string;
+            output: {
+                [key: string]: unknown;
+            };
+            view: {
+                appId: string;
+                pageSessionId: string;
+                revision: string;
+                page: {
+                    id: string;
+                    title: string;
+                };
+                ready: boolean;
+                summary: string;
+                state: {
+                    [key: string]: unknown;
+                };
+                actions: Array<{
+                    id: string;
+                    available: boolean;
+                    reason?: string;
+                }>;
+            };
+            uiApplied: boolean;
+            persistence: 'not-requested';
+        } | null;
+    };
+};
+
+export type CompleteAssistantAppResponse = CompleteAssistantAppResponses[keyof CompleteAssistantAppResponses];
+
+export type SyncAssistantUiData = {
+    body: AssistantUiSyncInput;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/ui';
+};
+
+export type SyncAssistantUiErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type SyncAssistantUiError = SyncAssistantUiErrors[keyof SyncAssistantUiErrors];
+
+export type SyncAssistantUiResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantUiSync;
+};
+
+export type SyncAssistantUiResponse = SyncAssistantUiResponses[keyof SyncAssistantUiResponses];
+
+export type CompleteAssistantUiData = {
+    body: AssistantUiResultInput;
+    path: {
+        projectId: string;
+        id: string;
+        actionId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/ui/{actionId}';
+};
+
+export type CompleteAssistantUiErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CompleteAssistantUiError = CompleteAssistantUiErrors[keyof CompleteAssistantUiErrors];
+
+export type CompleteAssistantUiResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantUiReceipt;
+};
+
+export type CompleteAssistantUiResponse = CompleteAssistantUiResponses[keyof CompleteAssistantUiResponses];
+
+export type GetPlatformAssistantData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant';
+};
+
+export type GetPlatformAssistantErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetPlatformAssistantError = GetPlatformAssistantErrors[keyof GetPlatformAssistantErrors];
+
+export type GetPlatformAssistantResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantBootstrap;
+};
+
+export type GetPlatformAssistantResponse = GetPlatformAssistantResponses[keyof GetPlatformAssistantResponses];
+
+export type GetAssistantCapabilitiesData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        conversationId?: string;
+    };
+    url: '/api/v1/projects/{projectId}/assistant/capabilities';
+};
+
+export type GetAssistantCapabilitiesErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetAssistantCapabilitiesError = GetAssistantCapabilitiesErrors[keyof GetAssistantCapabilitiesErrors];
+
+export type GetAssistantCapabilitiesResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantCapabilities;
+};
+
+export type GetAssistantCapabilitiesResponse = GetAssistantCapabilitiesResponses[keyof GetAssistantCapabilitiesResponses];
+
+export type GetAssistantOperationData = {
+    body?: never;
+    path: {
+        projectId: string;
+        operationId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/capabilities/operations/{operationId}';
+};
+
+export type GetAssistantOperationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetAssistantOperationError = GetAssistantOperationErrors[keyof GetAssistantOperationErrors];
+
+export type GetAssistantOperationResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantOperationDetail;
+};
+
+export type GetAssistantOperationResponse = GetAssistantOperationResponses[keyof GetAssistantOperationResponses];
+
+export type ConfigurePlatformAssistantData = {
+    body: AssistantSettingsInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/settings';
+};
+
+export type ConfigurePlatformAssistantErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ConfigurePlatformAssistantError = ConfigurePlatformAssistantErrors[keyof ConfigurePlatformAssistantErrors];
+
+export type ConfigurePlatformAssistantResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantBootstrap;
+};
+
+export type ConfigurePlatformAssistantResponse = ConfigurePlatformAssistantResponses[keyof ConfigurePlatformAssistantResponses];
+
+export type StartPlatformAssistantData = {
+    body: AssistantStartInput;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions';
+};
+
+export type StartPlatformAssistantErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type StartPlatformAssistantError = StartPlatformAssistantErrors[keyof StartPlatformAssistantErrors];
+
+export type StartPlatformAssistantResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantSession;
+};
+
+export type StartPlatformAssistantResponse = StartPlatformAssistantResponses[keyof StartPlatformAssistantResponses];
+
+export type ListAssistantProposalsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/proposals';
+};
+
+export type ListAssistantProposalsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ListAssistantProposalsError = ListAssistantProposalsErrors[keyof ListAssistantProposalsErrors];
+
+export type ListAssistantProposalsResponses = {
+    /**
+     * 成功
+     */
+    200: Array<AssistantProposal>;
+};
+
+export type ListAssistantProposalsResponse = ListAssistantProposalsResponses[keyof ListAssistantProposalsResponses];
+
+export type ApplyAssistantProposalData = {
+    body: {
+        dismiss?: boolean;
+    };
+    path: {
+        projectId: string;
+        id: string;
+        proposalId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/sessions/{id}/proposals/{proposalId}';
+};
+
+export type ApplyAssistantProposalErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ApplyAssistantProposalError = ApplyAssistantProposalErrors[keyof ApplyAssistantProposalErrors];
+
+export type ApplyAssistantProposalResponses = {
+    /**
+     * 成功
+     */
+    200: AssistantProposal;
+};
+
+export type ApplyAssistantProposalResponse = ApplyAssistantProposalResponses[keyof ApplyAssistantProposalResponses];
+
+export type CancelAssistantRunData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/runs/{id}/cancel';
+};
+
+export type CancelAssistantRunErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type CancelAssistantRunError = CancelAssistantRunErrors[keyof CancelAssistantRunErrors];
+
+export type CancelAssistantRunResponses = {
+    /**
+     * 成功
+     */
+    200: Run;
+};
+
+export type CancelAssistantRunResponse = CancelAssistantRunResponses[keyof CancelAssistantRunResponses];
+
+export type StreamPlatformAssistantData = {
+    body: {
+        messages: Array<{
+            id: string;
+            role: 'user' | 'assistant';
+            parts: Array<{
+                [key: string]: unknown;
+            }>;
+        }>;
+        id?: string;
+        trigger?: string;
+        messageId?: string;
+        skillVersionIds?: Array<string>;
+        [key: string]: unknown;
+    };
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/assistant/conversations/{id}/chat';
+};
+
+export type StreamPlatformAssistantErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type StreamPlatformAssistantError = StreamPlatformAssistantErrors[keyof StreamPlatformAssistantErrors];
+
+export type StreamPlatformAssistantResponses = {
+    /**
+     * AI SDK UI message stream
+     */
+    200: string;
+};
+
+export type StreamPlatformAssistantResponse = StreamPlatformAssistantResponses[keyof StreamPlatformAssistantResponses];

@@ -8,6 +8,7 @@ afterEach(cleanup);
 const user = {
   id: "owner",
   tenantId: "tenant",
+  tenantRole: "owner",
   displayName: "Owner",
   kind: "user",
   entry: "console",
@@ -44,6 +45,22 @@ function json(value: unknown) {
 }
 function fixture(request: Request) {
   const path = new URL(request.url).pathname;
+  if (path.endsWith("/access"))
+    return Response.json({
+      projectId: path.split("/")[4],
+      tenantRole: "owner",
+      role: "admin",
+      permissions: [
+        "project.read",
+        "project.manage",
+        "agent.edit",
+        "agent.publish",
+        "agent.run",
+        "resource.read",
+        "resource.edit",
+        "resource.manage",
+      ],
+    });
   if (path.endsWith("/auth/status")) return json({ initialized: true });
   if (path === "/api/v1/me") return json(user);
   if (path.endsWith("/auth/login")) return json(user);
@@ -199,7 +216,7 @@ test("Agent editing cannot save an incomplete authorization catalog while it loa
   });
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
-  fireEvent.click(screen.getByRole("button", { name: /编\s*辑/ }));
+  fireEvent.click(screen.getByRole("button", { name: "配置 Agent" }));
   await waitFor(() => assert.ok(started));
   const save = screen.getByRole("button", { name: "保存草稿" }) as HTMLButtonElement;
   assert.equal(save.disabled, true);
@@ -307,7 +324,7 @@ test("conversation history errors are local and leaving the page cancels retry",
       ]);
     if (request.url.endsWith("/conversations/thread"))
       return json({ id: "thread", projectId: "A", title: "订单讨论", releaseVersion: 1 });
-    if (request.url.endsWith("/thread/messages")) {
+    if (request.url.endsWith("/thread/session")) {
       if (++reads === 1) return Response.json({ message: "历史读取失败" }, { status: 503 });
       started = request;
       return pending.promise;
@@ -317,7 +334,11 @@ test("conversation history errors are local and leaving the page cancels retry",
   mount();
   await screen.findByRole("heading", { name: "A项目助手" });
   fireEvent.click(screen.getByRole("link", { name: "对话" }));
-  fireEvent.click(await screen.findByRole("button", { name: /订单讨论/ }));
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: (name) => name.includes("订单讨论") && !name.startsWith("删除"),
+    }),
+  );
   await screen.findByText("会话历史加载失败");
   fireEvent.click(screen.getByRole("button", { name: "重试会话历史" }));
   await waitFor(() => assert.ok(started));

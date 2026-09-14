@@ -151,12 +151,14 @@ export async function executeKnowledgeJob(
   }
   if (!job.document) throw new Error("RUNTIME_ERROR");
   const doc = MDocument.fromText(job.document.content);
-  const chunks = await doc.chunk({
-    strategy: "recursive",
-    maxSize: job.snapshot.chunkSize,
-    overlap: job.snapshot.chunkOverlap,
-    separators: ["\n\n", "\n", "。", "；", " ", ""],
-  });
+  const chunks =
+    job.document.chunks?.map((c) => ({ text: c.content, location: c.location })) ??
+    (await doc.chunk({
+      strategy: "recursive",
+      maxSize: job.snapshot.chunkSize,
+      overlap: job.snapshot.chunkOverlap,
+      separators: ["\n\n", "\n", "。", "；", " ", ""],
+    }));
   if (!chunks.length || chunks.length > 256) throw new Error("DOCUMENT_TOO_LARGE");
   for (let start = 0; start < chunks.length; start += 8) {
     signal.throwIfAborted();
@@ -171,7 +173,12 @@ export async function executeKnowledgeJob(
       `${path}/chunks`,
       {
         leaseToken: job.leaseToken,
-        chunks: group.map((c, i) => ({ ordinal: start + i, content: c.text, vector: vectors[i] })),
+        chunks: group.map((c, i) => ({
+          ordinal: start + i,
+          content: c.text,
+          vector: vectors[i],
+          ...("location" in c ? { location: c.location } : {}),
+        })),
       },
       signal,
     );

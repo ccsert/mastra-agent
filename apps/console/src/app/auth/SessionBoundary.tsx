@@ -10,7 +10,9 @@ import * as api from "@platform/sdk";
 import { Alert, App as AntApp, Button, Form, Input, Spin } from "antd";
 import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router";
+import { JoinTeam } from "../../features/members/index";
 import { unwrap } from "../../shared/api";
+import { clearChatSession } from "../../shared/data/session-storage";
 import { loginDestination } from "../../shared/navigation";
 import { useLifetime } from "../../shared/useLifetime";
 
@@ -28,9 +30,14 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
     [loggedOut, setLoggedOut] = useState(false),
     [authReady, setAuthReady] = useState(false),
     [authError, setAuthError] = useState(""),
+    [connectionFailed, setConnectionFailed] = useState(false),
+    [attempt, setAttempt] = useState(0),
     [authBusy, setAuthBusy] = useState(false);
   useEffect(() => {
     const signal = lifetime();
+    if (attempt > 0) setAuthError("");
+    setAuthReady(false);
+    setConnectionFailed(false);
     void (async () => {
       try {
         const status = await unwrap(api.getSetupStatus({ signal }));
@@ -38,15 +45,20 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
         setInitialized(status.initialized);
         if (status.initialized) {
           const result = await api.getCurrentUser({ signal });
+          if (!result.data && result.response?.status !== 401)
+            await unwrap(Promise.resolve(result));
           if (!signal.aborted) setUser(result.data ?? null);
         }
       } catch (error) {
-        if (!signal.aborted) setAuthError(error instanceof Error ? error.message : "无法连接平台");
+        if (!signal.aborted) {
+          setConnectionFailed(true);
+          setAuthError(error instanceof Error ? error.message : "无法连接平台");
+        }
       } finally {
         if (!signal.aborted) setAuthReady(true);
       }
     })();
-  }, [lifetime]);
+  }, [lifetime, attempt]);
   async function signIn(values: { username: string; password: string; workspaceName?: string }) {
     const signal = lifetime();
     setAuthBusy(true);
@@ -80,16 +92,37 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
   async function logout() {
     try {
       await unwrap(api.logout({ body: {} }));
+      clearChatSession();
       setLoggedOut(true);
       setUser(null);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "退出登录失败");
     }
   }
+  if (location.pathname === "/join")
+    return (
+      <JoinTeam
+        onJoined={(principal) => {
+          setUser(principal);
+          setInitialized(true);
+          setAuthReady(true);
+          window.location.assign("/");
+        }}
+      />
+    );
   if (!authReady)
     return (
       <div className="full-loader">
         <Spin description="连接平台…" />
+      </div>
+    );
+  if (connectionFailed)
+    return (
+      <div className="full-loader">
+        <div>
+          <Alert type="error" title="暂时无法连接平台" description={authError} />
+          <Button onClick={() => setAttempt((value) => value + 1)}>重新连接</Button>
+        </div>
       </div>
     );
   if (!user && location.pathname !== "/login") {

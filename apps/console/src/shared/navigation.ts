@@ -11,6 +11,8 @@ export const pages = [
   "runs",
   "applications",
   "runtimes",
+  "settings",
+  "team",
 ] as const;
 export type Page = (typeof pages)[number];
 export type ResourceSelection = { selectedId?: string; onSelect(id?: string): void };

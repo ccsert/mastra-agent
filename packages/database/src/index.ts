@@ -38,6 +38,20 @@ export class Database implements Queryable {
     }
   }
   async migrate() {
+    const agentApp = await readFile(new URL("./agent-app.sql", import.meta.url), "utf8");
+    const assistantInteraction = await readFile(
+      new URL("./assistant-interaction.sql", import.meta.url),
+      "utf8",
+    );
+    const platformAssistant = await readFile(
+      new URL("./platform-assistant.sql", import.meta.url),
+      "utf8",
+    );
+    const knowledgeVersions = await readFile(
+      new URL("./knowledge-versions.sql", import.meta.url),
+      "utf8",
+    );
+    const skillSources = await readFile(new URL("./skill-sources.sql", import.meta.url), "utf8");
     const sql = await readFile(new URL("./schema.sql", import.meta.url), "utf8");
     const knowledge = await readFile(new URL("./knowledge.sql", import.meta.url), "utf8");
     const mcp = await readFile(new URL("./mcp.sql", import.meta.url), "utf8");
@@ -52,6 +66,23 @@ export class Database implements Queryable {
       new URL("./resource-directories.sql", import.meta.url),
       "utf8",
     );
+    const trajectoryObservability = await readFile(
+      new URL("./trajectory-observability.sql", import.meta.url),
+      "utf8",
+    );
+    const branches = await readFile(
+      new URL("./conversation-branches.sql", import.meta.url),
+      "utf8",
+    );
+    const longTasks = await readFile(new URL("./long-tasks.sql", import.meta.url), "utf8");
+    const taskArtifacts = await readFile(new URL("./task-artifacts.sql", import.meta.url), "utf8");
+    const budgetSettlement = await readFile(
+      new URL("./model-budget-settlement.sql", import.meta.url),
+      "utf8",
+    );
+    const taskFeedback = await readFile(new URL("./task-feedback.sql", import.meta.url), "utf8");
+    const agentPreviews = await readFile(new URL("./agent-previews.sql", import.meta.url), "utf8");
+    const teamAccess = await readFile(new URL("./team-access.sql", import.meta.url), "utf8");
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
@@ -79,6 +110,58 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=8",
       );
       if (!contextApplied) await tx.query(conversationContext);
+      const [trajectoryApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=9",
+      );
+      if (!trajectoryApplied) await tx.query(trajectoryObservability);
+      const [branchesApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=10",
+      );
+      if (!branchesApplied) await tx.query(branches);
+      const [longTasksApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=11",
+      );
+      if (!longTasksApplied) await tx.query(longTasks);
+      const [artifactsApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=12",
+      );
+      if (!artifactsApplied) await tx.query(taskArtifacts);
+      const [settlementApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=13",
+      );
+      if (!settlementApplied) await tx.query(budgetSettlement);
+      const [feedbackApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=14",
+      );
+      if (!feedbackApplied) await tx.query(taskFeedback);
+      const [accessApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=15",
+      );
+      if (!accessApplied) await tx.query(teamAccess);
+      const [previewsApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=16",
+      );
+      if (!previewsApplied) await tx.query(agentPreviews);
+      const [skillSourcesApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=17",
+      );
+      if (!skillSourcesApplied) await tx.query(skillSources);
+      const [knowledgeVersionsApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=18",
+      );
+      if (!knowledgeVersionsApplied) await tx.query(knowledgeVersions);
+      const [assistantApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=19",
+      );
+      if (!assistantApplied) await tx.query(platformAssistant);
+      const [interactionApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=20",
+      );
+      if (!interactionApplied) await tx.query(assistantInteraction);
+      const [agentAppApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=21",
+      );
+      if (!agentAppApplied) await tx.query(agentApp);
     });
   }
   async close() {

@@ -114,11 +114,19 @@ function ToolFallbackDuration({ className, ...props }: React.ComponentProps<"spa
 function ToolFallbackTrigger({
   toolName,
   status,
+  label: actionLabel,
+  summary,
+  outcome,
+  icon,
   className,
   ...props
 }: React.ComponentProps<typeof CollapsibleTrigger> & {
   toolName: string;
   status?: ToolCallMessagePartStatus;
+  label?: string;
+  summary?: string;
+  outcome?: string;
+  icon?: React.ReactNode;
 }) {
   const statusType = status?.type ?? "complete";
   const isRunning = statusType === "running";
@@ -136,14 +144,18 @@ function ToolFallbackTrigger({
       )}
       {...props}
     >
-      <Icon
-        data-slot="tool-fallback-trigger-icon"
-        className={cn(
-          "aui-tool-fallback-trigger-icon size-4 shrink-0",
-          isCancelled && "text-muted-foreground",
-          isRunning && "animate-spin [animation-duration:0.6s]",
-        )}
-      />
+      <span className="aui-tool-identity" data-status={statusType}>
+        {icon}
+        <Icon
+          data-slot="tool-fallback-trigger-icon"
+          className={cn(
+            "aui-tool-fallback-trigger-icon size-4 shrink-0",
+            isCancelled && "text-muted-foreground",
+            isRunning && "animate-spin [animation-duration:0.6s]",
+            icon && "aui-tool-status-badge",
+          )}
+        />
+      </span>
       <span
         data-slot="tool-fallback-trigger-label"
         className={cn(
@@ -152,8 +164,14 @@ function ToolFallbackTrigger({
           isRunning && "shimmer motion-reduce:animate-none",
         )}
       >
-        {label}: <b>{toolName}</b>
+        {actionLabel ?? (
+          <>
+            {label}: <b>{toolName}</b>
+          </>
+        )}
       </span>
+      {summary && <span data-slot="tool-fallback-summary">{summary}</span>}
+      {outcome && <span data-slot="tool-fallback-outcome">{outcome}</span>}
       <ToolFallbackDuration />
       <ChevronDownIcon
         data-slot="tool-fallback-trigger-chevron"

@@ -1,0 +1,26 @@
+diff --git a/dist/create-durable-agent-76UE00WE.js b/dist/create-durable-agent-76UE00WE.js
+index b36baa171110d6fe7472d776e1d7d5a78446e389..ea3850193ef521447e21454be46b04fb157a0ade 100644
+--- a/dist/create-durable-agent-76UE00WE.js
++++ b/dist/create-durable-agent-76UE00WE.js
+@@ -102,7 +102,7 @@ function markRunActive(runId) {
+ 	};
+ }
+ function getActiveDurableAgentWorkflowExecutions(mastra) {
+-	return Array.from(globalRunRegistry.values()).flatMap((entry) => entry.mastra === mastra && entry.workflowExecution ? [entry.workflowExecution] : []);
++	return Array.from(globalRunRegistry.values()).flatMap((entry) => entry?.mastra === mastra && entry?.workflowExecution ? [entry.workflowExecution] : []);
+ }
+ /**
+ * End a run's root spans (MODEL_GENERATION then AGENT_RUN) with an error so the trace
+diff --git a/dist/create-durable-agent-BUhWFOfJ.cjs b/dist/create-durable-agent-BUhWFOfJ.cjs
+index 29a6a98b57a182d3bef603f15c8b89551aa49246..44829360b68e940f8c9808e72c3756f066747c1f 100644
+--- a/dist/create-durable-agent-BUhWFOfJ.cjs
++++ b/dist/create-durable-agent-BUhWFOfJ.cjs
+@@ -102,7 +102,7 @@ function markRunActive(runId) {
+ 	};
+ }
+ function getActiveDurableAgentWorkflowExecutions(mastra) {
+-	return Array.from(globalRunRegistry.values()).flatMap((entry) => entry.mastra === mastra && entry.workflowExecution ? [entry.workflowExecution] : []);
++	return Array.from(globalRunRegistry.values()).flatMap((entry) => entry?.mastra === mastra && entry?.workflowExecution ? [entry.workflowExecution] : []);
+ }
+ /**
+ * End a run's root spans (MODEL_GENERATION then AGENT_RUN) with an error so the trace

@@ -38,6 +38,8 @@ async function start() {
     runtimeId,
     signal: controller.signal,
     skillSandboxImage: process.env.SKILL_SANDBOX_IMAGE,
+    taskWorkspaceRoot: process.env.TASK_WORKSPACE_ROOT,
+    taskSandboxImage: process.env.TASK_SANDBOX_IMAGE,
     logger: log,
     onContact: (status) => connection.record(status),
   });

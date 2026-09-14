@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>订单工作台 · Agent 应用示例</title></head><body><main id="workspace">
+<header><span class="eyebrow">NORTHSTAR / ORDERS</span><h1>订单工作台</h1><p>独立应用 · 原生 JavaScript · 合成演示数据</p></header>
+<section class="consent"><strong>与平台助手协作</strong><label><input id="grant" type="checkbox"/>允许平台读取此页并切换视图</label><label><input id="draft-grant" type="checkbox"/>允许修改此页的未保存草稿</label><p id="connection" role="status">尚未连接。勾选后，在任务台点击“连接当前页面”。</p><button id="stop" type="button">停止协作</button></section>
+<section><label for="search">查找订单</label><input id="search" placeholder="搜索订单号或客户" autocomplete="off"/><div id="orders"></div></section>
+<section id="details" hidden><div class="detail-title"><h2 id="order-title">订单详情</h2><span id="dirty">未修改</span></div><label for="note">交付备注</label><textarea id="note" rows="3" maxlength="500"></textarea><label for="priority">优先级</label><select id="priority"><option value="normal">普通</option><option value="urgent">紧急</option></select><p id="validation" role="status"></p><p class="muted">这里仅编辑草稿，示例未提供保存或提交功能。</p></section>
+<footer><details><summary>开发者接入配置</summary><p>下载配置，在平台任务台“接入应用”中登记。</p><a href="/registration.json" download="northstar-registration.json">下载接入配置 JSON</a><textarea id="registration" readonly rows="5" aria-label="示例接入配置"></textarea></details></footer>
+</main><div id="activity" role="status" hidden></div><script type="module" src="/src/main.js"></script></body></html>

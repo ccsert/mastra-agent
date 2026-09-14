@@ -1,5 +1,13 @@
 import { createRoute } from "@hono/zod-openapi";
-import { Agent, AgentInput, AgentUpdate, Release, z } from "@platform/contracts";
+import {
+  Agent,
+  AgentInput,
+  AgentPreview,
+  AgentPreviewInput,
+  AgentUpdate,
+  Release,
+  z,
+} from "@platform/contracts";
 import {
   type ApiApp,
   body,
@@ -10,6 +18,29 @@ import {
 } from "../../http/contracts.ts";
 import type { Agents } from "./agents.ts";
 export function registerAgentRoutes(app: ApiApp, agents: Agents) {
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/agents/{id}/preview",
+      operationId: "previewAgent",
+      request: { params: itemParams, body: body(AgentPreviewInput) },
+      responses: { 200: json(AgentPreview), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param"),
+        input = c.req.valid("json");
+      return c.json(
+        await agents.preview(
+          c.get("principal"),
+          projectId,
+          id,
+          input.baseRevision,
+          input.requestId,
+        ),
+        200,
+      );
+    },
+  );
   app.openapi(
     createRoute({
       method: "get",

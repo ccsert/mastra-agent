@@ -2,6 +2,7 @@ import { BookOutlined, PlusOutlined } from "@ant-design/icons";
 import type { Model } from "@platform/sdk";
 import { Alert, Button } from "antd";
 import { useState } from "react";
+import { useProjectAccess } from "../../shared/access";
 import { useProjectQuery } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
 import type { ResourceSelection } from "../../shared/navigation";
@@ -18,6 +19,7 @@ export function KnowledgeWorkspace({
   models: Model[];
   onConfigureModels(): void;
 }) {
+  const canEdit = useProjectAccess()?.permissions.includes("resource.edit") ?? false;
   const basesQuery = useProjectQuery("knowledgeBases", { poll: 2500 }),
     bases = basesQuery.data ?? [];
   const [creating, setCreating] = useState(false);
@@ -31,6 +33,7 @@ export function KnowledgeWorkspace({
               项目知识库 <span>{bases.length}</span>
             </strong>
             <Button
+              disabled={!canEdit}
               type="text"
               aria-label="创建知识库"
               icon={<PlusOutlined />}
@@ -57,7 +60,7 @@ export function KnowledgeWorkspace({
             {!bases.length && (
               <div className="knowledge-list-empty">
                 <p>为团队建立第一份可检索的资料库。</p>
-                <Button type="primary" onClick={() => setCreating(true)}>
+                <Button disabled={!canEdit} type="primary" onClick={() => setCreating(true)}>
                   创建知识库
                 </Button>
               </div>
@@ -75,7 +78,7 @@ export function KnowledgeWorkspace({
                 <BookOutlined />
                 <h2>{bases.length ? "选择一个知识库" : "让 Agent 使用团队的知识"}</h2>
                 <p>接入向量模型，建立知识库，上传资料。通过检索测试查看来源，再绑定到 Agent。</p>
-                <Button onClick={() => setCreating(true)} type="primary">
+                <Button disabled={!canEdit} onClick={() => setCreating(true)} type="primary">
                   新建知识库
                 </Button>
               </div>
@@ -83,7 +86,7 @@ export function KnowledgeWorkspace({
           )}
         </section>
       </div>
-      {creating && (
+      {creating && canEdit && (
         <KnowledgeCreate
           projectId={projectId}
           models={models}

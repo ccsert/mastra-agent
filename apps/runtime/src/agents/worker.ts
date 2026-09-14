@@ -1,4 +1,11 @@
-import { ExecutionJob, McpErrorCode, Message, SkillErrorCode } from "@platform/contracts";
+import {
+  AgentLimitError,
+  ExecutionJob,
+  McpErrorCode,
+  Message,
+  SkillErrorCode,
+  TaskFeedback,
+} from "@platform/contracts";
 import { createLogger } from "@platform/operations";
 import { runtimeClient, type WorkerConfig, waitForPoll } from "../control-plane/index.ts";
 import { executeJob } from "./execute.ts";
@@ -26,9 +33,32 @@ export async function runAgentWorker(config: WorkerConfig) {
         controller.signal,
         AbortSignal.timeout(Math.max(1, current.deadline - Date.now())),
       ]);
-    let seq = 0,
+    let seq = job.nextEventSeq,
       cancelled = false;
+    // User cancellation stops execution but gives terminal child observations a
+    // bounded delivery window before the root run is finalized.
+    const eventSignal = AbortSignal.any([
+      config.signal,
+      AbortSignal.timeout(Math.max(1, current.deadline - Date.now()) + 8000),
+    ]);
     let delivery = Promise.resolve();
+    // A fenced operation can observe cancellation before the next heartbeat.
+    // Propagate it immediately to running and queued children, retaining their terminal events.
+    const taskPost = async (input: Record<string, unknown>) => {
+      try {
+        return await post(
+          `/internal/runtime/runs/${current.runId}/task`,
+          { ...input, leaseToken: current.leaseToken },
+          executionSignal,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === "CANCELLED") {
+          cancelled = true;
+          controller.abort();
+        }
+        throw error;
+      }
+    };
     const heartbeat = setInterval(() => {
       void post(
         `/internal/runtime/runs/${current.runId}/heartbeat`,
@@ -48,18 +78,42 @@ export async function runAgentWorker(config: WorkerConfig) {
         current,
         executionSignal,
         (chunk) => {
+          // Stamped when the runtime produces the event, not when the queued
+          // delivery happens to reach the control plane.
+          const occurredAt = new Date().toISOString();
           // Model request capture and stream consumption can emit concurrently.
           // Preserve the append protocol's contiguous sequence at the network boundary.
           delivery = delivery.then(async () => {
             await post(
               `/internal/runtime/runs/${current.runId}/events`,
-              { leaseToken: current.leaseToken, seq: seq++, chunk },
-              executionSignal,
+              { leaseToken: current.leaseToken, seq: seq++, occurredAt, chunk },
+              eventSignal,
             );
           });
           return delivery;
         },
         {
+          platformAssistant: current.systemAssistant
+            ? (tool, input, toolCallId) =>
+                post(
+                  `/internal/runtime/runs/${current.runId}/assistant`,
+                  { tool, input, toolCallId, leaseToken: current.leaseToken },
+                  executionSignal,
+                )
+            : undefined,
+          taskWorkspaceRoot: config.taskWorkspaceRoot,
+          readFeedback: async () => {
+            const response = await taskPost({ operation: "feedback" });
+            const items = TaskFeedback.array().parse(response.feedback);
+            const unread = items.filter((item) => !item.readAt).map((item) => item.id);
+            if (unread.length) await taskPost({ operation: "feedback-read", ids: unread });
+            return items;
+          },
+          taskSandboxImage: config.taskSandboxImage,
+          uploadArtifact: (input) => taskPost({ ...input, operation: "artifact" }),
+          task: (input) => taskPost(input),
+          reserveModel: (input) => taskPost({ ...input, operation: "reserve" }).then(() => {}),
+          settleModel: (input) => taskPost({ ...input, operation: "settle" }).then(() => {}),
           skillSandboxImage: config.skillSandboxImage,
           skillAccess: (input, signal) =>
             post(
@@ -88,9 +142,10 @@ export async function runAgentWorker(config: WorkerConfig) {
       });
     } catch (error) {
       controller.abort();
-      const mcpError = McpErrorCode.or(SkillErrorCode).safeParse(
-        error instanceof Error ? error.message : "",
-      );
+      await delivery.catch(() => {});
+      const mcpError = McpErrorCode.or(SkillErrorCode)
+        .or(AgentLimitError)
+        .safeParse(error instanceof Error ? error.message : "");
       const errorCode =
         cancelled || config.signal.aborted
           ? "CANCELLED"

@@ -30,7 +30,7 @@ export function useNavigationGuard() {
     const { blocker: blocked, modal, message } = current.current;
     if (blocked.state !== "blocked") return;
     if (guard.current?.() === "busy") {
-      message.info("请等待当前工作流操作完成");
+      message.info("请等待当前操作完成");
       blocked.reset();
       return;
     }
@@ -54,7 +54,7 @@ export function useNavigationGuard() {
   const confirmExit = async (action: () => Promise<void>) => {
     const reason = guard.current?.();
     if (reason === "busy") {
-      message.info("请等待当前工作流操作完成");
+      message.info("请等待当前操作完成");
       return;
     }
     if (
@@ -74,5 +74,5 @@ export function useNavigationGuard() {
       bypass.current = false;
     }
   };
-  return { registerGuard, confirmExit };
+  return { registerGuard, confirmExit, canNavigate: () => !guard.current?.() };
 }

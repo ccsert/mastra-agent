@@ -1,0 +1,16 @@
+{
+  "name": "@platform/agent-ui-example",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5181 --strictPort",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@platform/agent-ui": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "8.2.2"
+  }
+}

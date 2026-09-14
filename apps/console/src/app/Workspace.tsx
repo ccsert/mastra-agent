@@ -49,7 +49,7 @@ export function Workspace(session: ConsoleSession) {
   const defaultProject = projects[0];
   const landing = location.pathname === "/" || location.pathname === "/login";
   const shell = (id: string, currentPage: Page) => (
-    <ProjectData key={id} projectId={id}>
+    <ProjectData key={id} projectId={id} owner={`${session.user.tenantId}:${session.user.id}`}>
       <ProjectConsole
         {...session}
         projects={projects}
@@ -69,6 +69,13 @@ export function Workspace(session: ConsoleSession) {
           </div>
         )
       );
+    if (location.pathname === "/team") {
+      const returnProject = (location.state as { projectId?: unknown } | null)?.projectId;
+      return shell(
+        projects.find((p) => p.id === returnProject)?.id ?? defaultProject?.id ?? "",
+        "team",
+      );
+    }
     if (landing)
       return defaultProject ? (
         <Navigate replace to={projectPath(defaultProject.id)} />

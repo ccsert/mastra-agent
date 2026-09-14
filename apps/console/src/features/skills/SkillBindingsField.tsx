@@ -4,9 +4,11 @@ import { useProjectQuery } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
 export function SkillBindingsField({
   value = [],
+  allowScriptChanges = true,
   onChange,
 }: {
   value?: SkillBinding[];
+  allowScriptChanges?: boolean;
   onChange?: (value: SkillBinding[]) => void;
 }) {
   const query = useProjectQuery("skills"),
@@ -47,6 +49,7 @@ export function SkillBindingsField({
               </strong>
               <p>指令和包内资料可按需读取。勾选后允许自主执行以下脚本：</p>
               <Checkbox.Group
+                disabled={!allowScriptChanges}
                 value={binding.entrypoints}
                 options={(skill?.entrypoints ?? []).map((path) => ({ value: path, label: path }))}
                 onChange={(paths) =>

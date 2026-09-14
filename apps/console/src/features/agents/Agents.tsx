@@ -8,8 +8,7 @@ import {
 } from "@ant-design/icons";
 import type { Agent, Conversation } from "@platform/sdk";
 import * as api from "@platform/sdk";
-import { Alert, App as AntApp, Button, Tag } from "antd";
-import { useState } from "react";
+import { Alert, Button, Tag } from "antd";
 import { unwrap } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
 import { useProjectId, useProjectQuery, useProjectRefresh } from "../../shared/data/ProjectData";
@@ -18,44 +17,33 @@ import { useOperation } from "../../shared/useOperation";
 export type AgentActions = {
   onEdit(agent?: Agent): void;
   onConversation(item: Conversation): void;
+  canEdit?: boolean;
+  canViewConfiguration?: boolean;
+  canRun?: boolean;
 };
 export function AgentCollection({
   limit,
   onEdit,
   onConversation,
+  canEdit = true,
+  canViewConfiguration = true,
+  canRun = true,
 }: AgentActions & { limit?: number }) {
   const projectId = useProjectId(),
-    refresh = useProjectRefresh(),
-    { message } = AntApp.useApp();
+    refresh = useProjectRefresh();
   const agentsQuery = useProjectQuery("agents"),
-    modelsQuery = useProjectQuery("models");
+    modelsQuery = useProjectQuery("models", { enabled: canViewConfiguration });
   const agents = agentsQuery.data ?? [],
     models = modelsQuery.data ?? [];
-  const [publishing, setPublishing] = useState("");
   const { busy, error, run } = useOperation();
-  function publish(agent: Agent) {
-    setPublishing(agent.id);
-    return run(async (signal) => {
-      const release = await unwrap(
-        api.publishAgent({
-          signal,
-          path: { projectId, id: agent.id },
-          body: { baseRevision: agent.draftRevision },
-        }),
-        signal,
-      );
-      void message.success(`已发布 v${release.version}`);
-      void refresh("agents", "workflowCatalog");
-    });
-  }
   function startChat(agent: Agent) {
-    setPublishing("");
     return run(async (signal) => {
       const item = await unwrap(
         api.createConversation({
           signal,
           path: { projectId },
-          body: { agentId: agent.id, title: agent.name },
+          // Blank placeholder; the first message names the session.
+          body: { agentId: agent.id, title: "新会话" },
         }),
         signal,
       );
@@ -76,6 +64,9 @@ export function AgentCollection({
                 {agent.publishedVersion ? `已发布 v${agent.publishedVersion}` : "草稿"}
               </Tag>
             </div>
+            {canViewConfiguration && agent.publishedReleaseId && agent.hasUnpublishedChanges && (
+              <Tag color="processing">有未发布修改</Tag>
+            )}
             <h3>{agent.name}</h3>
             <p>{agent.description || "为团队提供可复用的 AI 能力"}</p>
             <div className="agent-meta">
@@ -98,17 +89,12 @@ export function AgentCollection({
               )}
             </div>
             <div className="agent-actions">
-              <Button onClick={() => onEdit(agent)}>编辑</Button>
-              <Button
-                loading={publishing === agent.id && busy}
-                disabled={busy}
-                onClick={() => void publish(agent)}
-              >
-                发布
-              </Button>
+              {canViewConfiguration && (
+                <Button onClick={() => onEdit(agent)}>{canEdit ? "配置 Agent" : "查看配置"}</Button>
+              )}
               <Button
                 type="primary"
-                disabled={!agent.publishedReleaseId || busy}
+                disabled={!agent.publishedReleaseId || busy || !canRun}
                 onClick={() => void startChat(agent)}
               >
                 对话 <ArrowRightOutlined key="ArrowRightOutlined" />

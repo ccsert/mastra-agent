@@ -1,0 +1,92 @@
+.members-workspace {
+  background: #fff;
+  border: 1px solid #e3e9e5;
+  border-radius: 12px;
+  padding: 24px;
+}
+.members-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.members-intro > div:first-child > .anticon {
+  color: #246b59;
+  font-size: 24px;
+}
+.members-intro h2 {
+  font-size: 20px;
+  margin: 10px 0 8px;
+}
+.members-intro p {
+  color: #60736c;
+  margin: 0;
+}
+.members-intro > div:last-child,
+.member-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.member-name {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.member-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: #edf3ef;
+  border-radius: 50%;
+  color: #246b59;
+}
+.member-name > div {
+  display: grid;
+  gap: 3px;
+}
+.member-name small,
+.members-workspace td > small {
+  color: #64776f;
+  font-size: 12px;
+}
+.members-workspace .ant-select {
+  min-width: 180px;
+}
+.members-workspace .ant-table-wrapper {
+  overflow-x: auto;
+}
+.join-team {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: #f4f7f5;
+}
+.join-team > section {
+  width: min(100%, 460px);
+  padding: 36px;
+  background: white;
+  border: 1px solid #dfe8e2;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px #233e3110;
+}
+.join-team h1 {
+  font-size: 28px;
+  margin: 18px 0 10px;
+}
+.join-team p {
+  color: #60736c;
+  line-height: 1.7;
+}
+@media (max-width: 900px) {
+  .members-intro {
+    align-items: start;
+    flex-direction: column;
+  }
+  .members-workspace {
+    padding: 16px;
+  }
+}

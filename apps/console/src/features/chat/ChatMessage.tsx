@@ -1,0 +1,161 @@
+import {
+  FieldTimeOutlined,
+  PauseCircleOutlined,
+  SoundOutlined,
+  ToolOutlined,
+} from "@ant-design/icons";
+import {
+  ActionBarPrimitive,
+  AuiIf,
+  type ToolCallMessagePartComponent,
+  useAuiState,
+  useMessageTiming,
+} from "@assistant-ui/react";
+import type { SourceLocation } from "@platform/sdk";
+import { Button, Tag } from "antd";
+import { useState } from "react";
+import { Link } from "react-router";
+import { useProjectAccess } from "../../shared/access";
+import { TooltipIconButton } from "../../shared/assistant-ui";
+import { useProjectId } from "../../shared/data/ProjectData";
+import { projectPath } from "../../shared/navigation";
+import { DocumentReader, locationLabel } from "../knowledge";
+import { ResultToolCard } from "./ChatToolCards";
+import { readAloudSupported } from "./voice";
+
+type Citation = {
+  citationId: string;
+  filename: string;
+  ordinal: number;
+  content: string;
+  knowledgeBaseId?: string;
+  documentId?: string;
+  versionId?: string;
+  version?: number;
+  location?: SourceLocation | null;
+};
+export function MessageContext({ trace = false }: { trace?: boolean }) {
+  const projectId = useProjectId();
+  const metadata = useAuiState((s) => s.message.metadata.custom);
+  const skills = Array.isArray(metadata?.selectedSkills) ? metadata.selectedSkills : [];
+  return (
+    <div className="message-context">
+      {!trace && skills.length > 0 && <span>本次指定</span>}
+      {!trace &&
+        skills.map((s) =>
+          s && typeof s === "object" && "versionId" in s && "name" in s && "version" in s ? (
+            <Tag key={String(s.versionId)}>
+              {String(s.name)} · v{String(s.version)}
+            </Tag>
+          ) : null,
+        )}
+      {trace && typeof metadata?.runId === "string" && (
+        <Link to={projectPath(projectId, "runs", metadata.runId)}>查看本轮轨迹</Link>
+      )}
+    </div>
+  );
+}
+function citations(value: unknown): Citation[] {
+  if (!value || typeof value !== "object" || !("sources" in value) || !Array.isArray(value.sources))
+    return [];
+  return value.sources.filter(
+    (s): s is Citation =>
+      s &&
+      typeof s === "object" &&
+      typeof s.citationId === "string" &&
+      typeof s.filename === "string" &&
+      typeof s.ordinal === "number" &&
+      typeof s.content === "string",
+  );
+}
+export const ToolCard: ToolCallMessagePartComponent = (props) => {
+  const { toolName, result } = props;
+  const projectId = useProjectId();
+  const canReadSource = useProjectAccess()?.permissions.includes("resource.read") ?? false;
+  const [source, setSource] = useState<Citation | null>(null);
+  if (toolName === "knowledge_search" && result !== undefined && !props.isError) {
+    const sources = citations(result);
+    return (
+      <ResultToolCard {...props}>
+        <section className="chat-citations" aria-label="知识库来源">
+          <strong>
+            <ToolOutlined /> 知识检索 · {sources.length} 个来源
+          </strong>
+          {sources.length ? (
+            sources.map((s) => (
+              <details key={s.citationId} className="chat-citation">
+                <summary>
+                  <span>
+                    {s.filename} ·{" "}
+                    {s.location ? locationLabel(s.location) : `片段 ${s.ordinal + 1}`}{" "}
+                    {s.version ? `· v${s.version}` : ""}
+                  </span>
+                  <small>[{s.citationId}]</small>
+                </summary>
+                <p>{s.content}</p>
+                {canReadSource &&
+                  typeof s.documentId === "string" &&
+                  typeof s.knowledgeBaseId === "string" &&
+                  typeof s.versionId === "string" && (
+                    <Button size="small" type="link" onClick={() => setSource(s)}>
+                      定位原文
+                    </Button>
+                  )}
+              </details>
+            ))
+          ) : (
+            <p>未获得可用资料，请查看工具状态或调整问题。</p>
+          )}
+        </section>
+        {source?.documentId && source.knowledgeBaseId && (
+          <DocumentReader
+            projectId={projectId}
+            kbId={source.knowledgeBaseId}
+            documentId={source.documentId}
+            versionId={source.versionId}
+            location={source.location}
+            excerpt={source.content}
+            onClose={() => setSource(null)}
+          />
+        )}
+      </ResultToolCard>
+    );
+  }
+  return <ResultToolCard {...props} />;
+};
+
+export function AssistantContext() {
+  return <MessageContext trace />;
+}
+
+export function MessageExtras() {
+  const timing = useMessageTiming();
+  return (
+    <>
+      {readAloudSupported && (
+        <>
+          <AuiIf condition={(s) => s.message.speech == null}>
+            <ActionBarPrimitive.Speak asChild>
+              <TooltipIconButton tooltip="朗读这条回复">
+                <SoundOutlined />
+              </TooltipIconButton>
+            </ActionBarPrimitive.Speak>
+          </AuiIf>
+          <AuiIf condition={(s) => s.message.speech != null}>
+            <ActionBarPrimitive.StopSpeaking asChild>
+              <TooltipIconButton tooltip="停止朗读">
+                <PauseCircleOutlined />
+              </TooltipIconButton>
+            </ActionBarPrimitive.StopSpeaking>
+          </AuiIf>
+        </>
+      )}
+      {/* useMessageTiming estimates token counts. Only display observed client latency. */}
+      {!!timing?.totalStreamTime && (
+        <span className="message-timing" title="浏览器观测耗时">
+          <FieldTimeOutlined /> {(timing.totalStreamTime / 1000).toFixed(1)}s
+        </span>
+      )}
+    </>
+  );
+}

@@ -130,3 +130,397 @@
     padding: 22px;
   }
 }
+
+/* Agent authoring is a workspace with independently scrollable configuration and trial. */
+.main-content.agent-authoring-page {
+  padding: 0;
+  height: calc(100dvh - 76px);
+  min-height: 0;
+  overflow: hidden;
+}
+.agent-authoring {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.agent-authoring-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e3e9e5;
+  flex-shrink: 0;
+}
+.agent-authoring-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+.agent-authoring-title h1 {
+  font-size: 18px;
+  line-height: 1.4;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-authoring-title > div {
+  min-width: 0;
+}
+.agent-authoring-title > div > span {
+  font-size: 12px;
+  color: #63756d;
+}
+.agent-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.agent-authoring-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 166px minmax(0, 1fr);
+}
+.agent-authoring.with-preview .agent-authoring-body {
+  grid-template-columns: 166px minmax(340px, 1fr) minmax(340px, 37%);
+}
+.agent-config-nav {
+  padding: 22px 12px;
+  background: #fafcfb;
+  border-right: 1px solid #e3e9e5;
+  overflow-y: auto;
+}
+.agent-config-nav > button {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  text-align: left;
+  padding: 13px 10px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  color: #53695f;
+  cursor: pointer;
+}
+.agent-config-nav > button > .anticon {
+  font-size: 17px;
+  margin-top: 2px;
+}
+.agent-config-nav > button strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.agent-config-nav > button small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #667c71;
+}
+.agent-config-nav > button:hover {
+  background: #f0f5f2;
+}
+.agent-config-nav > button[aria-current] {
+  background: #e7f1eb;
+  color: #18543f;
+}
+.agent-config-nav > button:focus-visible {
+  outline: 2px solid #246b59;
+  outline-offset: 2px;
+}
+.agent-config-guidance {
+  border-top: 1px solid #e3e9e5;
+  margin: 26px 8px 0;
+  padding-top: 18px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #647a6e;
+}
+.agent-config-content {
+  padding: 28px 30px;
+  min-width: 0;
+  overflow-y: auto;
+}
+.agent-config-section {
+  max-width: 840px;
+  margin: 0 auto;
+}
+.agent-config-section[hidden],
+.agent-preview[hidden] {
+  display: none;
+}
+.agent-config-section > header {
+  margin-bottom: 26px;
+}
+.agent-section-kicker {
+  color: #34705b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.agent-config-section h2 {
+  margin: 10px 0;
+  font-size: 22px;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+.agent-config-section header p {
+  color: #60736b;
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+}
+.agent-form-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+.agent-form-pair .ant-input-number {
+  width: 100%;
+}
+.agent-config-section .ant-form-item {
+  margin-bottom: 22px;
+}
+.agent-config-section .ant-form-item-extra {
+  color: #64776d;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.agent-starting-points,
+.agent-preset-grid {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 24px;
+}
+.agent-starting-points .ant-btn,
+.agent-preset-grid .ant-btn {
+  height: auto;
+  white-space: normal;
+  padding: 14px 10px;
+  flex-direction: column;
+  align-items: start;
+  text-align: left;
+  gap: 6px;
+}
+.agent-starting-points .ant-btn > span,
+.agent-preset-grid .ant-btn > span {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.agent-preset-grid small {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.agent-selected-resources article {
+  border: 1px solid #e3e9e5;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 10px;
+}
+.agent-selected-resources p {
+  margin: 8px 0 0;
+  color: #60736b;
+  line-height: 1.7;
+}
+.agent-release-item {
+  padding: 20px 0;
+  border-bottom: 1px solid #e3e9e5;
+}
+.agent-release-item > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.agent-release-item time {
+  margin-left: auto;
+  color: #60736b;
+  font-size: 12px;
+}
+.agent-release-item p {
+  margin: 12px 0 7px;
+}
+.agent-release-item small {
+  color: #60736b;
+}
+.agent-preview {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e3e9e5;
+  background: #f8faf9;
+}
+.agent-preview > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid #e3e9e5;
+}
+.agent-preview > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.agent-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  flex-direction: column;
+  padding: 32px;
+}
+.agent-preview-empty > span {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  background: #e8f1ec;
+  color: #246b59;
+  border-radius: 16px;
+  font-size: 25px;
+}
+.agent-preview-empty h3 {
+  font-size: 18px;
+  margin: 22px 0 10px;
+}
+.agent-preview-empty p {
+  max-width: 290px;
+  font-size: 13px;
+  color: #61786c;
+  line-height: 1.8;
+  margin: 0 0 22px;
+}
+.agent-preview-empty small {
+  margin-top: 16px;
+  color: #64776d;
+  font-size: 11px;
+}
+.agent-preview-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.agent-preview-chat .aui-thread-root {
+  height: 100%;
+}
+.agent-preview-chat .chat-welcome {
+  padding: 30px 18px;
+}
+.agent-preview-chat .chat-welcome h2 {
+  font-size: 21px;
+}
+.agent-preview-chat .chat-welcome p {
+  font-size: 13px;
+}
+.agent-preview-chat .chat-footnote {
+  font-size: 10px;
+}
+.agent-publish-summary {
+  border: 1px solid #e3e9e5;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.agent-publish-summary ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+@media (max-width: 1250px) {
+  .agent-authoring.with-preview .agent-authoring-body {
+    grid-template-columns: 144px minmax(290px, 1fr) minmax(310px, 35%);
+  }
+  .agent-config-content {
+    padding: 24px 20px;
+  }
+  .agent-authoring-toolbar {
+    flex-wrap: wrap;
+    padding: 14px 18px;
+  }
+  .agent-starting-points,
+  .agent-preset-grid {
+    grid-template-columns: 1fr;
+  }
+  .agent-starting-points .ant-btn {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+@media (max-width: 1060px) {
+  .main-content.agent-authoring-page {
+    height: auto;
+    min-height: calc(100dvh - 76px);
+    overflow: visible;
+  }
+  .agent-authoring-body,
+  .agent-authoring.with-preview .agent-authoring-body {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  .agent-config-content {
+    min-height: 600px;
+    overflow: visible;
+  }
+  .agent-preview {
+    grid-column: 1 / -1;
+    height: 650px;
+    border-top: 1px solid #e3e9e5;
+    border-left: 0;
+  }
+}
+@media (max-width: 680px) {
+  .agent-authoring-body,
+  .agent-authoring.with-preview .agent-authoring-body {
+    display: flex;
+    flex-direction: column;
+  }
+  .agent-authoring-title {
+    flex-wrap: wrap;
+  }
+  .agent-toolbar-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .agent-config-nav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px;
+    border-bottom: 1px solid #e3e9e5;
+  }
+  .agent-config-nav > button {
+    width: auto;
+    flex-shrink: 0;
+    align-items: center;
+    margin: 0;
+  }
+  .agent-config-nav > button small,
+  .agent-config-guidance {
+    display: none;
+  }
+  .agent-form-pair {
+    grid-template-columns: 1fr;
+  }
+  .agent-config-content {
+    min-height: 500px;
+    padding: 24px 18px;
+  }
+  .agent-preview {
+    flex: none;
+  }
+}

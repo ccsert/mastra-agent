@@ -1,3 +1,4 @@
+import { AgentLimitError } from "@platform/contracts";
 import { createLogger, type Logger, requestId } from "@platform/operations";
 export interface WorkerConfig {
   controlPlaneUrl: string;
@@ -5,6 +6,8 @@ export interface WorkerConfig {
   runtimeToken: string;
   signal: AbortSignal;
   skillSandboxImage?: string;
+  taskWorkspaceRoot?: string;
+  taskSandboxImage?: string;
   logger?: Logger;
   onContact?: (status: number) => void;
 }
@@ -25,23 +28,52 @@ export function runtimeClient(config: WorkerConfig) {
     const id = requestId();
     const route = path.replace(/[a-f0-9]{8}-[a-f0-9-]{27,}/gi, ":id");
     let status = 0;
+    let responseCode: string | undefined;
     try {
-      const response = await fetch(config.controlPlaneUrl + path, {
-        method: "POST",
-        redirect: "error",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${config.runtimeToken}`,
-          "x-runtime-id": config.runtimeId,
-          "x-request-id": id,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]),
-      });
+      // Retry only fenced, deduplicated run writes. Claim is deliberately excluded:
+      // a lost claim response must not silently claim another run.
+      const retryablePath =
+        /^\/internal\/runtime\/runs\/[^/]+\/(events|heartbeat|finish|task)$/.test(path);
+      const send = () =>
+        fetch(config.controlPlaneUrl + path, {
+          method: "POST",
+          redirect: "error",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${config.runtimeToken}`,
+            "x-runtime-id": config.runtimeId,
+            "x-request-id": id,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]),
+        });
+      let response: Response | undefined;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          response = await send();
+          if (!retryablePath || response.status < 500 || attempt >= 2) break;
+          await response.body?.cancel();
+        } catch (error) {
+          if (!retryablePath || signal.aborted || attempt >= 2) throw error;
+        }
+        await waitForPoll(200 * (attempt + 1), signal);
+        signal.throwIfAborted();
+      }
       status = response.status;
       const data = await response.json();
       config.onContact?.(status);
-      if (!response.ok) throw new Error(`CONTROL_PLANE_${status}`);
+      if (!response.ok) {
+        if (typeof data?.code === "string" && /^[A-Z_]{3,60}$/.test(data.code))
+          responseCode = data.code;
+        const known = AgentLimitError.safeParse(data?.code);
+        throw new Error(
+          data?.code === "CANCELLED"
+            ? "CANCELLED"
+            : known.success
+              ? known.data
+              : `CONTROL_PLANE_${status}`,
+        );
+      }
       return data;
     } catch (error) {
       if (!signal.aborted) {
@@ -52,7 +84,8 @@ export function runtimeClient(config: WorkerConfig) {
           route,
           status,
           runtimeId: config.runtimeId,
-          errorCode: status ? `CONTROL_PLANE_${status}` : "CONTROL_PLANE_UNREACHABLE",
+          errorCode:
+            responseCode ?? (status ? `CONTROL_PLANE_${status}` : "CONTROL_PLANE_UNREACHABLE"),
         });
       }
       throw error;

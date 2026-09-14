@@ -45,6 +45,86 @@ export const DocumentInput = z
   })
   .strict()
   .openapi("DocumentInput");
+export const SourceLocation = z
+  .object({
+    kind: z.enum(["page", "paragraph"]),
+    index: z.number().int().min(1),
+    endIndex: z.number().int().min(1).optional(),
+  })
+  .openapi("SourceLocation");
+export const DocumentSection = z.object({
+  location: SourceLocation,
+  content: z.string().max(200000),
+});
+export const PlannedChunk = z.object({
+  ordinal: z.number().int().min(0).max(255),
+  content: z.string().min(1).max(2000),
+  location: SourceLocation,
+});
+export const ParsedDocument = z.object({
+  filename: z.string(),
+  format: z.enum(["pdf", "docx", "txt", "md"]),
+  contentHash: z.string(),
+  byteSize: z.number().int(),
+  sections: z.array(DocumentSection).min(1).max(2000),
+  chunks: z.array(PlannedChunk).min(1).max(256),
+  warnings: z.array(z.string()),
+});
+export const DocumentPreviewInput = z
+  .object({
+    filename: z
+      .string()
+      .trim()
+      .min(1)
+      .max(160)
+      .regex(/^[^/\\]+\.(pdf|docx|txt|md)$/i)
+      .refine((name) => [...name].every((c) => c.charCodeAt(0) >= 32)),
+    fileBase64: z
+      .string()
+      .min(4)
+      .max(11184812)
+      .regex(/^[A-Za-z0-9+/]*={0,2}$/)
+      .refine((value) => value.length % 4 === 0),
+    documentId: Id.optional(),
+  })
+  .strict()
+  .openapi("DocumentPreviewInput");
+export const DocumentPreview = ParsedDocument.extend({
+  id: Id,
+  expiresAt: z.string(),
+  documentId: Id.nullable(),
+  baseVersion: Id.nullable(),
+  unchanged: z.boolean(),
+}).openapi("DocumentPreview");
+export const DocumentImportInput = z
+  .object({ previewId: Id })
+  .strict()
+  .openapi("DocumentImportInput");
+export const DocumentVersion = z
+  .object({
+    id: Id,
+    documentId: Id,
+    version: z.number().int(),
+    filename: z.string(),
+    contentHash: z.string(),
+    format: z.enum(["pdf", "docx", "txt", "md"]),
+    byteSize: z.number().int(),
+    status: z.enum(["queued", "processing", "ready", "failed"]),
+    chunkCount: z.number().int(),
+    indexedCount: z.number().int(),
+    errorCode: z.string().nullable(),
+    active: z.boolean(),
+    createdAt: z.string(),
+    warnings: z.array(z.string()),
+  })
+  .openapi("DocumentVersion");
+export const DocumentSource = z
+  .object({
+    version: DocumentVersion,
+    sections: z.array(DocumentSection),
+    chunks: z.array(PlannedChunk),
+  })
+  .openapi("DocumentSource");
 export const KnowledgeDocument = z
   .object({
     id: Id,
@@ -55,6 +135,12 @@ export const KnowledgeDocument = z
     chunkCount: z.number().int(),
     errorCode: z.string().nullable(),
     createdAt: z.string(),
+    version: z.number().int().optional(),
+    versionId: Id.nullable().optional(),
+    activeVersionId: Id.nullable().optional(),
+    activeVersion: z.number().int().nullable().optional(),
+    indexedCount: z.number().int().optional(),
+    totalChunks: z.number().int().optional(),
   })
   .openapi("KnowledgeDocument");
 export const KnowledgeChunk = z
@@ -66,6 +152,9 @@ export const KnowledgeChunk = z
     ordinal: z.number().int(),
     content: z.string(),
     contentHash: z.string(),
+    versionId: Id.optional(),
+    version: z.number().int().optional(),
+    location: SourceLocation.omit({}).nullable().optional(),
   })
   .openapi("KnowledgeChunk");
 export const SearchHit = KnowledgeChunk.extend({
@@ -100,7 +189,14 @@ export const KnowledgeJob = z.object({
   leaseToken: z.string(),
   kind: z.enum(["ingest", "search"]),
   snapshot: KnowledgeSnapshot,
-  document: DocumentInput.extend({ id: Id }).nullable(),
+  document: z
+    .object({
+      id: Id,
+      filename: z.string(),
+      content: z.string(),
+      chunks: z.array(PlannedChunk).optional(),
+    })
+    .nullable(),
   search: SearchInput.nullable(),
   credentials: z.record(z.string(), z.string()),
   deadline: z.number(),
@@ -116,6 +212,7 @@ export const KnowledgeBatch = z
             ordinal: z.number().int().min(0).max(255),
             content: z.string().min(1).max(2000),
             vector: EmbeddingVector,
+            location: SourceLocation.optional(),
           })
           .strict(),
       )

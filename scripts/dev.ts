@@ -63,10 +63,16 @@ function stop(code = 0) {
   }
   setTimeout(() => process.exit(code), 1000);
 }
+// `--watch` rather than a plain run: the console reloads through Vite's HMR the
+// moment a source file changes, so without watching the control plane a new
+// screen would call routes the running process does not have yet, and the
+// failure looks like a network problem. Node's own watch keeps
+// `--conditions=development`, so workspace packages are read from source too.
 start("Control plane", [
   "exec",
   "node",
   "--conditions=development",
+  "--watch",
   "--import",
   "tsx",
   "apps/control-plane/src/main.ts",
@@ -81,6 +87,8 @@ start(
     "RUNTIME_HOST",
     "RUNTIME_PORT",
     "SKILL_SANDBOX_IMAGE",
+    "TASK_SANDBOX_IMAGE",
+    "TASK_WORKSPACE_ROOT",
   ],
 );
 start(

@@ -3,8 +3,13 @@ import {
   Id,
   PageQuery,
   SkillAccessRequest,
+  SkillDiscovery,
   SkillFileContent,
+  SkillImportPreview,
+  SkillImportResult,
   SkillPath,
+  SkillPreviewInput,
+  SkillSourceInput,
   SkillUpload,
   SkillVersion,
   z,
@@ -21,6 +26,97 @@ import {
 import type { Skills } from "./skills.ts";
 export function registerSkillRoutes(app: ApiApp, skills: Skills) {
   const root = "/api/v1/projects/{projectId}/skills";
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/discover`,
+      operationId: "discoverSkills",
+      request: { params: projectParams, body: body(SkillSourceInput) },
+      responses: { 200: json(SkillDiscovery), ...errors },
+    }),
+    async (c) =>
+      c.json(
+        await skills.discover(
+          c.get("principal"),
+          c.req.valid("param").projectId,
+          c.req.valid("json"),
+        ),
+        200,
+      ),
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/previews`,
+      operationId: "previewSkillImport",
+      request: { params: projectParams, body: body(SkillPreviewInput) },
+      responses: { 200: json(SkillImportPreview), ...errors },
+    }),
+    async (c) =>
+      c.json(
+        await skills.preview(
+          c.get("principal"),
+          c.req.valid("param").projectId,
+          c.req.valid("json"),
+        ),
+        200,
+      ),
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/{id}/update-preview`,
+      operationId: "previewSkillUpdate",
+      request: { params: itemParams, body: body(z.object({}).strict()) },
+      responses: { 200: json(SkillImportPreview), ...errors },
+    }),
+    async (c) =>
+      c.json(
+        await skills.previewUpdate(
+          c.get("principal"),
+          c.req.valid("param").projectId,
+          c.req.valid("param").id,
+        ),
+        200,
+      ),
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: `${root}/previews/{id}/confirm`,
+      operationId: "confirmSkillImport",
+      request: { params: itemParams, body: body(z.object({}).strict()) },
+      responses: { 200: json(SkillImportResult), ...errors },
+    }),
+    async (c) =>
+      c.json(
+        await skills.confirmImport(
+          c.get("principal"),
+          c.req.valid("param").projectId,
+          c.req.valid("param").id,
+        ),
+        200,
+      ),
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: `${root}/previews/{id}/file`,
+      operationId: "getSkillPreviewFile",
+      request: { params: itemParams, query: z.object({ path: SkillPath }) },
+      responses: { 200: json(SkillFileContent), ...errors },
+    }),
+    async (c) =>
+      c.json(
+        await skills.previewFile(
+          c.get("principal"),
+          c.req.valid("param").projectId,
+          c.req.valid("param").id,
+          c.req.valid("query").path,
+        ),
+        200,
+      ),
+  );
   app.openapi(
     createRoute({
       method: "get",

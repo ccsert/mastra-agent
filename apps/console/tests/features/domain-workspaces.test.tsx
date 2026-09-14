@@ -100,6 +100,7 @@ test("closing a document preview cancels its plaintext request", async (t) => {
     if (request.url.endsWith("/knowledge")) return Response.json([bases[0]]);
     if (new URL(request.url).pathname.endsWith("/documents"))
       return Response.json([document("kb-0", "资料.md")]);
+    if (new URL(request.url).pathname.endsWith("/versions")) return Response.json([]);
     started = request;
     return pending.promise;
   });
@@ -111,7 +112,7 @@ test("closing a document preview cancels its plaintext request", async (t) => {
     </Selection>,
   );
   await screen.findByText("资料.md");
-  fireEvent.click(screen.getByRole("button", { name: "查看分段" }));
+  fireEvent.click(screen.getByRole("button", { name: "阅读资料" }));
   await waitFor(() => assert.ok(started));
   fireEvent.click(screen.getByRole("button", { name: /关闭|Close/ }));
   assert.equal(started?.signal.aborted, true);

@@ -1,0 +1,116 @@
+{
+  "protocolVersion": "1.0",
+  "appId": "northstar.orders",
+  "name": "Northstar 订单工作台",
+  "version": "1.0.0",
+  "actions": [
+    {
+      "id": "orders.search",
+      "title": "查找订单",
+      "description": "根据订单号或客户名称筛选当前订单列表。",
+      "effect": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "orders.open",
+      "title": "打开订单详情",
+      "description": "从当前列表选择一条订单，不能丢弃已有未保存草稿。",
+      "effect": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "enum": ["ORD-1001", "ORD-1002", "ORD-1003"]
+          }
+        },
+        "required": ["orderId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "orders.draft.patch",
+      "title": "填写订单草稿",
+      "description": "修改当前订单的交付备注或优先级，不保存、不提交。",
+      "effect": "draft",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["normal", "urgent"]
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "orders.draft.validate",
+      "title": "检查草稿",
+      "description": "检查备注与优先级，并在页面展示验证结果。",
+      "effect": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Optional trusted execution manager overlay. Build web-task.Dockerfile first.
+# The absolute TASK_WORKSPACE_ROOT must exist at the same path on the Docker host
+# and inside Runtime, because child containers receive a host bind mount.
+services:
+  runtime:
+    environment:
+      TASK_SANDBOX_IMAGE: ${TASK_SANDBOX_IMAGE:?Set an immutable preloaded image ID}
+      TASK_WORKSPACE_ROOT: ${TASK_WORKSPACE_ROOT:?Set an absolute persistent workspace path}
+      DOCKER_HOST: unix:///var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?Set the Docker socket group ID}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${TASK_WORKSPACE_ROOT}:${TASK_WORKSPACE_ROOT}

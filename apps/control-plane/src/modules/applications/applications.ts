@@ -66,8 +66,8 @@ export class Applications {
     };
   }
   async list(actor: Principal, projectId: string) {
+    await this.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
-    await this.projects.get(actor, projectId);
     return (
       await this.db.query(
         "SELECT * FROM applications WHERE project_id=$1 ORDER BY created_at DESC",
@@ -76,8 +76,8 @@ export class Applications {
     ).map(appDto);
   }
   async create(actor: Principal, projectId: string, name: string) {
+    await this.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
-    await this.projects.get(actor, projectId);
     const secretKey = randomBytes(32).toString("hex");
     const [r] = await this.db.query(
       "INSERT INTO applications(id,tenant_id,project_id,name,access_key,secret_enc) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",
@@ -93,8 +93,8 @@ export class Applications {
     return { ...appDto(r), secretKey };
   }
   async revoke(actor: Principal, projectId: string, id: string) {
+    await this.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
-    await this.projects.get(actor, projectId);
     await this.db.query("UPDATE applications SET active=false WHERE id=$1 AND project_id=$2", [
       id,
       projectId,

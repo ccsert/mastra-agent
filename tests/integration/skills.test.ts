@@ -283,6 +283,8 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
     assert.equal(completed.status, "succeeded", JSON.stringify(completed));
     assert.match(model.systemPrompts[0], /用户为本次任务明确指定/);
     assert.match(model.systemPrompts[0], /ONE/);
+    assert.match(model.systemPrompts[0], /## References\\n- references\/rules\.md/);
+    assert.match(model.systemPrompts[0], /## Scripts\\n- scripts\/report\.mjs/);
     assert.doesNotMatch(model.systemPrompts[0], /TWO/);
     const events = defined(
         (await sdk.listRunEvents({ client, path: { ...path, id: run.id } })).data,
@@ -303,7 +305,11 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
       events.map((e) => e.seq),
       events.map((_, index) => index),
     );
-    assert.match(serialized, /ONE/);
+    assert.match(serialized, /Skill report-skill v1 已在本轮加载/);
+    assert.doesNotMatch(serialized, /报表 Skill ONE/);
+    const activations = events.filter((e) => e.chunk.type === "data-skill-activation");
+    assert.equal(activations.length, 1);
+    assert.equal((activations[0].chunk.data as { versionId: string }).versionId, v1.id);
     assert.doesNotMatch(serialized, /TWO/);
     assert.match(serialized, /不得编造/);
     assert.equal(outputs.length, script ? 3 : 2);
@@ -314,7 +320,7 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
     const messages = defined(
       (await sdk.listMessages({ client, path: { ...path, id: conversation.id } })).data,
     );
-    assert.match(JSON.stringify(messages), /ONE/);
+    assert.match(JSON.stringify(messages), /Skill report-skill v1 已在本轮加载/);
     assert.doesNotMatch(JSON.stringify(messages), /data-model-request/);
     assert.equal(messages[0].metadata?.runId, run.id);
     assert.equal(messages[0].metadata?.selectedSkills?.[0].versionId, v1.id);
@@ -384,7 +390,17 @@ test("generated SDK imports and fences immutable Skills; Mastra discovers and re
       );
       workflowStatus = item.status;
       if (!["queued", "running"].includes(item.status)) {
-        assert.equal(item.status, "succeeded", JSON.stringify(item));
+        assert.equal(
+          item.status,
+          "succeeded",
+          JSON.stringify({
+            item,
+            nodes: await db.query(
+              "SELECT node_id,status,error_code FROM workflow_node_runs WHERE job_id=$1",
+              [workflowRun.id],
+            ),
+          }),
+        );
         break;
       }
       await new Promise((r) => setTimeout(r, 75));

@@ -141,11 +141,129 @@ test("finishing a long streamed turn refreshes its tail before marking model out
     });
   });
   render(view("A"));
-  fireEvent.click(await screen.findByRole("button", { name: "加载第 1 轮后续调用" }));
+  // The newest turn now follows its tail automatically, including after completion.
   await screen.findByText("进行中结果");
   finished = true;
   fireEvent.click(screen.getByRole("button", { name: "刷新会话" }));
   await screen.findByText("最终结果");
   assert.ok(tailReads >= 2);
   assert.equal(!!screen.queryByText("未完成"), false);
+});
+
+test("settled long conversations do not reload already loaded pages on a polling timer", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const reads: number[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(new Request(input, init).url);
+    const before = Number(url.searchParams.get("before") ?? 81);
+    reads.push(before);
+    return Response.json({ ...page(before - 1, before > 2 ? before - 1 : null), totalTurns: 80 });
+  });
+  render(view("settled-pages"));
+  await screen.findByText("第80轮的问题");
+  fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
+  await screen.findByText("第79轮的问题");
+  const readCount = reads.length;
+  await act(async () => {
+    t.mock.timers.tick(3100);
+  });
+  assert.equal(reads.length, readCount, "已完成的会话不应每三秒从头重读所有历史分页");
+});
+
+test("opening a long conversation bounds simultaneous tail reads", async (t) => {
+  const pending: Request[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (new URL(request.url).pathname.endsWith("/events")) {
+      pending.push(request);
+      return new Promise<Response>((_, reject) =>
+        request.signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          { once: true },
+        ),
+      );
+    }
+    return Response.json({
+      initial: { run, request: null },
+      totalTurns: 80,
+      nextBefore: 71,
+      turns: Array.from({ length: 10 }, (_, index) => ({
+        ...page(71 + index).turns[0],
+        hasMoreEvents: true,
+      })),
+    });
+  });
+  render(view("bounded-tails"));
+  await waitFor(() => assert.ok(pending.length > 0));
+  assert.ok(
+    pending.length <= 3,
+    `初次进入并发读取了 ${pending.length} 轮完整尾部，应限制在 3 轮以内`,
+  );
+});
+
+test("live polling updates only the head and preserves pages already read", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const reads: (string | null)[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const before = new URL(new Request(input, init).url).searchParams.get("before");
+    reads.push(before);
+    const data = before ? page(79, 79) : page(80, 80);
+    return Response.json({
+      ...data,
+      totalTurns: 80,
+      turns: data.turns.map((turn) => ({
+        ...turn,
+        run: { ...turn.run, status: before ? "succeeded" : "running" },
+      })),
+    });
+  });
+  render(view("live-head"));
+  await screen.findByText("第80轮的问题");
+  fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
+  await screen.findByText("第79轮的问题");
+  const headReads = reads.filter((before) => before === null).length;
+  await act(async () => {
+    t.mock.timers.tick(3100);
+  });
+  await waitFor(() =>
+    assert.equal(reads.filter((before) => before === null).length, headReads + 1),
+  );
+  assert.equal(reads.filter((before) => before !== null).length, 1);
+  assert.ok(screen.getByText("第79轮的问题"));
+});
+
+test("an older active turn outside the newest page still reaches its terminal state without polling settled history", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  let finished = false;
+  const reads: (string | null)[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const before = new URL(new Request(input, init).url).searchParams.get("before");
+    reads.push(before);
+    const number = before === null ? 20 : Number(before) - 1;
+    const data = page(number, number);
+    return Response.json({
+      ...data,
+      totalTurns: 20,
+      turns: data.turns.map((turn) => ({
+        ...turn,
+        run: { ...turn.run, status: number === 19 && !finished ? "running" : "succeeded" },
+      })),
+    });
+  });
+  render(view("older-active"));
+  await screen.findByText("第20轮的问题");
+  fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
+  await screen.findByText("第19轮的问题");
+  fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
+  await screen.findByText("第18轮的问题");
+  finished = true;
+  await act(async () => {
+    t.mock.timers.tick(3100);
+  });
+  await waitFor(() => assert.ok(reads.filter((before) => before === "20").length === 2));
+  await waitFor(() =>
+    assert.equal(screen.queryAllByRole("button", { name: /本轮运行.*运行中/ }).length, 0),
+  );
+  assert.equal(reads.filter((before) => before === "19").length, 1);
 });

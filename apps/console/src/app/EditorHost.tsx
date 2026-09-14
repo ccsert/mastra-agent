@@ -1,4 +1,4 @@
-import type { Agent } from "@platform/sdk";
+import type { Agent, Model, Tool } from "@platform/sdk";
 import { AgentEditor } from "../features/agents/index";
 import { ModelEditor } from "../features/models/index";
 import { ProjectEditor } from "../features/projects/index";
@@ -7,15 +7,24 @@ import type { EditorCallbacks } from "../shared/EditorForm";
 export type EditorKind = "project" | "agent" | "model" | "tool";
 export function EditorHost({
   kind,
+  agent,
+  model,
+  tool,
   ...props
-}: EditorCallbacks & { kind: EditorKind | null; projectId: string; agent?: Agent }) {
+}: EditorCallbacks & {
+  kind: EditorKind | null;
+  projectId: string;
+  agent?: Agent;
+  model?: Model;
+  tool?: Tool;
+}) {
   switch (kind) {
     case "agent":
-      return <AgentEditor {...props} />;
+      return <AgentEditor {...props} agent={agent} />;
     case "model":
-      return <ModelEditor {...props} />;
+      return <ModelEditor {...props} model={model} />;
     case "tool":
-      return <ToolEditor {...props} />;
+      return <ToolEditor {...props} tool={tool} />;
     case "project":
       return <ProjectEditor {...props} />;
     default:

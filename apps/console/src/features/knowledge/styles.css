@@ -275,3 +275,80 @@
     gap: 16px;
   }
 }
+
+.knowledge-document-toolbar,
+.document-reader-controls,
+.document-import-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.knowledge-document-toolbar {
+  justify-content: space-between;
+}
+.knowledge-document-toolbar p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.document-import-footer {
+  margin: 0;
+}
+.document-import-footer > span {
+  margin-right: auto;
+  color: var(--text-secondary);
+}
+.document-import-review {
+  margin-top: 20px;
+}
+.document-reader-controls h3 {
+  margin: 0;
+}
+.document-reader-controls .ant-select {
+  min-width: 160px;
+}
+.document-original {
+  padding: 24px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 10px;
+  min-height: 260px;
+  background: var(--surface, #fff);
+}
+.document-original p,
+.document-chunk-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  margin: 0;
+}
+.document-original mark {
+  background: #fff0a8;
+  color: #312b12;
+}
+.document-reading-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.document-name small {
+  display: block;
+}
+.knowledge-documents .ant-progress {
+  max-width: 130px;
+}
+@media (max-width: 700px) {
+  .document-original {
+    padding: 16px;
+  }
+  .document-import-footer > span {
+    width: 100%;
+  }
+  .document-reader-controls {
+    gap: 8px;
+  }
+  .document-reader-source {
+    min-width: 0;
+  }
+}

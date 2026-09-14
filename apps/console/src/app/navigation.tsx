@@ -6,9 +6,9 @@ import {
   CloudServerOutlined,
   CodeOutlined,
   CommentOutlined,
-  DeploymentUnitOutlined,
   FileZipOutlined,
   RobotOutlined,
+  SettingOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
 import type React from "react";
@@ -25,11 +25,13 @@ export const navigation: [Page, string, React.ReactNode][] = [
   ["models", "模型服务", <ApiOutlined key="ApiOutlined" />],
   ["tools", "工具", <ToolOutlined key="ToolOutlined" />],
   ["mcp", "MCP 服务", <ApiOutlined key="mcp" />],
-  ["runs", "运行记录", <DeploymentUnitOutlined key="DeploymentUnitOutlined" />],
   ["applications", "应用接入", <CodeOutlined key="CodeOutlined" />],
   ["runtimes", "Runtime", <CloudServerOutlined key="CloudServerOutlined" />],
+  ["settings", "项目设置", <SettingOutlined key="SettingOutlined" />],
 ];
 export const pageTitles: Record<Page, [string, string]> = {
+  settings: ["项目设置", "管理项目成员，明确配置、发布与使用权限。"],
+  team: ["团队设置", "管理团队账号、邀请和操作记录。"],
   overview: ["工作台", "从模型配置到业务调用，管理你的 Agent 项目。"],
   agents: ["Agents", "配置角色与工具，发布可供团队和业务系统使用的智能体。"],
   skills: ["Skills", "管理标准技能包，让 Agent 复用团队指令、资料与脚本。"],

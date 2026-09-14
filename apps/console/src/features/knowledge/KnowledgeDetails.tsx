@@ -1,14 +1,17 @@
-import { FileTextOutlined, InboxOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { FileTextOutlined, PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { KnowledgeBase, KnowledgeDocument, Model } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, App, Button, Drawer, Empty, Input, Select, Table, Tabs, Tag, Upload } from "antd";
+import { Alert, App, Button, Empty, Input, Progress, Select, Table, Tabs, Tag } from "antd";
 import { useEffect, useRef, useState } from "react";
+import { useProjectAccess } from "../../shared/access";
 import { timestamp, unwrap } from "../../shared/api";
 import { useProjectRefresh } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
 import { useLifetime } from "../../shared/useLifetime";
+import { DocumentImport } from "./DocumentImport";
+import { DocumentReader, locationLabel } from "./DocumentReader";
 import { knowledgeQueries } from "./queries";
 
 const status: Record<KnowledgeDocument["status"], [string, string]> = {
@@ -29,6 +32,7 @@ const failure: Record<string, string> = {
   RUNTIME_ERROR: "处理未完成，请检查 Runtime 和模型配置。",
 };
 export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Model[] }) {
+  const canEdit = useProjectAccess()?.permissions.includes("resource.edit") ?? false;
   const projectId = kb.projectId,
     kbId = kb.id;
   const { message, modal } = App.useApp(),
@@ -40,49 +44,20 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
   const documentsQuery = useInfiniteQuery(knowledgeQueries.documents(projectId, kbId)),
     documents = pageItems(documentsQuery.data);
   const [error, setError] = useState(""),
-    [uploading, setUploading] = useState(0),
+    [importing, setImporting] = useState<{ document?: KnowledgeDocument } | null>(null),
     [query, setQuery] = useState(""),
     [topK, setTopK] = useState(5),
     [searchId, setSearchId] = useState(""),
     [submitting, setSubmitting] = useState(false),
-    [preview, setPreview] = useState<KnowledgeDocument | null>(null);
+    [preview, setPreview] = useState<{
+      id: string;
+      versionId?: string;
+      location?: api.SourceLocation | null;
+      excerpt?: string;
+    } | null>(null);
   const searchQuery = useQuery(knowledgeQueries.search(projectId, kbId, searchId)),
     search = searchQuery.data;
   const searching = submitting || (!!search && ["queued", "running"].includes(search.status));
-  async function upload(file: File) {
-    const signal = lifetime();
-    setUploading((n) => n + 1);
-    setError("");
-    try {
-      if (!/\.(txt|md)$/i.test(file.name) || file.size > 800000)
-        throw new Error("请选择不超过 800 KB 的 UTF-8 TXT 或 Markdown 文件。");
-      let content: string;
-      try {
-        content = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-          await file.arrayBuffer(),
-        );
-      } catch {
-        throw new Error("文档不是有效 UTF-8 文本，请转换编码后上传。");
-      }
-      if (content.length > 200000) throw new Error("单份文档最多 20 万字符，请拆分后上传。");
-      signal.throwIfAborted();
-      await unwrap(
-        api.uploadKnowledgeDocument({
-          signal,
-          path: { projectId, kbId },
-          body: { filename: file.name, content },
-        }),
-        signal,
-      );
-      void refresh("knowledgeBases");
-      void message.success(`${file.name} 已提交处理`);
-    } catch (e) {
-      if (!signal.aborted) setError(e instanceof Error ? e.message : "上传失败");
-    } finally {
-      if (!signal.aborted) setUploading((n) => n - 1);
-    }
-    return Upload.LIST_IGNORE;
-  }
   async function retry(doc: KnowledgeDocument) {
     const signal = lifetime();
     try {
@@ -176,23 +151,14 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
             label: `文档 · ${kb.documentCount}`,
             children: (
               <>
-                <Upload.Dragger
-                  accept=".txt,.md"
-                  multiple
-                  showUploadList={false}
-                  beforeUpload={(file) => upload(file)}
-                  disabled={uploading > 0}
-                >
-                  <p className="ant-upload-drag-icon">
-                    <InboxOutlined />
-                  </p>
-                  <p className="ant-upload-text">
-                    {uploading ? `正在提交 ${uploading} 份文档…` : "点击或拖放文件到这里"}
-                  </p>
-                  <p className="ant-upload-hint">
-                    UTF-8 TXT / Markdown · 单份 800 KB、20 万字符以内 · 完成处理后自动参与检索
-                  </p>
-                </Upload.Dragger>
+                <div className="knowledge-document-toolbar">
+                  <p>PDF、DOCX、TXT 和 Markdown；可预览正文、追溯版本与引用。</p>
+                  {canEdit && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setImporting({})}>
+                      导入资料
+                    </Button>
+                  )}
+                </div>
                 <QueryState label="文档" query={documentsQuery}>
                   <Table<KnowledgeDocument>
                     className="knowledge-documents"
@@ -217,7 +183,9 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                             <FileTextOutlined />
                             <div>
                               <strong>{d.filename}</strong>
-                              <small>{timestamp(d.createdAt)}</small>
+                              <small>
+                                v{d.version ?? 1} · {timestamp(d.createdAt)}
+                              </small>
                             </div>
                           </div>
                         ),
@@ -227,6 +195,16 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                         render: (_, d) => (
                           <div>
                             <Tag color={status[d.status][1]}>{status[d.status][0]}</Tag>
+                            {d.activeVersionId && d.activeVersionId !== d.versionId && (
+                              <small>v{d.activeVersion} 继续提供检索</small>
+                            )}
+                            {d.status === "processing" && !!d.totalChunks && (
+                              <Progress
+                                size="small"
+                                percent={Math.round(((d.indexedCount ?? 0) / d.totalChunks) * 100)}
+                                format={() => `${d.indexedCount ?? 0}/${d.totalChunks}`}
+                              />
+                            )}
                             {d.errorCode && (
                               <small className="document-error">
                                 {failure[d.errorCode] ?? d.errorCode}
@@ -238,25 +216,36 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                       { title: "分段", dataIndex: "chunkCount", width: 65 },
                       {
                         title: "操作",
-                        width: 150,
+                        width: 225,
                         render: (_, d) => (
                           <>
                             <Button
                               size="small"
                               type="text"
-                              disabled={d.status !== "ready"}
-                              onClick={() => setPreview(d)}
+                              onClick={() => setPreview({ id: d.id })}
                             >
-                              查看分段
+                              阅读资料
                             </Button>
-                            {d.status === "failed" && (
+                            {canEdit && d.status === "failed" && (
                               <Button size="small" type="text" onClick={() => void retry(d)}>
                                 重试
                               </Button>
                             )}
-                            <Button size="small" type="text" danger onClick={() => remove(d)}>
-                              删除
-                            </Button>
+                            {canEdit && (
+                              <>
+                                <Button
+                                  size="small"
+                                  type="text"
+                                  disabled={["queued", "processing"].includes(d.status)}
+                                  onClick={() => setImporting({ document: d })}
+                                >
+                                  更新
+                                </Button>
+                                <Button size="small" type="text" danger onClick={() => remove(d)}>
+                                  删除
+                                </Button>
+                              </>
+                            )}
                           </>
                         ),
                       },
@@ -293,7 +282,7 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                       type="primary"
                       icon={<SearchOutlined />}
                       loading={searching}
-                      disabled={!query.trim() || !kb.readyCount}
+                      disabled={!canEdit || !query.trim() || !kb.readyCount}
                       onClick={() => void runSearch()}
                     >
                       测试检索
@@ -344,10 +333,26 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
                       <strong>
                         {index + 1}. {hit.filename}
                       </strong>
-                      <span>片段 {hit.ordinal + 1}</span>
+                      <span>
+                        v{hit.version ?? 1} · {locationLabel(hit.location)}
+                      </span>
                     </header>
                     <p>{hit.content}</p>
                     <footer>
+                      <Button
+                        size="small"
+                        type="link"
+                        onClick={() =>
+                          setPreview({
+                            id: hit.documentId,
+                            versionId: hit.versionId,
+                            location: hit.location,
+                            excerpt: hit.content,
+                          })
+                        }
+                      >
+                        定位原文
+                      </Button>
                       <span>向量相似度 {hit.similarity.toFixed(4)}</span>
                       {hit.rerankScore !== null && (
                         <span>重排分数 {hit.rerankScore.toFixed(4)}</span>
@@ -363,34 +368,31 @@ export function KnowledgeDetails({ kb, models }: { kb: KnowledgeBase; models: Mo
           },
         ]}
       />
-      <Drawer
-        title={preview?.filename ?? "文档分段"}
-        open={!!preview}
-        onClose={() => setPreview(null)}
-        size={640}
-        destroyOnHidden
-      >
-        {preview && (
-          <KnowledgeChunks key={preview.id} projectId={projectId} kbId={kbId} id={preview.id} />
-        )}
-      </Drawer>
+      {preview && (
+        <DocumentReader
+          key={`${preview.id}-${preview.versionId ?? "latest"}`}
+          projectId={projectId}
+          kbId={kbId}
+          documentId={preview.id}
+          versionId={preview.versionId}
+          location={preview.location}
+          excerpt={preview.excerpt}
+          onClose={() => setPreview(null)}
+        />
+      )}
+      {importing && (
+        <DocumentImport
+          projectId={projectId}
+          kbId={kbId}
+          document={importing.document}
+          onClose={() => setImporting(null)}
+          onImported={() => {
+            setImporting(null);
+            void refresh("knowledgeBases");
+            void message.success("资料已提交，处理完成后可检索");
+          }}
+        />
+      )}
     </>
-  );
-}
-function KnowledgeChunks({ projectId, kbId, id }: { projectId: string; kbId: string; id: string }) {
-  const query = useQuery(knowledgeQueries.chunks(projectId, kbId, id));
-  return (
-    <QueryState label="文档分段" query={query}>
-      {query.data?.map((c) => (
-        <article className="knowledge-source" key={c.id}>
-          <header>
-            <strong>片段 {c.ordinal + 1}</strong>
-            <span>{c.content.length} 字符</span>
-          </header>
-          <p>{c.content}</p>
-          <footer>文档摘要 {c.contentHash.slice(0, 12)}</footer>
-        </article>
-      ))}
-    </QueryState>
   );
 }

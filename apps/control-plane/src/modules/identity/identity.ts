@@ -19,14 +19,16 @@ export class Identity {
         userId = randomUUID();
       await tx.query("INSERT INTO tenants(id,name) VALUES($1,$2)", [tenantId, workspaceName]);
       await tx.query(
-        "INSERT INTO users(id,tenant_id,username,display_name,password_hash) VALUES($1,$2,$3,$4,$5)",
+        "INSERT INTO users(id,tenant_id,username,display_name,password_hash,role) VALUES($1,$2,$3,$4,$5,'owner')",
         [userId, tenantId, username, username, passwordHash],
       );
       return { tenantId, userId };
     });
   }
   async login(username: string, password: string) {
-    const [user] = await this.db.query("SELECT * FROM users WHERE username=$1", [username]);
+    const [user] = await this.db.query("SELECT * FROM users WHERE username=$1 AND active", [
+      username,
+    ]);
     if (!user) {
       await hashPassword(password);
       throw new ApiError(401, "INVALID_CREDENTIALS", "账号或密码错误");
@@ -45,7 +47,7 @@ export class Identity {
   }
   async session(token: string): Promise<Principal> {
     const [r] = await this.db.query(
-      "SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=$1 AND s.expires_at>now()",
+      "SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active",
       [sha256(token)],
     );
     if (!r) throw new ApiError(401, "UNAUTHENTICATED", "请先登录");
@@ -55,6 +57,7 @@ export class Identity {
       displayName: text(r, "display_name"),
       kind: "user",
       entry: "console",
+      tenantRole: r.role as Principal["tenantRole"],
     };
   }
 }

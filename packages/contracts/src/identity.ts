@@ -1,3 +1,4 @@
+import { TenantRole } from "./access.ts";
 import { Id, z } from "./common.ts";
 export const Application = z
   .object({
@@ -17,6 +18,7 @@ export const Principal = z
     kind: z.enum(["user", "application"]),
     projectId: Id.optional(),
     entry: z.string(),
+    tenantRole: TenantRole.optional(),
   })
   .openapi("Principal");
 export type Principal = z.infer<typeof Principal>;

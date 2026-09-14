@@ -5,6 +5,8 @@ import type {
   KnowledgeBase,
   McpServer,
   Model,
+  ModelVendorPreset,
+  ProjectAccess,
   Run,
   RuntimeInfo,
   SkillVersion,
@@ -26,12 +28,14 @@ import { unwrap, unwrapPage } from "../api";
 import { pageOptions } from "./pages";
 
 type Resources = {
+  access: ProjectAccess;
   agents: Agent[];
   skills: SkillVersion[];
   applications: Application[];
   conversations: Conversation[];
   knowledgeBases: KnowledgeBase[];
   models: Model[];
+  modelVendors: ModelVendorPreset[];
   runs: Run[];
   runtimes: RuntimeInfo[];
   tools: Tool[];
@@ -57,12 +61,16 @@ const loaders: {
     } while (cursor);
     return items;
   },
+  access: (projectId, signal) => unwrap(api.getProjectAccess({ path: { projectId }, signal })),
   agents: (projectId, signal) => unwrap(api.listAgents({ path: { projectId }, signal })),
   applications: (projectId, signal) =>
     unwrap(api.listApplications({ path: { projectId }, signal })),
   knowledgeBases: (projectId, signal) =>
     unwrap(api.listKnowledgeBases({ path: { projectId }, signal })),
   models: (projectId, signal) => unwrap(api.listModels({ path: { projectId }, signal })),
+  // Static catalogue: the vendor list is not scoped to a project, so the project
+  // id is unused, but the loader signature stays uniform with its siblings.
+  modelVendors: (_projectId, signal) => unwrap(api.listModelVendors({ signal })),
   runs: (projectId, signal) => unwrap(api.listRuns({ path: { projectId }, signal })),
   runtimes: (_projectId, signal) => unwrap(api.listRuntimes({ signal })),
   tools: (projectId, signal) => unwrap(api.listTools({ path: { projectId }, signal })),
@@ -71,11 +79,23 @@ const loaders: {
     unwrap(api.getWorkflowCatalog({ path: { projectId }, signal })),
 };
 const ProjectContext = createContext<string | null>(null);
+const StorageScopeContext = createContext<string | undefined>(undefined);
+export function useStorageScope() {
+  return useContext(StorageScopeContext);
+}
 export const projectKey = (projectId: string, resource: Resource, ...ids: string[]) =>
   ["project", projectId, resource, ...ids] as const;
 
 /** Mount beneath the authenticated workspace, keyed by project. No cache survives that boundary. */
-export function ProjectData({ projectId, children }: { projectId: string; children: ReactNode }) {
+export function ProjectData({
+  projectId,
+  owner,
+  children,
+}: {
+  projectId: string;
+  owner?: string;
+  children: ReactNode;
+}) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -95,7 +115,9 @@ export function ProjectData({ projectId, children }: { projectId: string; childr
   }, [client]);
   return (
     <ProjectContext.Provider value={projectId}>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <StorageScopeContext.Provider value={owner ? `${owner}:${projectId}` : undefined}>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      </StorageScopeContext.Provider>
     </ProjectContext.Provider>
   );
 }

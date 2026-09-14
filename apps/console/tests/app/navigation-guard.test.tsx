@@ -71,7 +71,7 @@ test("navigation guards handle PUSH, POP, busy state, reload and confirmed exit 
   );
   fireEvent.click(screen.getByRole("button", { name: "开始提交" }));
   fireEvent.click(screen.getByRole("link", { name: "列表" }));
-  await screen.findByText("请等待当前工作流操作完成");
+  await screen.findByText("请等待当前操作完成");
   assert.equal(router.state.location.pathname, "/edit");
   assert.equal(screen.queryByRole("dialog", { name: "离开未保存的草稿？" }), null);
   fireEvent.click(screen.getByRole("button", { name: "修改草稿" }));

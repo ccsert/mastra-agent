@@ -400,6 +400,13 @@ test("SDK pages enumerate conversation and document directories with stable scop
     SELECT gen_random_uuid(),$1,$2,$3,'console',$4,$5,'Synthetic '||n,'2026-01-01'::timestamptz+(n/3)*interval '1 microsecond' FROM generate_series(1,127) n`,
     [actor.tenantId, project.id, actor.id, agent.id, release.id],
   );
+  // Session directories only list conversations that have been used at least once.
+  await db.query(
+    `INSERT INTO runs(id,tenant_id,project_id,actor_id,entry,conversation_id,release_id,request_id,input_hash,runtime_id,status,deadline)
+    SELECT gen_random_uuid(),$1,$2,$3,'console',c.id,$4,'seed-'||c.id,'seed','hosted-local','succeeded',now()
+    FROM conversations c WHERE c.project_id=$2`,
+    [actor.tenantId, project.id, actor.id, release.id],
+  );
   const embedding = await platform.resources.createModel(
     actor,
     project.id,
@@ -431,6 +438,11 @@ test("SDK pages enumerate conversation and document directories with stable scop
     `INSERT INTO knowledge_documents(id,knowledge_base_id,filename,content,content_hash,status,job_id,created_at)
     SELECT gen_random_uuid(),$1,'fixture-'||n||'.md','body-must-not-appear-in-directory',n::text,CASE WHEN n=128 THEN 'deleted' ELSE 'ready' END,gen_random_uuid(),'2026-01-01'::timestamptz+(n/3)*interval '1 microsecond' FROM generate_series(1,128) n`,
     [kb.id],
+  );
+  const otherActor = { ...actor, id: randomUUID() };
+  await db.query(
+    "INSERT INTO users(id,tenant_id,username,password_hash,display_name,role) VALUES($1,$2,$3,'test-only-unused','Cursor other','admin')",
+    [otherActor.id, actor.tenantId, `cursor_${otherActor.id}`],
   );
   const queries = t.mock.method(db, "query");
   for (const kind of ["conversations", "documents"] as const) {
@@ -467,16 +479,17 @@ test("SDK pages enumerate conversation and document directories with stable scop
       if (seen.length === 13) {
         assert.ok(cursor);
         if (kind === "conversations") {
-          await assert.rejects(
-            platform.conversations.list({ ...actor, id: randomUUID() }, project.id, { cursor }),
-            { code: "INVALID_CURSOR" },
-          );
+          await assert.rejects(platform.conversations.list(otherActor, project.id, { cursor }), {
+            code: "INVALID_CURSOR",
+          });
           await assert.rejects(
             platform.conversations.list({ ...actor, entry: "app:other" }, project.id, { cursor }),
             { code: "INVALID_CURSOR" },
           );
           await platform.conversations.create(actor, project.id, agent.id, "Newer insert");
-          await db.query("DELETE FROM conversations WHERE id=$1", [seen.at(-1)]);
+          const removed = seen.at(-1);
+          assert.ok(removed);
+          await platform.conversations.remove(actor, project.id, removed);
         } else {
           await assert.rejects(knowledge.documents(actor, project.id, other.id, { cursor }), {
             code: "INVALID_CURSOR",

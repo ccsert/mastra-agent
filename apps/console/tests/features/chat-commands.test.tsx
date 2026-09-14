@@ -65,9 +65,8 @@ test("slash selection uses pinned Skill IDs in the stream request and clears aft
   fireEvent.keyDown(input, { key: "Escape" });
   assert.equal(screen.queryByRole("option", { name: /report-skill/ }), null);
   fireEvent.change(input, { target: { value: "生成订单报表" } });
-  fireEvent.click(screen.getByRole("button", { name: /快捷指令/ }));
-  await screen.findByRole("option", { name: /report-skill/ });
   fireEvent.change(input, { target: { value: "生成订单报表\n/skill report" } });
+  await screen.findByRole("option", { name: /report-skill/ });
   fireEvent.keyDown(input, { key: "Enter" });
   assert.equal(body, undefined);
   assert.ok(screen.getByRole("region", { name: "本次指定的 Skills" }));
@@ -78,7 +77,7 @@ test("slash selection uses pinned Skill IDs in the stream request and clears aft
   assert.equal(screen.queryByRole("region", { name: "本次指定的 Skills" }), null);
 });
 
-test("persisted tool calls use the official collapsed group and preserve error details", async () => {
+test("persisted tool rows expose their subjects and preserve original arguments, results and errors", async () => {
   globalThis.fetch = async () => Response.json({ skills: [] });
   render(
     <ProjectData projectId="project">
@@ -112,16 +111,15 @@ test("persisted tool calls use the official collapsed group and preserve error d
       />
     </ProjectData>,
   );
-  const group = await screen.findByRole("button", { name: "2 次工具调用" });
-  assert.equal(group.getAttribute("aria-expanded"), "false");
-  assert.equal(screen.queryByRole("button", { name: /调用工具: order_query/ }), null);
-  fireEvent.click(group);
-  const orders = screen.getByRole("button", { name: /调用工具: order_query/ });
+  const orders = await screen.findByRole("button", { name: /order_query.*synthetic-42/ });
+  assert.equal(screen.queryByRole("button", { name: "2 次工具调用" }), null);
   assert.equal(orders.getAttribute("aria-expanded"), "false");
   fireEvent.click(orders);
-  await screen.findByText(/synthetic-42/);
-  fireEvent.click(screen.getByRole("button", { name: /调用工具: knowledge_search/ }));
-  await screen.findByText(/合成知识库服务超时/);
+  await screen.findByText(/"amount": 120/);
+  fireEvent.click(screen.getByText("调用参数 · order_query"));
+  await screen.findByText(/"id":\s*"synthetic-42"/);
+  fireEvent.click(screen.getByRole("button", { name: /检索知识.*执行失败/ }));
+  await screen.findByText("合成知识库服务超时");
   assert.equal(screen.queryByRole("region", { name: "知识库来源" }), null);
   assert.ok(screen.getByText("订单已查到，知识检索失败。"));
 });

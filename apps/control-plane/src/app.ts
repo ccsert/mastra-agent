@@ -1,5 +1,12 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { Id, type Principal, RuntimeEventInput, RuntimeFinishInput, z } from "@platform/contracts";
+import {
+  Id,
+  type Principal,
+  RuntimeEventInput,
+  RuntimeFinishInput,
+  RuntimeTaskRequest,
+  z,
+} from "@platform/contracts";
 import { createLogger, type Logger, requestId } from "@platform/operations";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
@@ -9,6 +16,8 @@ import { secureEqual } from "./infrastructure/crypto.ts";
 import { ApiError } from "./infrastructure/errors.ts";
 import { registerAgentRoutes } from "./modules/agents/routes.ts";
 import { registerApplicationRoutes } from "./modules/applications/routes.ts";
+import { PlatformAssistant } from "./modules/assistant/index.ts";
+import { registerAssistantRoutes } from "./modules/assistant/routes.ts";
 import { Queue } from "./modules/conversations/index.ts";
 import { registerChatRoute, registerConversationRoutes } from "./modules/conversations/routes.ts";
 import { registerIdentityRoutes } from "./modules/identity/routes.ts";
@@ -16,6 +25,7 @@ import { Knowledge } from "./modules/knowledge/index.ts";
 import { registerKnowledgeRoutes } from "./modules/knowledge/routes.ts";
 import { Mcp } from "./modules/mcp/index.ts";
 import { registerMcpRoutes } from "./modules/mcp/routes.ts";
+import { registerMemberRoutes } from "./modules/members/routes.ts";
 import { registerProjectRoutes } from "./modules/projects/routes.ts";
 import { registerResourceRoutes } from "./modules/resources/routes.ts";
 import { registerRuntimeRoutes } from "./modules/runtimes/routes.ts";
@@ -23,6 +33,7 @@ import { registerSkillRoutes, registerSkillRuntimeRoutes } from "./modules/skill
 import { WorkflowQueue, Workflows } from "./modules/workflows/index.ts";
 import { registerWorkflowRoutes } from "./modules/workflows/routes.ts";
 import type { Platform } from "./platform.ts";
+import { authorizeProjectRequest } from "./project-authorization.ts";
 export interface AppConfig {
   origin: string;
   additionalOrigins?: string[] | (() => string[]);
@@ -68,13 +79,17 @@ export function createApp(platform: Platform, config: AppConfig) {
   });
   app.use("*", (c, next) =>
     bodyLimit({
-      maxSize: c.req.path.startsWith("/internal/")
-        ? 8388608
-        : /\/projects\/[^/]+\/skills$/.test(c.req.path)
-          ? 5700000
-          : /\/knowledge\/[^/]+\/documents$/.test(c.req.path)
-            ? 1048576
-            : 262144,
+      maxSize: /^\/internal\/runtime\/runs\/[^/]+\/task$/.test(c.req.path)
+        ? 20 * 1024 * 1024
+        : c.req.path.startsWith("/internal/")
+          ? 8388608
+          : /\/projects\/[^/]+\/skills$/.test(c.req.path)
+            ? 5700000
+            : /\/knowledge\/[^/]+\/document-previews$/.test(c.req.path)
+              ? 12 * 1024 * 1024
+              : /\/knowledge\/[^/]+\/documents$/.test(c.req.path)
+                ? 1048576
+                : 262144,
       onError: (c) => c.json({ code: "PAYLOAD_TOO_LARGE", message: "请求内容过大" }, 400),
     })(c, next),
   );
@@ -100,6 +115,7 @@ export function createApp(platform: Platform, config: AppConfig) {
       ? await platform.applications.authenticate(c.req.raw)
       : await platform.identity.session(getCookie(c, "platform_session") ?? "");
     c.set("principal", actor);
+    await authorizeProjectRequest(platform.projects.access, actor, c.req.path, c.req.method);
     await next();
   });
   app.openapi(
@@ -118,7 +134,8 @@ export function createApp(platform: Platform, config: AppConfig) {
     await platform.db.query("SELECT 1");
     return c.json({ status: "ready" });
   });
-  registerIdentityRoutes(app, platform.identity, config.secureCookie);
+  registerIdentityRoutes(app, platform.identity, config.secureCookie, platform.members);
+  registerMemberRoutes(app, platform.members, platform.projects.access);
   registerProjectRoutes(app, platform.projects);
   registerResourceRoutes(app, platform.resources);
   registerAgentRoutes(app, platform.agents);
@@ -142,13 +159,18 @@ export function createApp(platform: Platform, config: AppConfig) {
   });
   app.post("/internal/runtime/runs/:id/events", async (c) => {
     const input = RuntimeEventInput.parse(await c.req.json());
-    await queue.append(Id.parse(c.req.param("id")), input.leaseToken, input.seq, input.chunk);
+    await queue.append(Id.parse(c.req.param("id")), input);
     return c.json({ ok: true });
   });
   app.post("/internal/runtime/runs/:id/finish", async (c) => {
     await queue.finish(Id.parse(c.req.param("id")), RuntimeFinishInput.parse(await c.req.json()));
     return c.json({ ok: true });
   });
+  app.post("/internal/runtime/runs/:id/task", async (c) =>
+    c.json(
+      await queue.task(Id.parse(c.req.param("id")), RuntimeTaskRequest.parse(await c.req.json())),
+    ),
+  );
   registerSkillRuntimeRoutes(app, platform.skills);
   registerKnowledgeRoutes(app, knowledge);
   const mcp = new Mcp(platform);
@@ -156,10 +178,18 @@ export function createApp(platform: Platform, config: AppConfig) {
   const workflows = new Workflows(platform),
     workflowQueue = new WorkflowQueue(workflows, knowledge, platform, platform.skills);
   registerWorkflowRoutes(app, workflows, workflowQueue);
+  const assistant = new PlatformAssistant(
+    platform.db,
+    { ...platform, knowledge, mcp, workflows },
+    platform.conversations,
+    platform.runtimeId,
+  );
+  registerAssistantRoutes(app, assistant, platform.conversations);
+  registerChatRoute(app, platform.conversations, true);
   app.doc31("/openapi.json", {
     openapi: "3.1.0",
     info: { title: "Agent Platform API", version: "0.1.0" },
     servers: [{ url: "/" }],
   });
-  return { app, queue, knowledge, mcp, workflows, workflowQueue };
+  return { app, queue, knowledge, mcp, workflows, workflowQueue, assistant };
 }

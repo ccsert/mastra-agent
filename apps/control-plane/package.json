@@ -12,12 +12,16 @@
   "dependencies": {
     "@hono/node-server": "2.1.1",
     "@hono/zod-openapi": "1.6.3",
+    "@mastra/rag": "2.6.1",
     "@platform/contracts": "workspace:*",
     "@platform/database": "workspace:*",
     "@platform/operations": "workspace:*",
     "ai": "7.0.93",
     "ajv": "8.20.0",
     "hono": "4.13.7",
+    "jszip": "3.10.2",
+    "mammoth": "1.12.3",
+    "pdfjs-dist": "6.3.289",
     "yaml": "2.9.0",
     "yauzl": "3.2.0"
   },

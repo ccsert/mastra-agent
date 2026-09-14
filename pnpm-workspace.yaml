@@ -1,3 +1,5 @@
 packages:
   - apps/*
   - packages/*
+patchedDependencies:
+  '@mastra/core@1.64.0': patches/@mastra__core@1.64.0.patch
