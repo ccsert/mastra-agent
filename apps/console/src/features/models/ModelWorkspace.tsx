@@ -9,16 +9,12 @@ import { QueryState } from "../../shared/data/QueryState";
 const kindLabels = { chat: "对话", embedding: "向量", rerank: "重排" } as const;
 /** Shown next to a declared capability; `false` is stated, not implied. */
 function CapabilityTags({ model }: { model: Model }) {
-  const capabilities = model.capabilities;
   if (model.kind !== "chat") return <span className="muted">—</span>;
+  const capabilities = model.capabilities;
   return (
     <span className="capability-tags">
-      <Tag color={capabilities?.toolUse ? "success" : "default"}>
-        {capabilities?.toolUse ? "工具调用" : "无工具调用"}
-      </Tag>
-      <Tag color={capabilities?.vision ? "success" : "default"}>
-        {capabilities?.vision ? "图片输入" : "无图片输入"}
-      </Tag>
+      <span className={capabilities?.toolUse ? "capability on" : "capability off"}>工具调用</span>
+      <span className={capabilities?.vision ? "capability on" : "capability off"}>图片输入</span>
     </span>
   );
 }
@@ -41,7 +37,7 @@ export function ModelWorkspace({
     <QueryState label="模型服务" query={modelsQuery}>
       <section className="panel">
         <Table<Model>
-          scroll={{ x: 1100 }}
+          scroll={{ x: 920 }}
           rowKey="id"
           dataSource={models}
           pagination={false}
@@ -58,12 +54,13 @@ export function ModelWorkspace({
             {
               title: "模型服务",
               dataIndex: "name",
+              width: 230,
               render: (_, m) => (
                 <div className="cell-title">
                   <span className="table-icon">
                     <ApiOutlined key="ApiOutlined" />
                   </span>
-                  <div>
+                  <div className="model-name">
                     <strong>{m.name}</strong>
                     <small>
                       {vendorLabels[m.vendor ?? "custom"] ?? m.vendor ?? "OpenAI 兼容接口"}
@@ -73,8 +70,9 @@ export function ModelWorkspace({
               ),
             },
             {
-              title: "能力",
+              title: "类型",
               dataIndex: "kind",
+              width: 116,
               render: (kind: Model["kind"], m: Model) => (
                 <Tag>
                   {kindLabels[kind ?? "chat"]}
@@ -83,8 +81,9 @@ export function ModelWorkspace({
               ),
             },
             {
-              title: "模型声明",
+              title: "能力声明",
               key: "capabilities",
+              width: 164,
               render: (_, m) => (
                 <Tooltip title="由维护者声明，平台不会自动探测">
                   <span>
@@ -93,19 +92,36 @@ export function ModelWorkspace({
                 </Tooltip>
               ),
             },
-            { title: "模型 ID", dataIndex: "modelId", render: (v) => <code>{v}</code> },
-            { title: "服务地址", dataIndex: "baseUrl", ellipsis: true },
             {
-              title: "凭据",
-              dataIndex: "hasCredential",
-              render: (v) => (
-                <Tag color={v ? "success" : "default"}>{v ? "已加密保存" : "未设置"}</Tag>
+              title: "接入信息",
+              key: "endpoint",
+              width: 250,
+              render: (_, m) => (
+                <div className="model-endpoint">
+                  <code>{m.modelId}</code>
+                  <small>{m.baseUrl}</small>
+                </div>
               ),
             },
-            { title: "登记时间", dataIndex: "createdAt", render: timestamp },
             {
-              title: "操作",
+              title: "状态",
+              key: "status",
+              width: 128,
+              render: (_, m) => (
+                <div className="model-status">
+                  <span className={m.hasCredential ? "model-credential ok" : "model-credential"}>
+                    <i aria-hidden="true" />
+                    {m.hasCredential ? "已加密保存" : "未设置"}
+                  </span>
+                  <small title="登记时间">{timestamp(m.createdAt)}</small>
+                </div>
+              ),
+            },
+            {
+              title: "",
               key: "actions",
+              width: 88,
+              fixed: "right",
               render: (_, model) => (
                 <Button
                   type="link"
