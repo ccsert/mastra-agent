@@ -252,23 +252,6 @@ test("generated SDK → authenticated control plane → HTTP worker → Mastra t
         (m) => m.role === "assistant" && m.parts.some((p) => p.type === "reasoning"),
       ),
     );
-    // Summary mode keeps checkpoints and messages but omits event payloads, so
-    // clients can navigate turns cheaply and read events per run on demand.
-    const summaryTrace = defined(
-      (
-        await sdk.getConversationTrace({
-          client,
-          path: { ...path, id: run.conversationId },
-          query: { events: "summary" },
-        })
-      ).data,
-    );
-    const summaryTurn = summaryTrace.turns.find((t) => t.run.id === run.id);
-    assert.ok(summaryTurn);
-    assert.deepEqual(summaryTurn.events, []);
-    assert.equal(summaryTurn.hasMoreEvents, true);
-    assert.equal(summaryTurn.checkpoint?.eventCount, traceTurn.checkpoint.eventCount);
-    assert.equal(summaryTurn.messages?.length, traceTurn.messages?.length);
     const bounded = defined(
       (
         await sdk.listRunEvents({

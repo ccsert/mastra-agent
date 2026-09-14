@@ -87,18 +87,18 @@ test("conversation paging merges older turns and aborts stale responses when swi
     return Response.json(page(2, 2));
   });
   const mounted = render(view("A"));
-  await screen.findAllByText("第2轮的问题");
+  await screen.findByText("第2轮的问题");
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
   await screen.findByText("会话轨迹加载失败");
-  assert.ok(screen.getAllByText("第2轮的问题").length);
+  assert.ok(screen.getByText("第2轮的问题"));
   fail = false;
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
-  await screen.findAllByText("第1轮的问题");
+  await screen.findByText("第1轮的问题");
   assert.equal(screen.getAllByRole("button", { name: /^用户输入/ }).length, 2);
   mounted.rerender(view("A", "slow"));
   await waitFor(() => assert.ok(pending));
   mounted.rerender(view("B"));
-  await screen.findAllByText("项目 B 会话");
+  await screen.findByText("项目 B 会话");
   assert.equal(pending?.signal.aborted, true);
   await act(async () => resolve(Response.json(page(2))));
   assert.equal(!!screen.queryByText("第2轮的问题"), false);
@@ -160,9 +160,9 @@ test("settled long conversations do not reload already loaded pages on a polling
     return Response.json({ ...page(before - 1, before > 2 ? before - 1 : null), totalTurns: 80 });
   });
   render(view("settled-pages"));
-  await screen.findAllByText("第80轮的问题");
+  await screen.findByText("第80轮的问题");
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
-  await screen.findAllByText("第79轮的问题");
+  await screen.findByText("第79轮的问题");
   const readCount = reads.length;
   await act(async () => {
     t.mock.timers.tick(3100);
@@ -202,58 +202,6 @@ test("opening a long conversation bounds simultaneous tail reads", async (t) => 
   );
 });
 
-test("question rail rides on turn summaries and loads an older turn's events on demand", async (t) => {
-  const eventTurns: string[] = [];
-  const trajectoryQueries: string[] = [];
-  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init),
-      url = new URL(request.url);
-    if (url.pathname.endsWith("/events")) {
-      eventTurns.push(url.pathname);
-      if (url.pathname.includes("/run-12/"))
-        return Response.json([
-          {
-            seq: 2,
-            chunk: { type: "text-delta", id: "txt", delta: "已载入明细" },
-            createdAt: run.createdAt,
-          },
-        ]);
-      return Response.json([]);
-    }
-    if (url.pathname.includes("/trajectory"))
-      trajectoryQueries.push(url.searchParams.get("events") ?? "");
-    return Response.json({
-      initial: { run, request: null },
-      totalTurns: 20,
-      nextBefore: 10,
-      turns: Array.from({ length: 10 }, (_, index) => {
-        const number = 20 - index,
-          pending = number === 12;
-        return {
-          number,
-          run: { ...run, id: `run-${number}`, inputText: `第${number}轮的问题` },
-          events: [],
-          hasMoreEvents: pending,
-          ...(pending
-            ? { checkpoint: { eventCount: 1, lastSeq: 2, capturedAt: run.createdAt } }
-            : {}),
-        };
-      }),
-    });
-  });
-  render(view("rail"));
-  await screen.findAllByText("第12轮的问题");
-  // Turn pages ride on summaries; no event payloads arrive with them.
-  assert.ok(trajectoryQueries.length > 0);
-  assert.ok(trajectoryQueries.every((value) => value === "summary"));
-  // A settled older turn is not preheated: nothing loads until the user asks.
-  assert.equal(eventTurns.length, 0);
-  assert.ok(screen.getByRole("button", { name: "载入明细" }));
-  fireEvent.click(screen.getByRole("button", { name: /第12轮的问题/ }));
-  await screen.findByText("已载入明细");
-  assert.equal(eventTurns.length, 1);
-});
-
 test("live polling updates only the head and preserves pages already read", async (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const reads: (string | null)[] = [];
@@ -271,9 +219,9 @@ test("live polling updates only the head and preserves pages already read", asyn
     });
   });
   render(view("live-head"));
-  await screen.findAllByText("第80轮的问题");
+  await screen.findByText("第80轮的问题");
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
-  await screen.findAllByText("第79轮的问题");
+  await screen.findByText("第79轮的问题");
   const headReads = reads.filter((before) => before === null).length;
   await act(async () => {
     t.mock.timers.tick(3100);
@@ -282,7 +230,7 @@ test("live polling updates only the head and preserves pages already read", asyn
     assert.equal(reads.filter((before) => before === null).length, headReads + 1),
   );
   assert.equal(reads.filter((before) => before !== null).length, 1);
-  assert.ok(screen.getAllByText("第79轮的问题").length);
+  assert.ok(screen.getByText("第79轮的问题"));
 });
 
 test("an older active turn outside the newest page still reaches its terminal state without polling settled history", async (t) => {
@@ -304,11 +252,11 @@ test("an older active turn outside the newest page still reaches its terminal st
     });
   });
   render(view("older-active"));
-  await screen.findAllByText("第20轮的问题");
+  await screen.findByText("第20轮的问题");
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
-  await screen.findAllByText("第19轮的问题");
+  await screen.findByText("第19轮的问题");
   fireEvent.click(screen.getByRole("button", { name: "加载更早轮次" }));
-  await screen.findAllByText("第18轮的问题");
+  await screen.findByText("第18轮的问题");
   finished = true;
   await act(async () => {
     t.mock.timers.tick(3100);

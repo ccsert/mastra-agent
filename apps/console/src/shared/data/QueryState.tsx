@@ -11,13 +11,10 @@ type QueryStateValue = {
 export function QueryState({
   label,
   query,
-  loading,
   children,
 }: {
   label: string;
   query: QueryStateValue;
-  /** Replaces the default text spinner for views with their own loading layout. */
-  loading?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -41,7 +38,7 @@ export function QueryState({
       )}
       {query.data !== undefined
         ? children
-        : (!query.error && loading) || (
+        : !query.error && (
             <div role="status" aria-label={`加载${label}`}>
               <Spin /> 正在加载{label}…
             </div>

@@ -1,12 +1,11 @@
 import * as api from "@platform/sdk";
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
-import { Alert, Button, Spin } from "antd";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Button } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { unwrap } from "../../shared/api";
 import { projectKey } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
 import { ConversationTrajectory, downloadTrace } from "./ConversationTrajectory";
-import { FULL_TIMELINE, type TimelineWindow } from "./timeline-window";
 import { loadFullTrace } from "./trace-loading";
 import { createTraceReader } from "./trace-reader";
 import { createConversationProjector, projectConversation, sessionLog } from "./trajectory";
@@ -77,7 +76,6 @@ function ConversationTraceReader({
   const retained = useRef(new Map<string, api.TraceTurn>());
   // Settled history is never polled. An older queued/running turn can fall
   // outside the newest page, so refresh only pages that contain those turns.
-  // Pages carry turn summaries; events stream in per turn through the reader.
   const head = useQuery({
     queryKey: projectKey(projectId, "conversations", conversationId, "trajectory", "head"),
     queryFn: async ({ signal }) => {
@@ -85,7 +83,7 @@ function ConversationTraceReader({
         unwrap(
           api.getConversationTrace({
             path: { projectId, id: conversationId },
-            query: { before, limit: 10, events: "summary" },
+            query: { before, limit: 10 },
             signal,
           }),
           signal,
@@ -123,11 +121,7 @@ function ConversationTraceReader({
       unwrap(
         api.getConversationTrace({
           path: { projectId, id: conversationId },
-          query: {
-            before: pageParam ?? head.data?.nextBefore ?? undefined,
-            limit: 10,
-            events: "summary",
-          },
+          query: { before: pageParam ?? head.data?.nextBefore ?? undefined, limit: 10 },
           signal,
         }),
         signal,
@@ -163,39 +157,6 @@ function ConversationTraceReader({
     }
     return [...byId.values()].sort((a, b) => a.number - b.number);
   }, [pages, head.data, snapshot]);
-  const [visibleWindow, setVisibleWindow] = useState<TimelineWindow>(FULL_TIMELINE);
-  const [requested, setRequested] = useState<ReadonlySet<string>>(new Set());
-  const requestTurn = useCallback((runId: string) => {
-    setRequested((old) => (old.has(runId) ? old : new Set(old).add(runId)));
-  }, []);
-  // Event reads follow what the user can act on: live turns, the focus turn,
-  // explicit requests and turns inside the visible timeline window. The full
-  // window carries no zoom information, so only the newest turns preheat.
-  const wanted = useMemo(() => {
-    const picked = new Set<string>();
-    const rest: { id: string; number: number; at: number }[] = [];
-    for (const turn of turns) {
-      if (
-        requested.has(turn.run.id) ||
-        turn.run.id === focusRunId ||
-        ["running", "queued"].includes(turn.run.status)
-      )
-        picked.add(turn.run.id);
-      else rest.push({ id: turn.run.id, number: turn.number, at: Date.parse(turn.run.createdAt) });
-    }
-    const times = rest.map((turn) => turn.at);
-    const start = times.length ? Math.min(...times) : 0;
-    const span = Math.max(1, (times.length ? Math.max(...times) : 0) - start);
-    const slot = (span / Math.max(1, rest.length)) * 1.5;
-    const from = start + (visibleWindow.start / 100) * span;
-    const to = start + (visibleWindow.end / 100) * span;
-    const candidates =
-      visibleWindow.end - visibleWindow.start >= 100
-        ? [...rest].sort((a, b) => b.number - a.number).slice(0, 8)
-        : rest.filter((turn) => turn.at + slot >= from && turn.at <= to);
-    for (const turn of candidates) picked.add(turn.id);
-    return picked;
-  }, [turns, requested, focusRunId, visibleWindow]);
   const tails = useQueries({
     queries: turns.map((turn) => ({
       queryKey: projectKey(
@@ -206,9 +167,9 @@ function ConversationTraceReader({
         turn.run.status,
         String(turn.checkpoint?.lastSeq ?? "live"),
       ),
-      // Every act-on-able turn follows its tail; other turns stay as summaries
-      // until they enter the window or the user asks for them.
-      enabled: turn.hasMoreEvents && wanted.has(turn.run.id),
+      // Every visible turn follows its tail; otherwise an older long request
+      // looks incomplete until clicked even though its durable events exist.
+      enabled: turn.hasMoreEvents,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         reader.read(
           projectId,
@@ -293,26 +254,32 @@ function ConversationTraceReader({
     error: head.error ?? history.error,
     refetch: head.error ? head.refetch : history.error ? history.refetch : head.refetch,
   };
-  const pendingTurns = merged.filter((t) => t.hasMoreEvents);
-  const loadedEvents = merged.reduce((n, t) => n + t.events.length, 0);
-  // The toolbar chip replaces the old top banner; errors stay as a prominent alert.
-  const status =
-    loadingAll || partial ? (
-      <div className="trace-status-chip" role="status">
-        {loadingAll ? (
-          <>
-            <Spin size="small" />
-            <span>{progress || "正在读取全部轮次…"}</span>
-            <Button size="small" onClick={() => allController.current?.abort()}>
-              取消
-            </Button>
-          </>
-        ) : (
-          <>
+  const pendingTails = merged.filter((t) => t.hasMoreEvents).length;
+  return (
+    <div className="conversation-trajectory">
+      <QueryState label="会话轨迹" query={query}>
+        {(partial || loadingAll || loadError) && (
+          <div className="trace-completeness">
             <span>
-              已加载 {turns.length}/{total} 轮 · {loadedEvents.toLocaleString()} 条事件
-              {pendingTurns.length > 0 && ` · ${pendingTurns.length} 轮待补全`}
+              {loadingAll
+                ? progress || "正在读取全部轮次…"
+                : `已加载 ${turns.length} / ${total} 轮、${merged.reduce((n, t) => n + t.events.length, 0)} 条事件；搜索覆盖已加载内容`}
             </span>
+            {loadingAll ? (
+              <Button size="small" onClick={() => allController.current?.abort()}>
+                取消读取
+              </Button>
+            ) : (
+              <Button size="small" onClick={() => void loadAll()}>
+                加载完整会话
+              </Button>
+            )}
+            {loadError && <Alert type="warning" title={loadError} />}
+          </div>
+        )}
+        {pendingTails > 0 && (
+          <div className="trace-page-warning" role="status">
+            {pendingTails} 轮正在补全后续事件，已读取内容可继续浏览
             {tails.some((tail) => tail.isError) && (
               <Button
                 size="small"
@@ -320,30 +287,11 @@ function ConversationTraceReader({
                   for (const tail of tails) if (tail.isError) void tail.refetch();
                 }}
               >
-                重试失败轮次
+                重试加载失败的轮次
               </Button>
             )}
-            <Button size="small" onClick={() => void loadAll()}>
-              加载完整会话
-            </Button>
-          </>
-        )}
-      </div>
-    ) : null;
-  return (
-    <div className="conversation-trajectory">
-      <QueryState
-        label="会话轨迹"
-        query={query}
-        loading={
-          <div className="trace-skeleton" role="status" aria-label="加载会话轨迹">
-            {Array.from({ length: 8 }, (_, index) => `skeleton-${index}`).map((key) => (
-              <div key={key} className="trace-skeleton-row" />
-            ))}
           </div>
-        }
-      >
-        {loadError && <Alert className="form-alert" type="warning" title={loadError} />}
+        )}
         <ConversationTrajectory
           records={records}
           totalTurns={total}
@@ -356,10 +304,6 @@ function ConversationTraceReader({
           hasOlder={hasOlder}
           loadingOlder={history.isFetching}
           onLoadOlder={loadOlder}
-          status={status}
-          pendingTurns={new Set(pendingTurns.map((t) => t.run.id))}
-          onLoadTurn={requestTurn}
-          onWindowChange={setVisibleWindow}
         />
         <details className="trace-diagnostics">
           <summary>开发者诊断</summary>

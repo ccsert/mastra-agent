@@ -9,18 +9,9 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { Button, Input, Splitter } from "antd";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TrajectoryInspector } from "./TrajectoryInspector";
 import { TrajectoryTimeline } from "./TrajectoryTimeline";
-import type { TimelineWindow } from "./timeline-window";
 import {
   aggregateStatus,
   callGroups,
@@ -80,10 +71,6 @@ export function ConversationTrajectory({
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
-  status,
-  pendingTurns,
-  onLoadTurn,
-  onWindowChange,
 }: {
   records: TraceRecord[];
   totalTurns: number;
@@ -96,12 +83,6 @@ export function ConversationTrajectory({
   hasOlder?: boolean;
   loadingOlder?: boolean;
   onLoadOlder?(): Promise<unknown> | unknown;
-  /** Compact load-state chip rendered at the toolbar's end instead of a banner. */
-  status?: ReactNode;
-  /** Turn runs whose events exist but are not loaded yet. */
-  pendingTurns?: ReadonlySet<string>;
-  onLoadTurn?(runId: string): void;
-  onWindowChange?(window: TimelineWindow): void;
 }) {
   const [selected, setSelected] = useState<string>();
   const [now, setNow] = useState(Date.now);
@@ -234,25 +215,6 @@ export function ConversationTrajectory({
         },
       ]),
     );
-  }, [records]);
-  // One jump target per conversation turn; summary turns already carry the question.
-  const railTurns = useMemo(() => {
-    const byTurn = new Map<
-      number,
-      { turn: number; runId: string; recordId: string; question: string }
-    >();
-    for (const record of records) {
-      if (record.kind !== "user" || record.turn === undefined || record.scopeId || !record.runId)
-        continue;
-      if (!byTurn.has(record.turn))
-        byTurn.set(record.turn, {
-          turn: record.turn,
-          runId: record.runId,
-          recordId: record.id,
-          question: record.text.trim() || "（无文本输入）",
-        });
-    }
-    return [...byTurn.values()].sort((a, b) => a.turn - b.turn);
   }, [records]);
   const allTurnsCollapsed =
     foldableTurns.length > 0 && foldableTurns.every((group) => collapsedTurns.has(group.turn));
@@ -449,7 +411,7 @@ export function ConversationTrajectory({
       : isRequest
         ? `${String(asObject(r.request).model ?? "模型")} · ${usage?.inputTokens == null ? "输入未报告" : `${tokenCount(usage.inputTokens)} 输入`} / ${usage?.outputTokens == null ? "输出未报告" : `${tokenCount(usage.outputTokens)} 输出`}${r.generation?.finishReason ? ` · ${r.generation.finishReason}` : ""}`
         : isTurn
-          ? `${turn?.requests ?? 0} 次请求 · ${turn?.tools ?? 0} 次工具调用${turn?.subagents ? ` · ${turn.subagents} 个子任务` : ""}${turn?.run ? ` · ${traceDuration(turn.run)}` : ""}${turn?.totalTokens != null ? ` · ${tokenCount(turn.totalTokens)} Token${turn.subagents ? "（含子任务）" : ""}` : ""}${r.runId && pendingTurns?.has(r.runId) ? " · 明细未加载" : ""}`
+          ? `${turn?.requests ?? 0} 次请求 · ${turn?.tools ?? 0} 次工具调用${turn?.subagents ? ` · ${turn.subagents} 个子任务` : ""}${turn?.run ? ` · ${traceDuration(turn.run)}` : ""}${turn?.totalTokens != null ? ` · ${tokenCount(turn.totalTokens)} Token${turn.subagents ? "（含子任务）" : ""}` : ""}`
           : r.kind === "agent"
             ? `${r.subagent?.status === "queued" ? "等待执行" : "独立子任务"} · 最多 ${r.subagent?.maxSteps} 步 · ${r.usage?.usage.totalTokens == null ? "用量待报告" : `${tokenCount(r.usage.usage.totalTokens)} Token`}`
             : r.kind === "tool"
@@ -546,17 +508,6 @@ export function ConversationTrajectory({
           )}
           <code>{traceDuration(r, now)}</code>
         </button>
-        {isTurn && r.runId && pendingTurns?.has(r.runId) && (
-          <Button
-            size="small"
-            className="trace-row-load"
-            onClick={() => {
-              if (r.runId) onLoadTurn?.(r.runId);
-            }}
-          >
-            载入明细
-          </Button>
-        )}
       </div>
     );
   };
@@ -619,7 +570,6 @@ export function ConversationTrajectory({
         >
           导出完整会话
         </Button>
-        {status}
       </div>
       <TrajectoryTimeline
         key={mode}
@@ -631,60 +581,30 @@ export function ConversationTrajectory({
           setSearch("");
           setCategory("全部");
         }}
-        onWindowChange={onWindowChange}
       />
       <Splitter className="trajectory-layout">
         <Splitter.Panel min="30%">
-          <div className="trajectory-body">
-            {railTurns.length > 0 && (
-              <nav className="trace-rail" aria-label="按提问跳转轮次">
-                {railTurns.map((item) => (
-                  <button
-                    key={item.runId}
-                    type="button"
-                    className={`trace-rail-item${current?.turn === item.turn ? " active" : ""}`}
-                    title={item.question}
-                    onClick={() => {
-                      onLoadTurn?.(item.runId);
-                      select(item.recordId);
-                    }}
-                  >
-                    <span className="trace-rail-turn">
-                      第 {item.turn} 轮
-                      {pendingTurns?.has(item.runId) && (
-                        <i className="trace-rail-pending" title="明细未加载" />
-                      )}
-                    </span>
-                    <span className="trace-rail-question">{item.question}</span>
-                  </button>
-                ))}
-              </nav>
+          <section className="trajectory-records" ref={list} aria-label="多轮消息与调用">
+            {hasOlder && (
+              <div className="trace-history-load">
+                <Button size="small" loading={loadingOlder} onClick={() => void loadOlder()}>
+                  加载更早轮次
+                </Button>
+              </div>
             )}
-            <section className="trajectory-records" ref={list} aria-label="多轮消息与调用">
-              {hasOlder && (
-                <div className="trace-history-load">
-                  <Button size="small" loading={loadingOlder} onClick={() => void loadOlder()}>
-                    加载更早轮次
-                  </Button>
-                </div>
-              )}
-              {virtual ? (
-                <div
-                  className="trace-virtual-canvas"
-                  style={{ height: visible.length * ROW_HEIGHT }}
-                >
-                  {visible.slice(start, end).map((r, offset) => renderRow(r, start + offset))}
-                </div>
-              ) : (
-                visible.map((r, index) => renderRow(r, index))
-              )}
-              {!visible.length && (
-                <p className="trace-empty">
-                  {records.length ? "没有匹配的记录。" : "此会话尚无运行记录。"}
-                </p>
-              )}
-            </section>
-          </div>
+            {virtual ? (
+              <div className="trace-virtual-canvas" style={{ height: visible.length * ROW_HEIGHT }}>
+                {visible.slice(start, end).map((r, offset) => renderRow(r, start + offset))}
+              </div>
+            ) : (
+              visible.map((r, index) => renderRow(r, index))
+            )}
+            {!visible.length && (
+              <p className="trace-empty">
+                {records.length ? "没有匹配的记录。" : "此会话尚无运行记录。"}
+              </p>
+            )}
+          </section>
         </Splitter.Panel>
         {current && (
           <Splitter.Panel defaultSize="48%" min="30%">

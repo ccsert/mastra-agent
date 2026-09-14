@@ -151,11 +151,6 @@ export const ConversationTrace = z
 export const TraceQuery = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(20).default(10),
-  /**
-   * "summary" turns omit event chunks for cheap turn navigation; events are
-   * then read per run through the cursor endpoint. "full" keeps every payload.
-   */
-  events: z.enum(["summary", "full"]).default("full"),
 });
 export const ConversationContext = z
   .object({

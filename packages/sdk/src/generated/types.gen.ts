@@ -4501,7 +4501,6 @@ export type GetConversationTraceData = {
     query?: {
         before?: number;
         limit?: number;
-        events?: 'summary' | 'full';
     };
     url: '/api/v1/projects/{projectId}/conversations/{id}/trajectory';
 };
