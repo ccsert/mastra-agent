@@ -358,7 +358,17 @@ export function ChatSession({
     refetchOnWindowFocus: false,
   });
   return (
-    <QueryState label="会话历史" query={query}>
+    <QueryState
+      label="会话历史"
+      query={query}
+      loading={
+        <div className="chat-skeleton" role="status" aria-label="加载会话历史">
+          {["user", "assistant", "user", "assistant"].map((role) => (
+            <div key={role} className={`chat-skeleton-bubble ${role}`} />
+          ))}
+        </div>
+      }
+    >
       {query.data && (
         <Suspense
           fallback={

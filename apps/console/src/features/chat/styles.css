@@ -1518,3 +1518,38 @@
 .chat-turn-mark:focus-visible .chat-turn-pop {
   display: block;
 }
+
+/* Conversation history loading: quiet bubble placeholders instead of a text spinner. */
+.chat-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 0;
+}
+.chat-skeleton-bubble {
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #eef2f0 25%, #f7f9f8 45%, #eef2f0 65%);
+  background-size: 200% 100%;
+  animation: chat-skeleton-pulse 1.4s ease infinite;
+}
+.chat-skeleton-bubble.user {
+  align-self: flex-end;
+  width: 42%;
+}
+.chat-skeleton-bubble.assistant {
+  align-self: flex-start;
+  width: 68%;
+  height: 88px;
+}
+.chat-skeleton-bubble:nth-child(3) {
+  width: 34%;
+}
+@keyframes chat-skeleton-pulse {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

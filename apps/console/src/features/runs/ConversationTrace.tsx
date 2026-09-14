@@ -25,7 +25,7 @@ function ConversationTraceReader({
 }) {
   const [snapshot, setSnapshot] = useState<api.ConversationTrace>();
   const [loadingAll, setLoadingAll] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number }>();
   const [loadError, setLoadError] = useState("");
   const reader = useMemo(() => createTraceReader(), []);
   const projector = useMemo(() => createConversationProjector(), []);
@@ -44,7 +44,7 @@ function ConversationTraceReader({
         conversationId,
         controller.signal,
         (loaded, total, partial) => {
-          setProgress(`已读取 ${loaded} / ${total} 轮`);
+          setLoadProgress({ loaded, total });
           if (!exporting) setSnapshot(partial);
         },
         (turn, signal) => reader.read(projectId, turn, signal, () => {}, Number.MAX_SAFE_INTEGER),
@@ -70,7 +70,7 @@ function ConversationTraceReader({
       if (allController.current === controller) {
         allController.current = null;
         setLoadingAll(false);
-        setProgress("");
+        setLoadProgress(undefined);
       }
     }
   }
@@ -256,41 +256,51 @@ function ConversationTraceReader({
     refetch: head.error ? head.refetch : history.error ? history.refetch : head.refetch,
   };
   const pendingTails = merged.filter((t) => t.hasMoreEvents).length;
+  // Progress reads as one thin line under the toolbar; no text banner. Errors
+  // stay explicit, everything else finishes silently.
+  const loadingTrace = loadingAll || pendingTails > 0 || history.isFetching;
+  const barPct = loadingAll
+    ? loadProgress
+      ? Math.round((loadProgress.loaded / Math.max(1, loadProgress.total)) * 100)
+      : 6
+    : turns.length
+      ? Math.round(((turns.length - pendingTails) / turns.length) * 100)
+      : 0;
+  const failedTails = tails.some((tail) => tail.isError);
   return (
     <div className="conversation-trajectory">
-      <QueryState label="会话轨迹" query={query}>
-        {(partial || loadingAll || loadError) && (
-          <div className="trace-completeness">
-            <span>
-              {loadingAll
-                ? progress || "正在读取全部轮次…"
-                : `已加载 ${turns.length} / ${total} 轮、${merged.reduce((n, t) => n + t.events.length, 0)} 条事件；搜索覆盖已加载内容`}
-            </span>
-            {loadingAll ? (
-              <Button size="small" onClick={() => allController.current?.abort()}>
-                取消读取
-              </Button>
-            ) : (
-              <Button size="small" onClick={() => void loadAll()}>
-                加载完整会话
-              </Button>
-            )}
-            {loadError && <Alert type="warning" title={loadError} />}
+      <QueryState
+        label="会话轨迹"
+        query={query}
+        loading={
+          <div className="trace-skeleton" role="status" aria-label="加载会话轨迹">
+            {Array.from({ length: 8 }, (_, index) => `skeleton-${index}`).map((key) => (
+              <div key={key} className="trace-skeleton-row" />
+            ))}
           </div>
-        )}
-        {pendingTails > 0 && (
-          <div className="trace-page-warning" role="status">
-            {pendingTails} 轮正在补全后续事件，已读取内容可继续浏览
-            {tails.some((tail) => tail.isError) && (
+        }
+      >
+        {loadError && <Alert className="form-alert" type="warning" title={loadError} />}
+        {failedTails && (
+          <Alert
+            className="form-alert"
+            type="warning"
+            title="部分轮次事件加载失败"
+            action={
               <Button
                 size="small"
                 onClick={() => {
                   for (const tail of tails) if (tail.isError) void tail.refetch();
                 }}
               >
-                重试加载失败的轮次
+                重试
               </Button>
-            )}
+            }
+          />
+        )}
+        {loadingTrace && (
+          <div className="trace-loading-bar" role="status" aria-label="正在加载轨迹">
+            <div className="trace-loading-bar-fill" style={{ width: `${barPct}%` }} />
           </div>
         )}
         <ConversationTrajectory

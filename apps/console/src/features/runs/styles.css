@@ -413,19 +413,38 @@
   font-size: 11px;
   margin: 8px 0;
 }
-.trace-page-warning {
-  padding: 4px 0;
+.trace-loading-bar {
+  flex-shrink: 0;
+  height: 2px;
+  overflow: hidden;
+  background: #e5ebe7;
+  border-radius: 1px;
 }
-
-.trace-completeness {
+.trace-loading-bar-fill {
+  height: 100%;
+  background: #3c6551;
+  transition: width 0.3s ease;
+}
+.trace-skeleton {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
-  padding: 8px 12px;
-  background: #f7f9f8;
-  color: #64766d;
-  font-size: 12px;
+  padding: 12px 0;
+}
+.trace-skeleton-row {
+  height: 40px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eef2f0 25%, #f7f9f8 45%, #eef2f0 65%);
+  background-size: 200% 100%;
+  animation: trace-skeleton-pulse 1.4s ease infinite;
+}
+@keyframes trace-skeleton-pulse {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 .trace-inspector-actions {
   display: flex;
