@@ -82,7 +82,7 @@ export function AgentFields({
             label="名称"
             rules={[{ required: true, whitespace: true, message: "请输入名称" }]}
           >
-            <Input maxLength={80} placeholder="例如：客户服务助手" />
+            <Input data-agent-target="agent.name" maxLength={80} placeholder="例如：客户服务助手" />
           </Form.Item>
           <Form.Item
             name="modelId"
@@ -100,6 +100,7 @@ export function AgentFields({
         </div>
         <Form.Item name="description" label="适用场景" extra="帮助团队判断什么时候使用它。">
           <Input.TextArea
+            data-agent-target="agent.description"
             rows={2}
             maxLength={500}
             placeholder="面向谁，解决哪些问题，交付什么结果"
@@ -112,6 +113,7 @@ export function AgentFields({
           extra="写清目标、工作方法、输出要求，以及信息不足时如何处理。"
         >
           <Input.TextArea
+            data-agent-target="agent.instructions"
             rows={9}
             maxLength={16000}
             placeholder="你负责……请根据……完成……最后检查……"

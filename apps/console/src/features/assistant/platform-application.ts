@@ -1,4 +1,7 @@
 import {
+  AgentAppInvocation,
+  AgentAppOutcome,
+  canonicalJson,
   createAgentApplication,
   platformAppManifest,
   platformAppOperations,
@@ -8,8 +11,9 @@ import type { usePageActions } from "../../shared/PageActions";
 export function createPlatformApplication(
   registry: NonNullable<ReturnType<typeof usePageActions>>,
   onStatus: (status: { running: boolean; title: string }) => void,
+  awaitReceipt = false,
 ) {
-  return createAgentApplication({
+  const app = createAgentApplication({
     manifest: platformAppManifest,
     onStatus,
     observe() {
@@ -85,4 +89,61 @@ export function createPlatformApplication(
       ]),
     ),
   });
+  // Keep the same enriched receipt for retries, including partially verified changes.
+  // Input identity and the bounded session lifetime match the application SDK.
+  const receipts = new Map<string, { signature: string; result: Promise<AgentAppOutcome> }>();
+  return {
+    ...app,
+    async invoke(raw: AgentAppInvocation, signal?: AbortSignal): Promise<AgentAppOutcome> {
+      const input = AgentAppInvocation.parse(raw),
+        signature = canonicalJson(input);
+      const prior = receipts.get(input.requestId);
+      if (prior) {
+        if (prior.signature !== signature) throw new Error("IDEMPOTENCY_CONFLICT");
+        return prior.result;
+      }
+      if (receipts.size >= 2000) throw new Error("SESSION_LIMIT");
+      // A rejected concurrent request must not replace the action the user is watching.
+      const ownsActivity = registry.activity.getSnapshot()?.status !== "running";
+      const result = (async () => {
+        if (ownsActivity) {
+          const title =
+            platformAppManifest.actions.find((a) => a.id === input.action)?.title ?? "操作页面";
+          registry.activity.begin(input.requestId, title, registry.pageKey());
+        }
+        try {
+          const outcome = await app.invoke(input, signal);
+          const activity = registry.activity.getSnapshot();
+          const changes =
+            input.action === "agent.draft.patch" && activity?.id === input.requestId
+              ? activity.steps
+                  .filter(
+                    (s) =>
+                      s.status === "applied" && s.before !== undefined && s.after !== undefined,
+                  )
+                  .map((s) => ({
+                    target: s.target,
+                    label: s.label,
+                    before: s.before?.slice(0, 2000) ?? "",
+                    after: s.after?.slice(0, 2000) ?? "",
+                    truncated: (s.before?.length ?? 0) > 2000 || (s.after?.length ?? 0) > 2000,
+                  }))
+              : [];
+          registry.activity.finish(
+            input.requestId,
+            awaitReceipt ? "running" : outcome.status,
+            awaitReceipt ? "正在确认页面操作回执" : outcome.message,
+          );
+          return AgentAppOutcome.parse(
+            changes.length ? { ...outcome, output: { ...outcome.output, changes } } : outcome,
+          );
+        } catch (error) {
+          registry.activity.finish(input.requestId, "unknown", "页面结果未确认，请核对当前状态");
+          throw error;
+        }
+      })();
+      receipts.set(input.requestId, { signature, result });
+      return result;
+    },
+  };
 }

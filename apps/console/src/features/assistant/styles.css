@@ -1,6 +1,3 @@
-.platform-assistant-modal {
-  --assistant-width: min(1320px, calc(100vw - 40px));
-}
 .platform-assistant-trigger.ant-btn {
   border: 1px solid #ccdcd6;
   background: #f1f7f4;
@@ -24,13 +21,6 @@
   height: 6px;
   border-radius: 50%;
   background: #38926f;
-}
-.platform-assistant-modal .ant-modal-container {
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid #dae3dc;
-  box-shadow: 0 32px 110px #122c2940;
-  border-radius: 18px;
 }
 .assistant-taskdesk {
   height: min(840px, 90dvh);
@@ -107,110 +97,11 @@
   margin-left: auto;
   color: #27744f;
 }
-.assistant-launch {
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  align-items: center;
-  flex: 1;
-  gap: 60px;
-  padding: 58px 64px;
-  background: radial-gradient(ellipse at 8% 25%, #e9f1e9 0, transparent 60%);
-}
 .assistant-eyebrow {
   font-size: 11px;
   letter-spacing: 1.2px;
   color: #6b8574;
   font-weight: 600;
-}
-.assistant-launch h2 {
-  font-size: 40px;
-  line-height: 1.3;
-  letter-spacing: -1.6px;
-  font-weight: 550;
-  margin: 17px 0 20px;
-}
-.assistant-launch-copy > p {
-  font-size: 14px;
-  line-height: 1.9;
-  color: #7a887f;
-}
-.assistant-intent {
-  margin-top: 28px;
-  padding: 15px;
-  border: 1px solid #cddbd0;
-  background: #fff;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  box-shadow: 0 9px 30px #23432908;
-}
-.assistant-intent textarea {
-  border: 0;
-  resize: vertical;
-  background: transparent;
-  width: 100%;
-  min-height: 90px;
-  outline: none;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.7;
-  color: #263a33;
-}
-.assistant-intent textarea:focus-visible {
-  outline: 2px solid #5d9279;
-  outline-offset: 3px;
-  border-radius: 3px;
-}
-.assistant-intent textarea::placeholder {
-  color: #a0aaa3;
-}
-.assistant-starters {
-  display: grid;
-  gap: 10px;
-}
-.assistant-starters > button {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border: 1px solid #dee6df;
-  border-radius: 12px;
-  padding: 20px;
-  text-align: left;
-  background: #fff;
-  color: inherit;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.assistant-starters > button:hover {
-  border-color: #9cbca5;
-  background: #f3f8f3;
-}
-.assistant-starters strong {
-  font-size: 14px;
-  font-weight: 600;
-}
-.assistant-starters p {
-  font-size: 12px;
-  color: #839087;
-  margin: 4px 0 0;
-}
-.assistant-starters button > .anticon {
-  margin-left: auto;
-  color: #8aa18f;
-}
-.assistant-starter-number {
-  font:
-    12px ui-monospace,
-    monospace;
-  color: #99b09e;
-}
-.assistant-starters .assistant-launch-note {
-  margin: 12px 0 0;
-  text-align: center;
-  font-size: 11px;
 }
 .assistant-work-area {
   display: grid;
@@ -509,13 +400,6 @@
   color: #738477;
 }
 @media (max-width: 1000px) {
-  .assistant-launch {
-    padding: 35px;
-    gap: 28px;
-  }
-  .assistant-launch h2 {
-    font-size: 32px;
-  }
   .assistant-work-area {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
@@ -529,14 +413,6 @@
 @media (max-width: 700px) {
   .platform-assistant-trigger kbd {
     display: none;
-  }
-  .platform-assistant-modal {
-    max-width: 100vw;
-    --assistant-width: 100vw;
-    margin: 0;
-  }
-  .platform-assistant-modal .ant-modal-container {
-    border-radius: 0;
   }
   .assistant-taskdesk {
     height: 100dvh;
@@ -558,18 +434,6 @@
   }
   .assistant-desk-actions .ant-btn {
     padding-inline: 7px;
-  }
-  .assistant-launch {
-    padding: 26px 20px;
-    grid-template-columns: 1fr;
-    gap: 25px;
-    overflow: auto;
-  }
-  .assistant-launch h2 {
-    font-size: 30px;
-  }
-  .assistant-starters > button {
-    padding: 14px;
   }
   .assistant-work-area {
     display: flex;
@@ -600,11 +464,6 @@
   }
   .assistant-onboarding h2 {
     font-size: 23px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .assistant-starters > button {
-    transition: none;
   }
 }
 
@@ -697,15 +556,6 @@
   font-size: 12px;
   color: var(--ant-color-text-secondary);
 }
-.assistant-app-beam {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: 12px;
-}
-.assistant-app-beam > div {
-  height: 100%;
-}
 .assistant-app-footer {
   display: grid;
   gap: 10px;
@@ -725,36 +575,416 @@
   display: block;
   color: var(--ant-color-text-secondary);
 }
-@media (min-width: 1100px) {
-  .ant-modal-root .ant-modal-wrap .platform-assistant-modal.with-app {
-    --assistant-width: calc(100vw - min(54vw, 860px) - 28px);
-    margin-left: 14px;
-    margin-right: auto;
-    padding-bottom: 0;
-  }
-  .platform-assistant-modal.with-app .assistant-desk-header {
-    padding: 14px;
+
+/* The assistant shares the viewport with the page; neither surface is a modal. */
+.assistant-workspace.ant-splitter {
+  height: calc(100dvh - 76px);
+  min-height: 0;
+}
+.assistant-workspace > .ant-splitter-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+.assistant-page-surface,
+.assistant-application-host {
+  height: 100%;
+  overflow: auto;
+  min-width: 0;
+}
+.assistant-page-surface {
+  position: relative;
+  container-type: inline-size;
+  container-name: assistant-page;
+}
+.assistant-workspace .assistant-taskdesk[hidden],
+.assistant-workspace .assistant-conversation[hidden],
+.assistant-workspace .assistant-change-pane[hidden],
+.assistant-workspace .assistant-page-surface[hidden],
+.assistant-workspace .assistant-application-host[hidden] {
+  display: none;
+}
+.assistant-workspace:not(.is-open) > .ant-splitter-bar {
+  display: none;
+}
+.assistant-workspace .assistant-taskdesk {
+  height: 100%;
+  min-height: 0;
+  border-left: 1px solid #dce6df;
+  outline: none;
+}
+.assistant-workspace .assistant-desk-header {
+  padding: 14px 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.assistant-workspace .assistant-orbit {
+  width: 28px;
+  height: 28px;
+  font-size: 17px;
+  border-radius: 8px;
+  transform: none;
+}
+.assistant-workspace .assistant-identity {
+  gap: 8px;
+}
+.assistant-workspace .assistant-identity h2 {
+  font-size: 14px;
+}
+.assistant-workspace .assistant-identity h2 span {
+  display: none;
+}
+.assistant-workspace .assistant-desk-actions {
+  margin-left: auto;
+  gap: 0;
+}
+.assistant-workspace .assistant-desk-actions .ant-btn {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+.assistant-workspace .assistant-context-strip {
+  padding: 9px 14px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.assistant-workspace .assistant-context-strip > span:nth-child(2) {
+  display: none;
+}
+.assistant-workspace .assistant-work-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.assistant-workspace .assistant-conversation {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.assistant-workspace .assistant-change-pane {
+  flex: 1;
+  min-height: 0;
+  border-left: 0;
+}
+.assistant-workspace .assistant-change-pane > header {
+  padding: 16px;
+}
+.assistant-workspace .assistant-proposals {
+  overflow: auto;
+  padding: 0 14px 16px;
+}
+.assistant-workspace .assistant-history {
+  grid-template-columns: 1fr;
+  max-height: 35%;
+  overflow: auto;
+}
+.assistant-workspace .assistant-onboarding {
+  padding: 24px;
+  overflow: auto;
+}
+.assistant-workspace .assistant-onboarding h2 {
+  font-size: 24px;
+}
+.assistant-workspace .assistant-chat-welcome {
+  padding: 40px 20px;
+}
+.assistant-workspace .assistant-ui-toggle {
+  padding: 12px 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.assistant-workspace .assistant-ui-toggle > .anticon,
+.assistant-workspace .assistant-ui-toggle > span:nth-child(2) {
+  display: none;
+}
+.assistant-changes-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: #315746;
+  border: 0;
+  border-bottom: 1px solid #e0e8e3;
+  padding: 11px 14px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.assistant-changes-toggle > span:last-child {
+  margin-left: auto;
+  color: #637b6d;
+}
+.assistant-collaboration-settings {
+  flex-shrink: 0;
+  border-bottom: 1px solid #e0e8e3;
+  background: #f7faf8;
+}
+.assistant-collaboration-settings > summary {
+  padding: 11px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.assistant-collaboration-settings > summary > span:last-child {
+  color: #657c6e;
+  margin-left: 8px;
+}
+.assistant-toolbar-presence,
+.assistant-toolbar-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.assistant-toolbar-status {
+  font-size: 12px;
+  color: #426453;
+}
+.assistant-toolbar-status > span {
+  max-width: 180px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.assistant-app-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px;
+  gap: 12px;
+  background: #fff;
+}
+.assistant-app-workspace > header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.assistant-app-workspace > header > span {
+  color: #63756d;
+}
+.assistant-app-workspace > header > .ant-btn {
+  margin-left: auto;
+}
+.assistant-app-workspace .assistant-app-surface {
+  flex: 1;
+  min-height: 0;
+}
+.assistant-app-workspace .assistant-app-surface iframe {
+  min-height: 0;
+}
+.page-activity-summary {
+  flex-shrink: 0;
+  border-bottom: 1px solid #dce8e0;
+  padding: 10px 14px;
+  background: #edf5ef;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+.page-activity-heading {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  color: #28543b;
+}
+.page-activity-heading .anticon {
+  margin-top: 3px;
+}
+.page-activity-summary details {
+  margin-top: 7px;
+}
+.page-activity-summary summary {
+  cursor: pointer;
+  color: #526c5e;
+}
+.page-activity-summary ol {
+  padding-left: 18px;
+  margin-bottom: 0;
+}
+.page-activity-summary li {
+  padding: 8px 0;
+}
+.page-activity-summary li > span {
+  margin-left: 8px;
+  color: #63756d;
+}
+.page-change-values {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  margin-top: 6px;
+}
+.page-change-values del,
+.page-change-values ins {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 100px;
+  overflow: auto;
+  text-decoration: none;
+  padding: 5px;
+  border-radius: 4px;
+}
+.page-change-values del {
+  background: #fff1f0;
+  color: #8a4242;
+}
+.page-change-values ins {
+  background: #e3f1e7;
+  color: #28543b;
+}
+.page-action-highlight {
+  position: fixed;
+  z-index: 1050;
+  pointer-events: none;
+  outline: 2px solid #588e71;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.page-action-highlight-border {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border-radius: 6px;
+}
+.page-action-caption {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 7px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  max-width: min(320px, 80vw);
+  border: 1px solid #b5d1be;
+  border-radius: 6px;
+  background: #f2faf4;
+  color: #28543b;
+  font-size: 12px;
+  box-shadow: 0 2px 8px #1b372818;
+}
+.page-action-caption.below {
+  top: calc(100% + 7px);
+  bottom: auto;
+}
+.assistant-action-result {
+  padding: 10px 12px;
+  border: 1px solid #dce8e0;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.assistant-action-result > p {
+  margin: 5px 0;
+}
+.assistant-action-result details {
+  margin-top: 8px;
+}
+@container assistant-page (max-width: 950px) {
+  .agent-authoring-toolbar {
+    padding: 12px 16px;
     flex-wrap: wrap;
-    gap: 12px;
   }
-  .platform-assistant-modal.with-app .assistant-context-strip,
-  .platform-assistant-modal.with-app .assistant-ui-toggle {
+  .agent-authoring-body {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+  .agent-config-content {
+    padding: 20px 16px;
+  }
+  .agent-form-pair {
+    grid-template-columns: 1fr;
+  }
+}
+@container assistant-page (max-width: 950px) {
+  .agent-authoring-body {
+    display: flex;
+    flex-direction: column;
+  }
+  .agent-config-nav {
+    display: flex;
+    flex-shrink: 0;
+    padding: 8px;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .agent-config-nav > button {
+    width: auto;
+    flex-shrink: 0;
+    padding: 8px;
+  }
+  .agent-config-nav small,
+  .agent-config-guidance {
+    display: none;
+  }
+  .agent-authoring-title {
     flex-wrap: wrap;
   }
-  .platform-assistant-modal.with-app .assistant-work-area {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+  .agent-toolbar-actions {
+    flex-wrap: wrap;
   }
-  .platform-assistant-modal.with-app .assistant-change-pane {
-    max-height: 160px;
+  .agent-config-content {
     overflow: auto;
   }
-  .platform-assistant-modal.with-app .assistant-change-pane:has(.assistant-empty-plan) {
+}
+@media (max-width: 1100px) {
+  .assistant-toolbar-status > span {
     display: none;
   }
 }
-@media (min-width: 1100px) {
-  .ant-modal-wrap.ant-modal-centered:has(> .platform-assistant-modal.with-app) {
-    text-align: left;
+@media (max-width: 900px) {
+  .assistant-workspace.ant-splitter {
+    height: calc(100dvh - 66px);
+  }
+}
+@media (max-width: 760px) {
+  .assistant-workspace.is-open > .ant-splitter-panel:first-child,
+  .assistant-workspace.is-open > .ant-splitter-bar {
+    display: none;
+  }
+  .assistant-workspace.is-open > .ant-splitter-panel:last-child {
+    /* Splitter sets an inline basis; the explicit mobile minimum fills the pane. */
+    min-width: 100%;
+    flex-grow: 1;
+  }
+  .assistant-toolbar-status .ant-btn {
+    font-size: 11px;
+    padding-inline: 5px;
+  }
+  .assistant-toolbar-presence {
+    gap: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-action-highlight .anticon {
+    animation: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar-actions > .ant-btn {
+    display: none;
+  }
+  .assistant-toolbar-status .ant-btn > span:not(.ant-btn-icon) {
+    display: none;
+  }
+}
+/* The workflow canvas also yields space when the assistant is open. */
+.platform-shell:has(.workflow-editor) .assistant-workspace:not(.is-open) {
+  height: 100dvh;
+}
+.platform-shell:has(.assistant-workspace.is-open):has(.workflow-editor) > .sidebar {
+  display: flex;
+}
+.platform-shell:has(.assistant-workspace.is-open):has(.workflow-editor) .workspace > .topbar {
+  display: flex;
+}
+.assistant-workspace.is-open .workflow-editor {
+  position: absolute;
+  height: 100%;
+}
+@media (max-width: 900px) {
+  .platform-shell:has(.assistant-workspace.is-open):has(.workflow-editor) > .sidebar {
+    display: none;
   }
 }

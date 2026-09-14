@@ -342,6 +342,7 @@ export function SkillWorkspace(selection: ResourceSelection) {
   ]);
   return (
     <Tabs
+      data-agent-target="skills.source"
       activeKey={source}
       onChange={setSource}
       destroyOnHidden

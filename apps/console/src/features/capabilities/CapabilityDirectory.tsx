@@ -154,6 +154,7 @@ function Operations({
       </div>
       <div className="capability-filters">
         <Input
+          data-agent-target="capability.operations.search"
           aria-label="搜索系统操作"
           placeholder="搜索创建、知识库、权限…"
           prefix={<SearchOutlined />}
@@ -162,6 +163,7 @@ function Operations({
           allowClear
         />
         <Button
+          data-agent-target="capability.operations.available"
           aria-pressed={availableOnly}
           type={availableOnly ? "primary" : "default"}
           onClick={() => setAvailableOnly((v) => !v)}
@@ -220,6 +222,7 @@ function Cards({
         <Tag icon={<LockOutlined />}>系统维护 · 只读</Tag>
       </div>
       <Input
+        data-agent-target="capability.search"
         className="capability-search"
         aria-label={kind === "skills" ? "搜索内置 Skills" : "搜索系统工具"}
         placeholder="按名称或用途查找"

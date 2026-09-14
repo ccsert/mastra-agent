@@ -5,6 +5,7 @@ export {
   AgentAppRegistration,
   AgentAppRegistrationView,
   AgentAppView,
+  canonicalJson,
   platformAppManifest,
   platformAppOperations,
   platformAppRegistrationId,

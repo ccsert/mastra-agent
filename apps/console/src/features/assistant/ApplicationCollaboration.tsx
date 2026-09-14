@@ -1,4 +1,4 @@
-import { AppstoreOutlined, ControlOutlined, LinkOutlined, StopOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CloseOutlined, LinkOutlined, StopOutlined } from "@ant-design/icons";
 import {
   type AgentAppOutcome,
   AgentAppRegistration,
@@ -10,13 +10,14 @@ import {
   platformAppRegistrationId,
 } from "@platform/agent-ui";
 import * as api from "@platform/sdk";
-import { Alert, BorderBeam, Button, Checkbox, Drawer, Input, Select, Space, Tag } from "antd";
+import { Alert, Button, Checkbox, Drawer, Input, Select, Space, Tag } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { v4 as uuid } from "uuid";
 import { useProjectAccess } from "../../shared/access";
 import { unwrap } from "../../shared/api";
 import { usePageActions } from "../../shared/PageActions";
+import { PageActivitySummary } from "./PageOperationFeedback";
 import { createPlatformApplication } from "./platform-application";
 
 type Connection = Pick<AgentFrameConnection, "stop" | "invoke"> & {
@@ -25,12 +26,16 @@ type Connection = Pick<AgentFrameConnection, "stop" | "invoke"> & {
 export function ApplicationCollaboration({
   projectId,
   conversationId,
-  onReveal,
+  workspace,
+  onStatus,
   onWorkspace,
 }: {
   projectId: string;
   conversationId: string;
-  onReveal(): void;
+  workspace: HTMLElement | null;
+  onStatus(
+    status: { active: boolean; acting: boolean; title: string; stop(): void } | undefined,
+  ): void;
   onWorkspace(visible: boolean): void;
 }) {
   const registry = usePageActions(),
@@ -55,8 +60,6 @@ export function ApplicationCollaboration({
     [saving, setSaving] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null),
     controller = useRef<AbortController | undefined>(undefined);
-  const reveal = useRef(onReveal);
-  reveal.current = onReveal;
   const chosen = apps.find((a) => a.id === selected),
     external = selected !== platformAppRegistrationId;
   useEffect(() => {
@@ -80,18 +83,27 @@ export function ApplicationCollaboration({
     setEnabled(false);
     setConnecting(false);
     setActing(false);
-    setStatus("应用协作已停止");
-  }, []);
+    setStatus("页面操作已停止；助手对话可继续");
+    const active = registry?.activity.getSnapshot();
+    if (active?.status === "running")
+      registry?.activity.finish(active.id, "unknown", "页面操作已停止；已开始的动作请核对当前状态");
+  }, [registry]);
+  useEffect(() => {
+    onStatus({ active: enabled || connecting, acting, title: status, stop });
+  }, [enabled, connecting, acting, status, stop, onStatus]);
+  useEffect(() => () => onStatus(undefined), [onStatus]);
   useEffect(() => {
     const visibility = () => {
       if (document.visibilityState === "hidden") stop();
     };
+    registry?.activity.clear();
     document.addEventListener("visibilitychange", visibility);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       controller.current?.abort();
+      registry?.activity.clear();
     };
-  }, [stop]);
+  }, [stop, registry]);
   async function connect() {
     if (!chosen || !registry || (controller.current && !controller.current.signal.aborted)) return;
     const current = new AbortController();
@@ -153,13 +165,16 @@ export function ApplicationCollaboration({
           },
         });
       } else {
-        const internal = createPlatformApplication(registry, ({ running, title }) => {
-          if (!current.signal.aborted) {
-            setActing(running);
-            setStatus(title);
-            if (running) reveal.current();
-          }
-        });
+        const internal = createPlatformApplication(
+          registry,
+          ({ running, title }) => {
+            if (!current.signal.aborted) {
+              setActing(running);
+              setStatus(title);
+            }
+          },
+          true,
+        );
         internal.enable(draft);
         connection = internal;
       }
@@ -178,6 +193,8 @@ export function ApplicationCollaboration({
           const result: AgentAppOutcome = await app.invoke(action.input);
           current.signal.throwIfAborted();
           view = result.view;
+          if (!external)
+            registry.activity.finish(action.input.requestId, "running", "正在确认页面操作回执");
           const receipt = await unwrap(
             api.completeAssistantApp({
               path: { ...path, actionId: action.id },
@@ -187,6 +204,8 @@ export function ApplicationCollaboration({
           );
           if (receipt.status !== result.status)
             throw new Error(receipt.result?.message ?? "服务端未确认动作，请核对页面");
+          if (!external)
+            registry.activity.finish(action.input.requestId, result.status, result.message);
           setStatus(result.message);
           setActing(false);
         } catch (e) {
@@ -255,78 +274,81 @@ export function ApplicationCollaboration({
   );
   return (
     <>
-      <div className="assistant-ui-toggle">
-        <AppstoreOutlined />
-        <span>
-          应用协作<small>读取页面、操作视图、填写草稿</small>
-        </span>
-        <Select
-          aria-label="协作应用"
-          value={selected}
-          disabled={enabled || connecting}
-          style={{ minWidth: 160 }}
-          options={apps.map((a) => ({ label: a.manifest.name, value: a.id }))}
-          onChange={(id) => {
-            stop();
-            setSelected(id);
-            setDraft(false);
-            setError("");
-            setOpen(id !== platformAppRegistrationId);
-          }}
-        />
-        {external ? <Button onClick={() => setOpen(true)}>打开应用</Button> : controls}
-        {access?.permissions.includes("resource.manage") && (
-          <Button type="text" onClick={() => setManage(true)}>
-            接入应用
-          </Button>
-        )}
-      </div>
+      <details className="assistant-collaboration-settings">
+        <summary>
+          <AppstoreOutlined /> 页面协作 <span>{enabled ? "已连接" : "连接页面后可操作"}</span>
+        </summary>
+        <div className="assistant-ui-toggle">
+          <AppstoreOutlined />
+          <span>
+            应用协作<small>读取页面、操作视图、填写草稿</small>
+          </span>
+          <Select
+            aria-label="协作应用"
+            value={selected}
+            disabled={enabled || connecting}
+            style={{ minWidth: 160 }}
+            options={apps.map((a) => ({ label: a.manifest.name, value: a.id }))}
+            onChange={(id) => {
+              stop();
+              setSelected(id);
+              setDraft(false);
+              setError("");
+              setOpen(id !== platformAppRegistrationId);
+            }}
+          />
+          {external ? <Button onClick={() => setOpen(true)}>打开应用</Button> : controls}
+          {access?.permissions.includes("resource.manage") && (
+            <Button type="text" onClick={() => setManage(true)}>
+              接入应用
+            </Button>
+          )}
+        </div>
+      </details>
+      {!external && <PageActivitySummary />}
       {error && <Alert type="warning" title={error} closable={{ onClose: () => setError("") }} />}
-      <Drawer
-        title={chosen?.manifest.name ?? "应用协作"}
-        open={open && external}
-        onClose={() => {
-          stop();
-          setOpen(false);
-        }}
-        size="min(54vw, 860px)"
-        mask={false}
-        focusable={{ trap: false, focusTriggerAfterClose: false }}
-        rootClassName="assistant-app-drawer"
-        destroyOnHidden
-        footer={
-          <div className="assistant-app-footer">
-            {controls}
-            <span role="status">{status || "先在应用页面中允许协作，再连接"}</span>
-            {error && <Alert type="warning" title={error} />}
-          </div>
-        }
-      >
-        {chosen && (
-          <div className="assistant-app-surface">
-            <div className="assistant-app-origin">
+      {workspace &&
+        open &&
+        external &&
+        chosen &&
+        createPortal(
+          <section className="assistant-app-workspace" aria-label="协作应用工作区">
+            <header>
+              <strong>{chosen.manifest.name}</strong>
               <Tag>独立应用</Tag>
               <span>{new URL(chosen.url).origin}</span>
+              <Button
+                icon={<CloseOutlined />}
+                aria-label="关闭协作应用"
+                onClick={() => {
+                  stop();
+                  setOpen(false);
+                }}
+              >
+                返回平台页面
+              </Button>
+            </header>
+            <div className="assistant-app-surface">
+              <iframe
+                key={chosen.id}
+                ref={frame}
+                title={`协作应用：${chosen.manifest.name}`}
+                src={chosen.url}
+                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer"
+                onLoad={() => {
+                  if (enabled || connecting) stop();
+                }}
+              />
             </div>
-            <iframe
-              key={chosen.id}
-              ref={frame}
-              title={`协作应用：${chosen.manifest.name}`}
-              src={chosen.url}
-              sandbox="allow-scripts allow-same-origin"
-              referrerPolicy="no-referrer"
-              onLoad={() => {
-                if (enabled || connecting) stop();
-              }}
-            />
-            {acting && (
-              <BorderBeam className="assistant-app-beam" duration={3}>
-                <div />
-              </BorderBeam>
-            )}
-          </div>
+            <footer className="assistant-app-footer">
+              {controls}
+              <span role="status">{status || "先在应用页面中允许协作，再连接"}</span>
+              {error && <Alert type="warning" title={error} />}
+            </footer>
+          </section>,
+          workspace,
         )}
-      </Drawer>
       <Drawer title="接入应用" open={manage} onClose={() => setManage(false)} size={560}>
         <p>
           应用提供页面地址和能力清单，登记后由用户按任务连接。第三方应用使用独立域名，无需采用平台的组件或前端框架。
@@ -402,25 +424,6 @@ export function ApplicationCollaboration({
             </div>
           ))}
       </Drawer>
-      {enabled &&
-        !external &&
-        createPortal(
-          <div className="assistant-ui-overlay">
-            {acting && (
-              <BorderBeam className="assistant-ui-beam" duration={3} size="28%" lineWidth={2}>
-                <div className="assistant-ui-frame" />
-              </BorderBeam>
-            )}
-            <div className={`assistant-ui-status${acting ? " is-acting" : ""}`} role="status">
-              <ControlOutlined />
-              <span>{status}</span>
-              <Button size="small" onClick={stop}>
-                停止应用协作
-              </Button>
-            </div>
-          </div>,
-          document.body,
-        )}
     </>
   );
 }

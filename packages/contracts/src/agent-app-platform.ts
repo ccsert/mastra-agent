@@ -9,12 +9,31 @@ const object = (properties: Record<string, unknown>, required: string[] = []) =>
   required,
   additionalProperties: false,
 });
-const outputSchema = object({ message: { type: "string" } }, ["message"]);
+const outputSchema = object(
+  {
+    message: { type: "string" },
+    changes: {
+      type: "array",
+      maxItems: 40,
+      items: object(
+        {
+          target: { type: "string" },
+          label: { type: "string" },
+          before: { type: "string", maxLength: 2000 },
+          after: { type: "string", maxLength: 2000 },
+          truncated: { type: "boolean" },
+        },
+        ["target", "label", "before", "after", "truncated"],
+      ),
+    },
+  },
+  ["message"],
+);
 export const platformAppManifest: AgentAppManifest = {
   protocolVersion: "1.0",
   appId: "platform.console",
   name: "当前平台页面",
-  version: "1.0.0",
+  version: "1.1.0",
   actions: [
     {
       id: "page.navigate",

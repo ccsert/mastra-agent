@@ -617,7 +617,7 @@ a:focus-visible {
   }
 }
 @media (max-width: 600px) {
-  .topbar-actions .ant-btn:last-child {
+  .topbar-actions > .ant-btn:last-child {
     display: none;
   }
 }

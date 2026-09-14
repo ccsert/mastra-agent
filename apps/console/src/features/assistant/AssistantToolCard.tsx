@@ -22,35 +22,76 @@ export const AssistantToolCard: ToolCallMessagePartComponent = (props) => {
       result.result && typeof result.result === "object"
         ? (result.result as Record<string, unknown>)
         : undefined;
+    const output =
+      details?.output && typeof details.output === "object"
+        ? (details.output as Record<string, unknown>)
+        : undefined;
+    const changes = Array.isArray(output?.changes)
+      ? output.changes.filter(
+          (
+            value,
+          ): value is {
+            target: string;
+            label: string;
+            before: string;
+            after: string;
+            truncated?: boolean;
+          } =>
+            !!value &&
+            typeof value === "object" &&
+            typeof value.target === "string" &&
+            typeof value.label === "string" &&
+            typeof value.before === "string" &&
+            typeof value.after === "string",
+        )
+      : [];
+    const failed = ["failed", "unknown", "cancelled"].includes(String(result.status));
+    const title =
+      result.type === "agent-app-view"
+        ? `读取应用 · ${String(result.application)}`
+        : result.type === "agent-app-action"
+          ? `动作规范 · ${String(result.title)}`
+          : result.status === "unknown"
+            ? "页面结果未确认"
+            : result.status === "cancelled"
+              ? "页面动作已取消"
+              : result.type === "platform-ui-view"
+                ? `读取当前页面 · ${String(result.page)}`
+                : result.status === "succeeded"
+                  ? "页面操作已完成"
+                  : result.status === "failed"
+                    ? "页面动作未完成"
+                    : "等待页面回执";
     return (
-      <details className="assistant-skill-result">
-        <summary>
-          {["failed", "unknown", "cancelled"].includes(String(result.status)) ? (
-            <WarningOutlined />
-          ) : (
-            <ControlOutlined />
-          )}
-          {result.type === "agent-app-view"
-            ? `读取应用 · ${String(result.application)}`
-            : result.type === "agent-app-action"
-              ? `动作规范 · ${String(result.title)}`
-              : result.status === "unknown"
-                ? "页面结果未知 · 请核对当前状态"
-                : result.status === "cancelled"
-                  ? "页面动作已取消"
-                  : result.type === "platform-ui-view"
-                    ? `读取当前页面 · ${String(result.page)}`
-                    : result.status === "succeeded"
-                      ? "页面操作已完成"
-                      : result.status === "failed"
-                        ? "页面动作未完成"
-                        : "等待页面回执"}
-        </summary>
+      <div className="assistant-action-result">
+        <strong>
+          {failed ? <WarningOutlined /> : <ControlOutlined />} {title}
+        </strong>
         {!!details?.message && <p>{String(details.message)}</p>}
-        <pre>{JSON.stringify(result, null, 2)}</pre>
-      </details>
+        {changes.length > 0 && (
+          <details>
+            <summary>已核对 {changes.length} 项字段变化 · 未保存</summary>
+            {changes.map((change) => (
+              <div key={change.target}>
+                <strong>{change.label}</strong>
+                <div className="page-change-values">
+                  <del>{change.before || "空"}</del>
+                  <span>→</span>
+                  <ins>{change.after || "空"}</ins>
+                </div>
+                {change.truncated && <small>长文本仅显示摘要，请在页面核对完整内容。</small>}
+              </div>
+            ))}
+          </details>
+        )}
+        <details>
+          <summary>查看技术详情</summary>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </details>
+      </div>
     );
   }
+
   if (props.toolName === "platform_navigate" && typeof result.page === "string")
     return (
       <div className="assistant-tool-result">

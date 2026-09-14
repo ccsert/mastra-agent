@@ -208,158 +208,165 @@ export function ProjectConsole({
           <div className="mobile-sidebar">{nav}</div>
         </Drawer>
         <div className="workspace">
-          <header className="topbar">
-            <div className="topbar-project">
-              <Button
-                type="text"
-                className="mobile-menu"
-                aria-label="打开导航"
-                icon={<MenuOutlined key="MenuOutlined" />}
-                onClick={() => setMobilePath(location.pathname)}
-              />
-              <FolderOpenOutlined key="FolderOpenOutlined" />
-              <Select
-                aria-label="当前项目"
-                variant="borderless"
-                placeholder="选择项目"
-                value={projectId || undefined}
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                onChange={(id) => {
-                  if (id !== projectId) onProjectChange(id);
-                }}
-                popupMatchSelectWidth={240}
-              />
-              <Tag>开发环境</Tag>
-            </div>
-            <div className="topbar-actions">
-              {projectId && allowed("project.read") && (
-                <ProjectAccessContext.Provider value={access}>
-                  <PlatformAssistant
-                    key={`${user.id}/${projectId}`}
-                    projectId={projectId}
-                    projectName={selectedProject?.name ?? "当前项目"}
-                    user={user}
-                    context={{
-                      page,
-                      ...(resourceId && resourceId !== "new" ? { resourceId } : {}),
-                    }}
-                    onNavigate={(target, id, targetProjectId) => {
-                      const next = pages.find((p) => p === target);
-                      if (next)
-                        void confirmExit(async () => {
-                          await refreshProjects();
-                          await navigate(
-                            next === "team"
-                              ? "/team"
-                              : projectPath(targetProjectId ?? projectId, next, id),
-                          );
-                        });
-                    }}
-                  />
-                </ProjectAccessContext.Provider>
-              )}
-
-              <Button
-                type="text"
-                icon={<PlusOutlined key="PlusOutlined" />}
-                disabled={!teamAdmin}
-                onClick={() => openEditor("project")}
-              >
-                新建项目
-              </Button>
-              <Tooltip title="刷新数据">
-                <Button
-                  aria-label="刷新数据"
-                  type="text"
-                  icon={<ReloadOutlined spin={loading} />}
-                  onClick={() => void refresh()}
-                />
-              </Tooltip>
-            </div>
-          </header>
-          <main
-            className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}${authoringPage ? " agent-authoring-page" : ""}`}
-          >
-            {!conversationPage && !authoringPage && (
-              <div className="page-heading">
-                <div>
-                  <div className="breadcrumb">
-                    {page === "team" ? "组织与访问" : (selectedProject?.name ?? "工作空间")}{" "}
-                    <span>/</span> {pageTitles[page][0]}
+          <ProjectAccessContext.Provider value={access}>
+            <PlatformAssistant
+              key={`${user.id}/${projectId}`}
+              available={!!projectId && allowed("project.read")}
+              projectId={projectId}
+              projectName={selectedProject?.name ?? "当前项目"}
+              user={user}
+              context={{
+                page,
+                ...(resourceId && resourceId !== "new" ? { resourceId } : {}),
+              }}
+              onNavigate={(target, id, targetProjectId) => {
+                const next = pages.find((p) => p === target);
+                if (next)
+                  void confirmExit(async () => {
+                    await refreshProjects();
+                    await navigate(
+                      next === "team"
+                        ? "/team"
+                        : projectPath(targetProjectId ?? projectId, next, id),
+                    );
+                  });
+              }}
+              renderHeader={(assistantTrigger) => (
+                <header className="topbar">
+                  <div className="topbar-project">
+                    <Button
+                      type="text"
+                      className="mobile-menu"
+                      aria-label="打开导航"
+                      icon={<MenuOutlined key="MenuOutlined" />}
+                      onClick={() => setMobilePath(location.pathname)}
+                    />
+                    <FolderOpenOutlined key="FolderOpenOutlined" />
+                    <Select
+                      aria-label="当前项目"
+                      variant="borderless"
+                      placeholder="选择项目"
+                      value={projectId || undefined}
+                      options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                      onChange={(id) => {
+                        if (id !== projectId) onProjectChange(id);
+                      }}
+                      popupMatchSelectWidth={240}
+                    />
+                    <Tag>开发环境</Tag>
                   </div>
-                  <h1>{pageTitles[page][0]}</h1>
-                  <p>{pageTitles[page][1]}</p>
-                </div>
-                {projectId &&
-                  ["agents", "models", "tools"].includes(page) &&
-                  allowed(page === "agents" ? "agent.edit" : "resource.manage") && (
+                  <div className="topbar-actions">
+                    {assistantTrigger}
+
                     <Button
-                      type="primary"
-                      icon={<PlusOutlined key="PlusOutlined" />}
-                      onClick={() =>
-                        openEditor(
-                          (
-                            {
-                              agents: "agent",
-                              models: "model",
-                              tools: "tool",
-                            } as Record<string, EditorKind>
-                          )[page],
-                        )
-                      }
-                    >
-                      {
-                        (
-                          {
-                            agents: "创建 Agent",
-                            models: "接入模型",
-                            tools: "登记工具",
-                          } as Record<string, string>
-                        )[page]
-                      }
-                    </Button>
-                  )}
-              </div>
-            )}
-            {!projectId && page !== "team" ? (
-              <section className="panel">
-                <Blank
-                  title={teamAdmin ? "创建你的第一个项目" : "等待项目邀请"}
-                  description={
-                    teamAdmin
-                      ? "用项目组织模型、工具、Agent 与会话，让业务团队从这里开始。"
-                      : "你已加入团队，请联系管理员将你添加到项目。"
-                  }
-                  action={
-                    <Button
-                      type="primary"
+                      type="text"
                       icon={<PlusOutlined key="PlusOutlined" />}
                       disabled={!teamAdmin}
                       onClick={() => openEditor("project")}
                     >
-                      创建项目
+                      新建项目
                     </Button>
-                  }
-                />
-              </section>
-            ) : (
-              <ProjectAccessContext.Provider value={access}>
-                {page === "team" ? (
-                  <Outlet
-                    context={{ page, user, openEditor, registerGuard } satisfies ConsoleNavigation}
-                  />
-                ) : (
-                  <QueryState label="项目权限" query={accessQuery}>
-                    <Outlet
-                      context={
-                        { page, user, openEditor, registerGuard } satisfies ConsoleNavigation
+                    <Tooltip title="刷新数据">
+                      <Button
+                        aria-label="刷新数据"
+                        type="text"
+                        icon={<ReloadOutlined spin={loading} />}
+                        onClick={() => void refresh()}
+                      />
+                    </Tooltip>
+                  </div>
+                </header>
+              )}
+            >
+              <main
+                data-agent-target="page"
+                className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}${authoringPage ? " agent-authoring-page" : ""}`}
+              >
+                {!conversationPage && !authoringPage && (
+                  <div className="page-heading">
+                    <div>
+                      <div className="breadcrumb">
+                        {page === "team" ? "组织与访问" : (selectedProject?.name ?? "工作空间")}{" "}
+                        <span>/</span> {pageTitles[page][0]}
+                      </div>
+                      <h1>{pageTitles[page][0]}</h1>
+                      <p>{pageTitles[page][1]}</p>
+                    </div>
+                    {projectId &&
+                      ["agents", "models", "tools"].includes(page) &&
+                      allowed(page === "agents" ? "agent.edit" : "resource.manage") && (
+                        <Button
+                          data-agent-target={page === "agents" ? "agent.create" : undefined}
+                          type="primary"
+                          icon={<PlusOutlined key="PlusOutlined" />}
+                          onClick={() =>
+                            openEditor(
+                              (
+                                {
+                                  agents: "agent",
+                                  models: "model",
+                                  tools: "tool",
+                                } as Record<string, EditorKind>
+                              )[page],
+                            )
+                          }
+                        >
+                          {
+                            (
+                              {
+                                agents: "创建 Agent",
+                                models: "接入模型",
+                                tools: "登记工具",
+                              } as Record<string, string>
+                            )[page]
+                          }
+                        </Button>
+                      )}
+                  </div>
+                )}
+                {!projectId && page !== "team" ? (
+                  <section className="panel">
+                    <Blank
+                      title={teamAdmin ? "创建你的第一个项目" : "等待项目邀请"}
+                      description={
+                        teamAdmin
+                          ? "用项目组织模型、工具、Agent 与会话，让业务团队从这里开始。"
+                          : "你已加入团队，请联系管理员将你添加到项目。"
+                      }
+                      action={
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined key="PlusOutlined" />}
+                          disabled={!teamAdmin}
+                          onClick={() => openEditor("project")}
+                        >
+                          创建项目
+                        </Button>
                       }
                     />
-                  </QueryState>
+                  </section>
+                ) : (
+                  <ProjectAccessContext.Provider value={access}>
+                    {page === "team" ? (
+                      <Outlet
+                        context={
+                          { page, user, openEditor, registerGuard } satisfies ConsoleNavigation
+                        }
+                      />
+                    ) : (
+                      <QueryState label="项目权限" query={accessQuery}>
+                        <Outlet
+                          context={
+                            { page, user, openEditor, registerGuard } satisfies ConsoleNavigation
+                          }
+                        />
+                      </QueryState>
+                    )}
+                  </ProjectAccessContext.Provider>
                 )}
-              </ProjectAccessContext.Provider>
-            )}
-          </main>
+              </main>
+            </PlatformAssistant>
+          </ProjectAccessContext.Provider>
         </div>
         <EditorHost
           key={`${editor ?? "closed"}:${editing?.resource?.id ?? "new"}`}

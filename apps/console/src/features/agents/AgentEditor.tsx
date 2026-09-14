@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, App, Button, Form, Modal, Tag } from "antd";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
+import { useAssistantDock } from "../../shared/AssistantDock";
 import { timestamp, unwrap } from "../../shared/api";
 import {
   projectKey,
@@ -85,6 +86,7 @@ export function AgentEditor({
   canEdit?: boolean;
   canPublish?: boolean;
 }) {
+  const assistantDock = useAssistantDock();
   const [form] = Form.useForm<AgentValues>(),
     { message, modal } = App.useApp(),
     refresh = useProjectRefresh();
@@ -129,7 +131,7 @@ export function AgentEditor({
             ? (["name", "description", "instructions"] as const).map(
                 (field): PageAction => ({
                   id: `agent.${field}`,
-                  label: { name: "Agent 名称", description: "简短描述", instructions: "行为指令" }[
+                  label: { name: "名称", description: "适用场景", instructions: "角色与指令" }[
                     field
                   ],
                   kind: "fill",
@@ -240,9 +242,10 @@ export function AgentEditor({
       onCreated?.(createdAgent);
     }
   }
+  const previewVisible = previewOpen && !assistantDock.open;
   const previewStale = !!preview && (dirty || saved?.draftRevision !== preview.draftRevision);
   return (
-    <div className={`agent-authoring${previewOpen ? " with-preview" : ""}`}>
+    <div className={`agent-authoring${previewVisible ? " with-preview" : ""}`}>
       <header className="agent-authoring-toolbar">
         <div className="agent-authoring-title">
           <Button
@@ -265,8 +268,16 @@ export function AgentEditor({
           {!canEdit && <Tag>只读</Tag>}
         </div>
         <div className="agent-toolbar-actions">
-          <Button icon={<ExperimentOutlined />} onClick={() => setPreviewOpen((v) => !v)}>
-            {previewOpen ? "收起试用" : "显示试用"}
+          <Button
+            icon={<ExperimentOutlined />}
+            onClick={() => {
+              if (assistantDock.open) {
+                assistantDock.close();
+                setPreviewOpen(true);
+              } else setPreviewOpen((v) => !v);
+            }}
+          >
+            {previewVisible ? "收起试用" : "显示试用"}
           </Button>
           {canEdit && (
             <>
@@ -333,7 +344,11 @@ export function AgentEditor({
         />
       )}
       <div className="agent-authoring-body">
-        <nav className="agent-config-nav" aria-label="Agent 配置导航">
+        <nav
+          data-agent-target="agent.section"
+          className="agent-config-nav"
+          aria-label="Agent 配置导航"
+        >
           {sections.map((item) => (
             <button
               type="button"
@@ -427,7 +442,7 @@ export function AgentEditor({
             </section>
           )}
         </div>
-        <aside hidden={!previewOpen} className="agent-preview" aria-label="草稿试用">
+        <aside hidden={!previewVisible} className="agent-preview" aria-label="草稿试用">
           <header>
             <div>
               <ExperimentOutlined />

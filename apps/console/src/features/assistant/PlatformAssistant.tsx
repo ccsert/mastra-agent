@@ -1,27 +1,33 @@
 import {
   AimOutlined,
-  ArrowRightOutlined,
   CloseOutlined,
   CodeSandboxOutlined,
+  CompressOutlined,
+  ExpandOutlined,
   HistoryOutlined,
   PlusOutlined,
   SafetyOutlined,
   SettingOutlined,
+  StopOutlined,
   ThunderboltOutlined,
+  UnorderedListOutlined,
 } from "@ant-design/icons";
 import type { AssistantSession, Principal } from "@platform/sdk";
 import * as api from "@platform/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
-import { Alert, Button, Modal, Select, Spin } from "antd";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Alert, Button, Select, Spin, Splitter } from "antd";
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
+import { AssistantDockContext } from "../../shared/AssistantDock";
 import { unwrap } from "../../shared/api";
 import { useProjectQuery, useProjectRefresh } from "../../shared/data/ProjectData";
+import { readSessionValue, writeSessionValue } from "../../shared/data/session-storage";
 import { AssistantCapabilityDrawer } from "../capabilities/index";
 import { loadChat } from "../chat/index";
 import { ApplicationCollaboration } from "./ApplicationCollaboration";
 import { AssistantNavigation, AssistantToolCard } from "./AssistantToolCard";
+import { PageOperationFeedback } from "./PageOperationFeedback";
 import { ProposalCard } from "./ProposalCard";
 
 const Chat = lazy(() => loadChat().then((m) => ({ default: m.Chat })));
@@ -45,31 +51,6 @@ const pageLabels: Record<string, string> = {
   settings: "项目设置",
   team: "团队设置",
 };
-const suggestions = [
-  {
-    title: "搭建一个业务助手",
-    detail: "从目标出发，组合模型、知识和工具",
-    prompt:
-      "帮我创建一个企业制度问答助手。先检查当前可用模型和知识库，按最小工具权限给出可审阅的草稿方案。",
-  },
-  {
-    title: "把流程变成自动化",
-    detail: "让步骤、判断和结果清晰可见",
-    prompt:
-      "我想把一个业务流程做成工作流。请先解释平台支持的流程能力，帮助我明确必要信息，再准备草稿。",
-  },
-  {
-    title: "整理团队知识与 Skills",
-    detail: "复用现有能力，补齐缺少的部分",
-    prompt:
-      "帮我检查当前项目的知识库和 Skills，告诉我现状以及哪些内容需要补齐。先只读取，不做变更。",
-  },
-  {
-    title: "解释当前页面",
-    detail: "了解用途、权限和下一步",
-    prompt: "请解释任务开始时所在页面的用途、我当前有哪些权限，以及可以从哪里开始。",
-  },
-];
 function Welcome() {
   return (
     <div className="assistant-chat-welcome">
@@ -85,7 +66,13 @@ export function PlatformAssistant({
   user,
   context,
   onNavigate,
+  children,
+  renderHeader,
+  available = true,
 }: {
+  children?: ReactNode;
+  renderHeader?(trigger: ReactNode): ReactNode;
+  available?: boolean;
   projectId: string;
   projectName: string;
   user: Principal;
@@ -94,7 +81,6 @@ export function PlatformAssistant({
 }) {
   const [open, setOpen] = useState(false),
     [session, setSession] = useState<AssistantSession>(),
-    [prompt, setPrompt] = useState(""),
     [prefill, setPrefill] = useState<{ id: string; text: string }>(),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -106,11 +92,38 @@ export function PlatformAssistant({
     [modelId, setModelId] = useState<string>();
   const refresh = useProjectRefresh();
   const startRequest = useRef<{ signature: string; id: string } | undefined>(undefined);
+  const startInFlight = useRef(false);
+  const autoStartAttempted = useRef(false);
   const [appVisible, setAppVisible] = useState(false);
+  const [appHost, setAppHost] = useState<HTMLDivElement | null>(null);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [wide, setWide] = useState(false);
+  const widthKey = `assistant-dock:${user.tenantId}:${user.id}:${projectId}`;
+  const [width, setWidth] = useState(() => {
+    const saved = readSessionValue(widthKey);
+    return typeof saved === "number" && Number.isFinite(saved) && saved >= 340
+      ? Math.min(saved, 1000)
+      : 420;
+  });
+  const [collaboration, setCollaboration] = useState<{
+    active: boolean;
+    acting: boolean;
+    title: string;
+    stop(): void;
+  }>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const deskRef = useRef<HTMLElement>(null);
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+  useEffect(() => {
+    if (open) deskRef.current?.focus({ preventScroll: true });
+  }, [open]);
   const bootstrap = useQuery({
     queryKey: assistantKey(projectId),
     queryFn: ({ signal }) => unwrap(api.getPlatformAssistant({ path: { projectId }, signal })),
-    enabled: open,
+    enabled: available && open,
     staleTime: 0,
   });
   const models = useProjectQuery("models", {
@@ -144,29 +157,27 @@ export function PlatformAssistant({
   });
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
+      if (
+        available &&
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "k"
+      ) {
         event.preventDefault();
         setOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
-  const pageIdentity = `${context.page}/${context.resourceId ?? ""}`;
-  const previousPage = useRef(pageIdentity);
-  useEffect(() => {
-    if (previousPage.current !== pageIdentity) {
-      previousPage.current = pageIdentity;
-      setOpen(false);
-    }
-  }, [pageIdentity]);
+  }, [available]);
   const finish = () => {
     void proposals.refetch();
     void bootstrap.refetch();
   };
-  async function start(text = "") {
-    if (busy) return;
-    const signature = JSON.stringify({ context, text });
+  const start = useCallback(async () => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
+    const signature = JSON.stringify({ context });
     if (startRequest.current?.signature !== signature)
       startRequest.current = { signature, id: uuid() };
     setBusy(true);
@@ -178,22 +189,37 @@ export function PlatformAssistant({
           body: {
             requestId: startRequest.current.id,
             context,
-            ...(text.trim() ? { message: text.trim() } : {}),
           },
         }),
       );
       startRequest.current = undefined;
-      setPrompt("");
       setSession(next);
+      setChangesOpen(false);
       setPrefill(undefined);
       setHistory(false);
       void bootstrap.refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : "无法开启任务");
     } finally {
+      startInFlight.current = false;
       setBusy(false);
     }
-  }
+  }, [context, projectId, bootstrap.refetch]);
+  useEffect(() => {
+    if (
+      available &&
+      open &&
+      bootstrap.data?.configuration &&
+      !session &&
+      !busy &&
+      !configuring &&
+      !history &&
+      !autoStartAttempted.current
+    ) {
+      autoStartAttempted.current = true;
+      void start();
+    }
+  }, [available, open, bootstrap.data?.configuration, session, busy, configuring, history, start]);
   async function configure() {
     if (!modelId) return;
     setBusy(true);
@@ -234,326 +260,331 @@ export function PlatformAssistant({
     }
   }
   const navigate = (page: string, id?: string, targetProjectId?: string) => {
-    setOpen(false);
     onNavigate(page, id, targetProjectId);
   };
-  return (
-    <>
+  const trigger = available ? (
+    <div className="assistant-toolbar-presence">
+      {collaboration?.active && (
+        <div className="assistant-toolbar-status">
+          <span role="status">{collaboration.acting ? collaboration.title : "页面协作已连接"}</span>
+          <Button
+            size="small"
+            icon={<StopOutlined />}
+            onClick={collaboration.stop}
+            aria-label="停止页面操作"
+          >
+            停止页面操作
+          </Button>
+        </div>
+      )}
       <Button
+        ref={triggerRef}
         className={`platform-assistant-trigger${running ? " is-running" : ""}`}
         icon={<ThunderboltOutlined />}
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen((value) => !value)}
         aria-label="打开平台助手"
+        aria-expanded={open}
+        aria-controls="platform-assistant-desk"
       >
         平台助手 <kbd>⇧⌘K</kbd>
         {running && <span className="assistant-live-dot" />}
       </Button>
-      <Modal
-        open={open}
-        onCancel={() => setOpen(false)}
-        footer={null}
-        width="var(--assistant-width)"
-        className={`platform-assistant-modal${appVisible ? " with-app" : ""}`}
-        focusable={{ trap: !appVisible }}
-        centered
-        closable={false}
-        styles={{ body: { padding: 0 } }}
-        destroyOnHidden={false}
-      >
-        <section className="assistant-taskdesk" aria-label="平台助手任务台">
-          <header className="assistant-desk-header">
-            <div className="assistant-identity">
-              <span className="assistant-orbit">
-                <CodeSandboxOutlined />
-              </span>
-              <div>
-                <h2>
-                  平台助手 <span>任务台</span>
-                </h2>
-                <p>
-                  {projectName} <span> / </span> {user.displayName}
-                </p>
-              </div>
-            </div>
-            <div className="assistant-desk-actions">
-              <Button
-                type="text"
-                icon={<SafetyOutlined />}
-                aria-label="我的能力"
-                onClick={() => setCapabilitiesOpen(true)}
-              >
-                我的能力
-              </Button>
-              {bootstrap.data?.canConfigure && (
-                <Button
-                  type="text"
-                  icon={<SettingOutlined />}
-                  aria-label="设置助手模型"
-                  disabled={running || busy}
-                  onClick={() => {
-                    setModelId(bootstrap.data?.configuration?.modelId);
-                    setConfiguring((v) => !v);
-                  }}
-                />
-              )}
-              <Button
-                type="text"
-                icon={<HistoryOutlined />}
-                aria-label="查看助手任务记录"
-                onClick={() => setHistory((v) => !v)}
-              />
-              <Button
-                type="text"
-                icon={<PlusOutlined />}
-                disabled={!bootstrap.data?.configuration || busy || running}
-                onClick={() => void start()}
-              >
-                新任务
-              </Button>
-              <Button
-                type="text"
-                icon={<CloseOutlined />}
-                aria-label="收起平台助手"
-                onClick={() => setOpen(false)}
-              />
-            </div>
-          </header>
-          <div className="assistant-context-strip">
-            <span>
-              <AimOutlined /> {session ? "任务起始页面" : "当前页面"} ·{" "}
-              {pageLabels[session?.context.page ?? context.page ?? "overview"]}
-            </span>
-            <span>
-              <SafetyOutlined /> 继承你的权限 · 按任务使用能力
-            </span>
-            {running && <span className="assistant-running-label">正在处理 · 可收起任务台</span>}
+    </div>
+  ) : null;
+  const desk = (
+    <section
+      ref={deskRef}
+      id="platform-assistant-desk"
+      tabIndex={-1}
+      className="assistant-taskdesk"
+      aria-label="平台助手任务台"
+      hidden={!open}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && event.target === event.currentTarget) close();
+      }}
+    >
+      <header className="assistant-desk-header">
+        <div className="assistant-identity">
+          <span className="assistant-orbit">
+            <CodeSandboxOutlined />
+          </span>
+          <div>
+            <h2>
+              平台助手 <span>与你一起操作</span>
+            </h2>
+            <p>
+              {projectName} <span> / </span> {user.displayName}
+            </p>
           </div>
-          {session && (
-            <ApplicationCollaboration
-              key={session.id}
-              projectId={projectId}
-              conversationId={session.id}
-              onReveal={() => setOpen(false)}
-              onWorkspace={setAppVisible}
+        </div>
+        <div className="assistant-desk-actions">
+          <Button
+            type="text"
+            icon={wide ? <CompressOutlined /> : <ExpandOutlined />}
+            aria-label={wide ? "收窄助手" : "展开任务台"}
+            onClick={() => setWide((value) => !value)}
+          />
+          <Button
+            type="text"
+            icon={<SafetyOutlined />}
+            aria-label="我的能力"
+            onClick={() => setCapabilitiesOpen(true)}
+          />
+          {bootstrap.data?.canConfigure && (
+            <Button
+              type="text"
+              icon={<SettingOutlined />}
+              aria-label="设置助手模型"
+              disabled={running || busy}
+              onClick={() => {
+                setModelId(bootstrap.data?.configuration?.modelId);
+                setConfiguring((v) => !v);
+              }}
             />
           )}
-          {error && <Alert type="error" title={error} closable={{ onClose: () => setError("") }} />}
-          {bootstrap.isError && (
-            <Alert
-              type="error"
-              title="暂时无法读取平台助手"
-              action={<Button onClick={() => void bootstrap.refetch()}>重试</Button>}
-            />
+          <Button
+            type="text"
+            icon={<HistoryOutlined />}
+            aria-label="查看助手任务记录"
+            disabled={busy}
+            onClick={() => setHistory((v) => !v)}
+          />
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            disabled={!bootstrap.data?.configuration || busy || running}
+            onClick={() => void start()}
+            aria-label="新任务"
+          />
+          <Button type="text" icon={<CloseOutlined />} aria-label="收起平台助手" onClick={close} />
+        </div>
+      </header>
+      <div className="assistant-context-strip">
+        <span>
+          <AimOutlined /> 当前页面 · {pageLabels[context.page ?? "overview"]}
+        </span>
+        <span>
+          <SafetyOutlined /> 继承你的权限 · 按任务使用能力
+        </span>
+        {running && <span className="assistant-running-label">正在处理 · 可收起任务台</span>}
+      </div>
+      {session && (
+        <ApplicationCollaboration
+          key={session.id}
+          projectId={projectId}
+          conversationId={session.id}
+          workspace={appHost}
+          onWorkspace={setAppVisible}
+          onStatus={setCollaboration}
+        />
+      )}
+      {error && <Alert type="error" title={error} closable={{ onClose: () => setError("") }} />}
+      {bootstrap.isError && (
+        <Alert
+          type="error"
+          title="暂时无法读取平台助手"
+          action={<Button onClick={() => void bootstrap.refetch()}>重试</Button>}
+        />
+      )}
+      {history && (
+        <section className="assistant-history" aria-label="助手任务记录">
+          {bootstrap.data?.sessions.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              disabled={running}
+              className={session?.id === item.id ? "active" : ""}
+              onClick={() => {
+                setSession(item);
+                setChangesOpen(false);
+                setPrefill(undefined);
+                setChangesOpen(false);
+                setHistory(false);
+              }}
+            >
+              <HistoryOutlined />
+              <span>{item.title === "新会话" ? "未开始的任务" : item.title}</span>
+              <small>{new Date(item.createdAt).toLocaleDateString()}</small>
+            </button>
+          ))}
+          {!bootstrap.data?.sessions.length && <p>任务会保存在这里，随时继续。</p>}
+        </section>
+      )}
+      {bootstrap.isPending ? (
+        <div className="assistant-loader">
+          <Spin description="读取平台能力…" />
+        </div>
+      ) : !bootstrap.data?.configuration || configuring ? (
+        <div className="assistant-onboarding">
+          <span className="assistant-eyebrow">让平台拥有自己的助手</span>
+          <h2>先连接一个会思考、能调用工具的模型。</h2>
+          <p>模型设置用于新任务，已有任务保留原模型。每位用户使用自己的权限与独立任务记录。</p>
+          {bootstrap.data?.canConfigure ? (
+            <>
+              <Select
+                aria-label="平台助手模型"
+                placeholder="选择已有对话模型"
+                value={modelId}
+                onChange={setModelId}
+                options={(models.data ?? [])
+                  .filter((m) => m.kind === "chat" && m.capabilities?.toolUse !== false)
+                  .map((m) => ({ value: m.id, label: m.name }))}
+              />
+              <Button
+                type="primary"
+                disabled={!modelId}
+                loading={busy}
+                onClick={() => void configure()}
+              >
+                {bootstrap.data?.configuration ? "保存模型设置" : "启用平台助手"}
+              </Button>
+            </>
+          ) : (
+            <Alert type="info" title="请项目管理员先选择助手模型" />
           )}
-          {history && (
-            <section className="assistant-history" aria-label="助手任务记录">
-              {bootstrap.data?.sessions.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  disabled={running}
-                  className={session?.id === item.id ? "active" : ""}
-                  onClick={() => {
-                    setSession(item);
-                    setPrompt("");
-                    setPrefill(undefined);
-                    setHistory(false);
-                  }}
+        </div>
+      ) : !session ? (
+        <div className="assistant-loader">
+          {busy ? (
+            <Spin description="准备对话…" />
+          ) : (
+            <Button onClick={() => void start()}>重新打开对话</Button>
+          )}
+        </div>
+      ) : (
+        <div className="assistant-work-area">
+          <button
+            type="button"
+            className="assistant-changes-toggle"
+            aria-expanded={changesOpen}
+            onClick={() => setChangesOpen((value) => !value)}
+          >
+            <UnorderedListOutlined /> 变更清单 · {proposals.data?.length ?? 0}
+            <span>
+              {changesOpen
+                ? "返回对话"
+                : proposals.data?.some((p) => p.status === "pending")
+                  ? "有待审阅的更改"
+                  : "查看变更"}
+            </span>
+          </button>
+          <div className="assistant-conversation" hidden={changesOpen}>
+            <AssistantNavigation.Provider value={navigate}>
+              {saved.isError ? (
+                <Alert
+                  type="error"
+                  title="无法恢复任务记录"
+                  action={<Button onClick={() => void saved.refetch()}>重试</Button>}
+                />
+              ) : saved.data ? (
+                <Suspense
+                  fallback={
+                    <div className="assistant-loader">
+                      <Spin description="打开对话…" />
+                    </div>
+                  }
                 >
-                  <HistoryOutlined />
-                  <span>{item.title === "新会话" ? "未开始的任务" : item.title}</span>
-                  <small>{new Date(item.createdAt).toLocaleDateString()}</small>
-                </button>
-              ))}
-              {!bootstrap.data?.sessions.length && <p>任务会保存在这里，随时继续。</p>}
-            </section>
-          )}
-          {bootstrap.isPending ? (
-            <div className="assistant-loader">
-              <Spin description="读取平台能力…" />
-            </div>
-          ) : !bootstrap.data?.configuration || configuring ? (
-            <div className="assistant-onboarding">
-              <span className="assistant-eyebrow">让平台拥有自己的助手</span>
-              <h2>先连接一个会思考、能调用工具的模型。</h2>
-              <p>模型设置用于新任务，已有任务保留原模型。每位用户使用自己的权限与独立任务记录。</p>
-              {bootstrap.data?.canConfigure ? (
-                <>
-                  <Select
-                    aria-label="平台助手模型"
-                    placeholder="选择已有对话模型"
-                    value={modelId}
-                    onChange={setModelId}
-                    options={(models.data ?? [])
-                      .filter((m) => m.kind === "chat" && m.capabilities?.toolUse !== false)
-                      .map((m) => ({ value: m.id, label: m.name }))}
+                  <Chat
+                    key={session.id}
+                    projectId={projectId}
+                    conversationId={session.id}
+                    messages={saved.data.messages}
+                    resumeRun={saved.data.resumeRun}
+                    onReset={(next) => {
+                      setSession({
+                        id: next.id,
+                        title: next.title,
+                        createdAt: next.createdAt,
+                        context,
+                      });
+                      setPrefill(undefined);
+                      setChangesOpen(false);
+                      void bootstrap.refetch();
+                    }}
+                    assistantMode
+                    prefill={prefill}
+                    components={components}
+                    onFinish={finish}
+                    onRunningChange={setRunning}
                   />
-                  <Button
-                    type="primary"
-                    disabled={!modelId}
-                    loading={busy}
-                    onClick={() => void configure()}
-                  >
-                    {bootstrap.data?.configuration ? "保存模型设置" : "启用平台助手"}
-                  </Button>
-                </>
+                </Suspense>
               ) : (
-                <Alert type="info" title="请项目管理员先选择助手模型" />
+                <div className="assistant-loader">
+                  <Spin description="恢复任务…" />
+                </div>
+              )}
+            </AssistantNavigation.Provider>
+          </div>
+          <aside className="assistant-change-pane" hidden={!changesOpen}>
+            <header>
+              <span className="assistant-eyebrow">看得见的进展</span>
+              <h3>
+                任务清单 <span>{proposals.data?.length ?? 0}</span>
+              </h3>
+              <p>更改先审阅，结果可追溯。</p>
+            </header>
+            {proposals.isError && (
+              <Alert
+                type="error"
+                title="变更清单读取失败"
+                action={<Button onClick={() => void proposals.refetch()}>重试</Button>}
+              />
+            )}
+            <div className="assistant-proposals">
+              {proposals.data?.map((p) => (
+                <ProposalCard
+                  key={p.id}
+                  proposal={p}
+                  busy={!!applying}
+                  onApply={(dismiss) => void apply(p.id, dismiss)}
+                  onAdjust={() => setPrefill({ id: uuid(), text: `请调整“${p.title}”方案：` })}
+                  onNavigate={navigate}
+                />
+              ))}
+              {!proposals.data?.length && (
+                <div className="assistant-empty-plan">
+                  <NodeSketch />
+                  <h4>先理解目标，再组织行动</h4>
+                  <p>需要创建或调整的资源会出现在这里。问答和只读查询不会产生待应用更改。</p>
+                </div>
               )}
             </div>
-          ) : !session ? (
-            <div className="assistant-launch">
-              <div className="assistant-launch-copy">
-                <span className="assistant-eyebrow">从想法，到可用的能力</span>
-                <h2>
-                  想让这个平台
-                  <br />
-                  替你完成什么？
-                </h2>
-                <p>
-                  说出目标。我来查找现有资源、组合能力，
-                  <br />
-                  把需要你决定的更改放到眼前。
-                </p>
-                <div className="assistant-intent">
-                  <textarea
-                    aria-label="平台助手任务目标"
-                    placeholder="例如：用现有知识库搭建一个制度问答助手…"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                        e.preventDefault();
-                        void start(prompt);
-                      }
-                    }}
-                  />
-                  <Button
-                    type="primary"
-                    icon={<ArrowRightOutlined />}
-                    disabled={!prompt.trim()}
-                    loading={busy}
-                    onClick={() => void start(prompt)}
-                  >
-                    开始构建
-                  </Button>
-                </div>
-              </div>
-              <div className="assistant-starters">
-                {suggestions.map((s, i) => (
-                  <button
-                    type="button"
-                    key={s.title}
-                    disabled={busy}
-                    onClick={() => void start(s.prompt)}
-                  >
-                    <span className="assistant-starter-number">0{i + 1}</span>
-                    <div>
-                      <strong>{s.title}</strong>
-                      <p>{s.detail}</p>
-                    </div>
-                    <ArrowRightOutlined />
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="assistant-launch-note"
-                  onClick={() => setCapabilitiesOpen(true)}
-                >
-                  {bootstrap.data.operations.length} 项当前可用操作 · {bootstrap.data.skills.length}{" "}
-                  个内置指导包 · 查看能力
-                </button>
-              </div>
+          </aside>
+        </div>
+      )}
+    </section>
+  );
+  return (
+    <>
+      {renderHeader ? renderHeader(trigger) : trigger}
+      <AssistantDockContext.Provider value={{ open, close }}>
+        <Splitter
+          className={`assistant-workspace${open ? " is-open" : ""}`}
+          onResizeEnd={(sizes) => {
+            if (open && !wide && sizes[1]) writeSessionValue(widthKey, sizes[1]);
+          }}
+          onResize={(sizes) => {
+            const size = sizes[1];
+            if (size && open && !wide) setWidth(size);
+          }}
+        >
+          <Splitter.Panel min={open ? "30%" : 0} resizable={open}>
+            <div className="assistant-page-surface" hidden={appVisible}>
+              {children}
             </div>
-          ) : (
-            <div className="assistant-work-area">
-              <div className="assistant-conversation">
-                <AssistantNavigation.Provider value={navigate}>
-                  {saved.isError ? (
-                    <Alert
-                      type="error"
-                      title="无法恢复任务记录"
-                      action={<Button onClick={() => void saved.refetch()}>重试</Button>}
-                    />
-                  ) : saved.data ? (
-                    <Suspense
-                      fallback={
-                        <div className="assistant-loader">
-                          <Spin description="打开对话…" />
-                        </div>
-                      }
-                    >
-                      <Chat
-                        key={session.id}
-                        projectId={projectId}
-                        conversationId={session.id}
-                        messages={saved.data.messages}
-                        resumeRun={saved.data.resumeRun}
-                        onReset={(next) => {
-                          setSession({
-                            id: next.id,
-                            title: next.title,
-                            createdAt: next.createdAt,
-                            context,
-                          });
-                          setPrefill(undefined);
-                          setPrompt("");
-                          void bootstrap.refetch();
-                        }}
-                        assistantMode
-                        initialPrompt={prompt}
-                        prefill={prefill}
-                        components={components}
-                        onFinish={finish}
-                        onRunningChange={setRunning}
-                      />
-                    </Suspense>
-                  ) : (
-                    <div className="assistant-loader">
-                      <Spin description="恢复任务…" />
-                    </div>
-                  )}
-                </AssistantNavigation.Provider>
-              </div>
-              <aside className="assistant-change-pane">
-                <header>
-                  <span className="assistant-eyebrow">看得见的进展</span>
-                  <h3>
-                    任务清单 <span>{proposals.data?.length ?? 0}</span>
-                  </h3>
-                  <p>更改先审阅，结果可追溯。</p>
-                </header>
-                {proposals.isError && (
-                  <Alert
-                    type="error"
-                    title="变更清单读取失败"
-                    action={<Button onClick={() => void proposals.refetch()}>重试</Button>}
-                  />
-                )}
-                <div className="assistant-proposals">
-                  {proposals.data?.map((p) => (
-                    <ProposalCard
-                      key={p.id}
-                      proposal={p}
-                      busy={!!applying}
-                      onApply={(dismiss) => void apply(p.id, dismiss)}
-                      onAdjust={() => setPrefill({ id: uuid(), text: `请调整“${p.title}”方案：` })}
-                      onNavigate={navigate}
-                    />
-                  ))}
-                  {!proposals.data?.length && (
-                    <div className="assistant-empty-plan">
-                      <NodeSketch />
-                      <h4>先理解目标，再组织行动</h4>
-                      <p>需要创建或调整的资源会出现在这里。问答和只读查询不会产生待应用更改。</p>
-                    </div>
-                  )}
-                </div>
-              </aside>
-            </div>
-          )}
-        </section>
-      </Modal>
+            <div className="assistant-application-host" ref={setAppHost} hidden={!appVisible} />
+          </Splitter.Panel>
+          <Splitter.Panel
+            size={available && open ? (wide ? "55%" : width) : 0}
+            min={open ? 340 : 0}
+            max="70%"
+            resizable={open}
+          >
+            {available && desk}
+          </Splitter.Panel>
+        </Splitter>
+      </AssistantDockContext.Provider>
+      <PageOperationFeedback />
       {open && capabilitiesOpen && (
         <AssistantCapabilityDrawer
           conversationId={session?.id}

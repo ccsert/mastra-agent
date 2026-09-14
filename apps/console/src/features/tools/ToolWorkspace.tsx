@@ -178,6 +178,7 @@ export function ToolWorkspace(actions: { onCreate(): void; onEdit(tool: Tool): v
   ]);
   return (
     <Tabs
+      data-agent-target="tools.source"
       activeKey={source}
       onChange={setSource}
       destroyOnHidden
