@@ -32,18 +32,18 @@ test("native message editor cancels without changing history and branches on sen
       />
     </ProjectData>,
   );
-  fireEvent.click(await screen.findByRole("button", { name: "编辑并重新发送" }));
+  fireEvent.click(await screen.findByRole("button", { name: "编辑并派生新分支" }));
   const editor = (await screen.findByRole("textbox", { name: "编辑消息" })) as HTMLTextAreaElement;
   assert.equal(editor.value, "原始问题");
   fireEvent.change(editor, { target: { value: "撤销内容" } });
-  fireEvent.click(screen.getByRole("button", { name: "取消编辑" }));
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
   await screen.findByText("原始问题");
   assert.equal(requests.length, 0);
-  fireEvent.click(screen.getByRole("button", { name: "编辑并重新发送" }));
+  fireEvent.click(screen.getByRole("button", { name: "编辑并派生新分支" }));
   fireEvent.change(await screen.findByRole("textbox", { name: "编辑消息" }), {
     target: { value: "修改后的问题" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "保存并发送" }));
+  fireEvent.click(screen.getByRole("button", { name: "派生并发送" }));
   await waitFor(() => assert.equal(branch, "branched"));
   assert.equal(requests.length, 1);
   assert.deepEqual(

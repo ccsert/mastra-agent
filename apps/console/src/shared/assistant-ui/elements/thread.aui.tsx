@@ -413,14 +413,18 @@ const UserMessage: FC = () => {
       {editing && EditComposer ? (
         <EditComposer />
       ) : (
-        <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-          <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
-            <MessagePrimitive.Parts />
+        <>
+          <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+            <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
+              <MessagePrimitive.Parts />
+            </div>
           </div>
-          <div className="aui-user-action-bar-wrapper absolute start-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
+          {/* Below the bubble instead of floating beside it: the floating bar is
+              clipped by the viewport's overflow-x-hidden on wide messages. */}
+          <div className="aui-user-action-bar-wrapper col-start-2 flex justify-end pt-0.5 empty:hidden">
             <UserActionBar />
           </div>
-        </div>
+        </>
       )}
 
       {UserFooter && <UserFooter />}
@@ -430,20 +434,24 @@ const UserMessage: FC = () => {
 
 const UserActionBar: FC = () => {
   const { EditComposer } = useContext(ThreadComponentsContext);
+  // Editing forks history, so only the newest user message may be edited.
+  const editable = useAuiState(
+    (s) => s.message.id === [...s.thread.messages].reverse().find((m) => m.role === "user")?.id,
+  );
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
-      className="aui-user-action-bar-root flex flex-col items-end"
+      className="aui-user-action-bar-root flex flex-row items-center gap-1"
     >
       <ActionBarPrimitive.Copy asChild>
         <TooltipIconButton tooltip="复制消息">
           <CopyIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
-      {EditComposer && (
+      {EditComposer && editable && (
         <ActionBarPrimitive.Edit asChild>
-          <TooltipIconButton tooltip="编辑并重新发送">
+          <TooltipIconButton tooltip="编辑并派生新分支">
             <PencilIcon />
           </TooltipIconButton>
         </ActionBarPrimitive.Edit>

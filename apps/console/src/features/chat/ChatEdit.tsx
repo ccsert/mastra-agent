@@ -70,17 +70,17 @@ export function ChatEdit() {
       />
       <div className="chat-edit-footer">
         <small>
-          <GitBranch aria-hidden="true" /> 原消息和后续回复会保留
+          <GitBranch aria-hidden="true" /> 修改将派生为新分支，原会话完整保留
         </small>
         <ComposerPrimitive.Cancel asChild>
           <button type="button" disabled={sending}>
             <X aria-hidden="true" />
-            取消编辑
+            取消
           </button>
         </ComposerPrimitive.Cancel>
         <button type="submit" disabled={disabled || !text.trim()}>
           <Send aria-hidden="true" />
-          {sending ? "正在发送…" : "保存并发送"}
+          {sending ? "正在派生…" : "派生并发送"}
         </button>
       </div>
       {error && <p role="alert">{error}</p>}

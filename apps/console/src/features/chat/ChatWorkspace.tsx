@@ -243,7 +243,7 @@ export function ChatWorkspace({
                 <div className="chat-session" hidden={tracing}>
                   {conversation.parentConversationId && (
                     <p className="chat-branch-origin">
-                      从编辑的消息继续 ·{" "}
+                      由消息编辑派生 ·{" "}
                       <button
                         type="button"
                         onClick={() => onSelect(conversation.parentConversationId ?? undefined)}
