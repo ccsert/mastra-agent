@@ -446,10 +446,33 @@
     background-position: -200% 0;
   }
 }
-.trace-inspector-actions {
+.trace-inspector-header-actions {
   display: flex;
-  gap: 4px;
+  flex-shrink: 0;
   align-items: center;
+  gap: 6px;
+}
+.trace-inspector-actions {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid #e3eae5;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+.trace-inspector-actions :is(.ant-btn-text:disabled, .ant-btn-text:disabled:hover) {
+  color: #c2ccc6;
+}
+.trace-inspector > .trace-inspector-actions {
+  margin: 10px 0 2px;
+}
+.trace-inspector .trace-inspector-actions .ant-btn {
+  color: #54655b;
+}
+.trace-inspector .trace-inspector-actions .ant-btn:not(:disabled):hover {
+  color: #32674a;
+  background: #eef4f0;
 }
 .trace-request details {
   border-bottom: 1px solid #e5ebe7;

@@ -1,5 +1,12 @@
-import { CloseOutlined } from "@ant-design/icons";
-import { Button, Tabs, Tag } from "antd";
+import {
+  AimOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  CopyOutlined,
+} from "@ant-design/icons";
+import { Button, Tabs, Tag, Tooltip } from "antd";
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -294,32 +301,38 @@ export function TrajectoryInspector({
             {record.scopeName && ` · 子代理：${record.scopeName}`}
           </small>
         </div>
-        <div className="trace-inspector-actions">
-          <Button
-            size="small"
-            type="text"
-            aria-label="上一条记录"
-            disabled={!previous}
-            onClick={() => previous && onLocate?.(previous)}
-          >
-            ↑
-          </Button>
-          <Button
-            size="small"
-            type="text"
-            aria-label="下一条记录"
-            disabled={!next}
-            onClick={() => next && onLocate?.(next)}
-          >
-            ↓
-          </Button>
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseOutlined />}
-            aria-label="关闭轨迹检查器"
-            onClick={close}
-          />
+        <div className="trace-inspector-header-actions">
+          <div className="trace-inspector-actions">
+            <Tooltip title="上一条记录">
+              <Button
+                size="small"
+                type="text"
+                icon={<ArrowUpOutlined />}
+                aria-label="上一条记录"
+                disabled={!previous}
+                onClick={() => previous && onLocate?.(previous)}
+              />
+            </Tooltip>
+            <Tooltip title="下一条记录">
+              <Button
+                size="small"
+                type="text"
+                icon={<ArrowDownOutlined />}
+                aria-label="下一条记录"
+                disabled={!next}
+                onClick={() => next && onLocate?.(next)}
+              />
+            </Tooltip>
+          </div>
+          <Tooltip title="关闭详情">
+            <Button
+              type="text"
+              size="small"
+              icon={<CloseOutlined />}
+              aria-label="关闭轨迹检查器"
+              onClick={close}
+            />
+          </Tooltip>
         </div>
       </header>
       <p className="trace-provenance">
@@ -328,23 +341,38 @@ export function TrajectoryInspector({
       </p>
       <div className="trace-inspector-actions">
         {record.parentId && (
-          <Button size="small" onClick={() => onLocate?.(record.parentId ?? "")}>
-            {parent?.kind === "agent" ? "返回子代理" : "定位模型请求"}
-          </Button>
+          <Tooltip
+            title={parent?.kind === "agent" ? "跳转到所属子代理记录" : "跳转到所属模型请求记录"}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<AimOutlined />}
+              onClick={() => onLocate?.(record.parentId ?? "")}
+            >
+              {parent?.kind === "agent" ? "返回子代理" : "定位模型请求"}
+            </Button>
+          </Tooltip>
         )}
-        <Button
-          size="small"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(JSON.stringify(sessionLog([record])[0], null, 2));
-              setCopied("已复制");
-            } catch {
-              setCopied("复制失败，请使用完整导出");
-            }
-          }}
-        >
-          {copied || "复制记录"}
-        </Button>
+        <Tooltip title="复制这条记录的结构化 JSON">
+          <Button
+            size="small"
+            type="text"
+            icon={copied === "已复制" ? <CheckOutlined /> : <CopyOutlined />}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(
+                  JSON.stringify(sessionLog([record])[0], null, 2),
+                );
+                setCopied("已复制");
+              } catch {
+                setCopied("复制失败，请使用完整导出");
+              }
+            }}
+          >
+            {copied || "复制记录"}
+          </Button>
+        </Tooltip>
       </div>
       <Tabs
         size="small"
