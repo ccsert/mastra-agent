@@ -87,8 +87,8 @@ test("the chat page picks a published agent in place instead of leaving the page
     return Response.json([]);
   });
   const { router } = mountConsole({ initialEntries: ["/projects/A/chat"] });
-  await screen.findByText("选择一个 Agent 开始对话");
-  fireEvent.click(screen.getByRole("button", { name: "选择 Agent" }));
+  await screen.findByText("今天，一起完成什么？");
+  fireEvent.click(screen.getByRole("button", { name: "选择 Agent 开始新对话" }));
   await screen.findByText("订单助手");
   // A draft-only Agent cannot host a conversation, so it is never offered.
   assert.equal(screen.queryByText("未发布助手"), null);
@@ -112,8 +112,8 @@ test("an empty catalogue explains the missing step instead of navigating away si
     return Response.json([]);
   });
   const { router } = mountConsole({ initialEntries: ["/projects/A/chat"] });
-  await screen.findByText("选择一个 Agent 开始对话");
-  fireEvent.click(screen.getByRole("button", { name: "选择 Agent" }));
+  await screen.findByText("今天，一起完成什么？");
+  fireEvent.click(screen.getByRole("button", { name: "选择 Agent 开始新对话" }));
   await screen.findByText("还没有已发布的 Agent");
   // The page the user was reading is kept; going to Agents is their explicit choice.
   assert.equal(router.state.location.pathname, "/projects/A/chat");

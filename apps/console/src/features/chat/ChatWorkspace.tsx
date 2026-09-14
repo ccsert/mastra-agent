@@ -259,15 +259,24 @@ export function ChatWorkspace({
             )}
           </QueryState>
         ) : (
-          <Blank
-            title="选择一个 Agent 开始对话"
-            description="会话会固定到创建时的发布版本，历史可以随时回来查看。"
-            action={
-              <Button type="primary" onClick={() => setPicking(true)}>
-                选择 Agent
-              </Button>
-            }
-          />
+          <div className="chat-empty-session">
+            <div className="chat-welcome">
+              <span className="chat-welcome-icon">
+                <RobotOutlined />
+              </span>
+              <h2>今天，一起完成什么？</h2>
+              <p>从左侧继续历史会话，或选择已发布的 Agent 开始新对话。</p>
+            </div>
+            <button
+              type="button"
+              className="composer chat-composer-mock"
+              onClick={() => setPicking(true)}
+              aria-label="选择 Agent 开始新对话"
+            >
+              <span className="chat-composer-mock-text">描述你的任务，从选择 Agent 开始…</span>
+              <span className="chat-composer-mock-action">选择 Agent</span>
+            </button>
+          </div>
         )}
       </div>
       <Modal

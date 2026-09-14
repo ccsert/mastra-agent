@@ -1553,3 +1553,43 @@
     background-position: -200% 0;
   }
 }
+
+/* Landing without a selected conversation mirrors the thread welcome + composer. */
+.chat-empty-session {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 44rem);
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+.chat-composer-mock {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.chat-composer-mock:hover,
+.chat-composer-mock:focus-visible {
+  border-color: #9db8a8;
+  box-shadow: 0 6px 24px #173c2e10;
+}
+.chat-composer-mock-text {
+  color: #849087;
+  font-size: 13px;
+}
+.chat-composer-mock-action {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #32674a;
+  color: white;
+  font-size: 12px;
+}
