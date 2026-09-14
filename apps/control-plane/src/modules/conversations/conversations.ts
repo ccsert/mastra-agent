@@ -82,19 +82,25 @@ export class Conversations {
       })),
     };
   }
-  async list(actor: Principal, projectId: string, input: PageInput = {}) {
+  async list(
+    actor: Principal,
+    projectId: string,
+    input: PageInput = {},
+    filter: { pinned?: boolean } = {},
+  ) {
     const access = await this.projects.access.project(actor, projectId);
     const page = cursorPage(
       ["conversations", actor.tenantId, projectId, actor.id, actor.entry],
       input,
     );
     const rows = await this.db.query(
-      `SELECT c.id,c.project_id,c.agent_id,c.release_id,c.title,c.created_at,r.version,${page.select("c")}
+      `SELECT c.id,c.project_id,c.agent_id,c.release_id,c.title,c.created_at,c.pinned_at,r.version,${page.select("c")}
        FROM conversations c JOIN releases r ON r.id=c.release_id AND r.project_id=c.project_id
        WHERE c.project_id=$1 AND c.tenant_id=$2 AND c.actor_id=$3 AND c.entry=$4
          AND (r.kind='published' OR $8::boolean)
          AND NOT EXISTS (SELECT 1 FROM platform_assistant_sessions s WHERE s.conversation_id=c.id)
          AND EXISTS (SELECT 1 FROM runs x WHERE x.conversation_id=c.id)
+         AND ($9::boolean IS NOT TRUE OR c.pinned_at IS NOT NULL)
          AND ${page.where("c", 5)} ORDER BY c.created_at DESC,c.id DESC LIMIT $7`,
       [
         projectId,
@@ -103,6 +109,7 @@ export class Conversations {
         actor.entry,
         ...page.values,
         access.permissions.includes("agent.edit"),
+        filter.pinned === true,
       ],
     );
     return page.result(rows, conversationDto);
@@ -654,6 +661,28 @@ export class Conversations {
         [id, after, through ?? null],
       )
     ).map(runEventDto);
+  }
+  /** Rename or pin a conversation; unspecified fields keep their current value. */
+  async update(
+    actor: Principal,
+    projectId: string,
+    id: string,
+    input: { title?: string; pinned?: boolean },
+  ) {
+    await this.get(actor, projectId, id);
+    const sets: string[] = [],
+      values: unknown[] = [id];
+    if (input.title !== undefined) {
+      values.push(input.title);
+      sets.push(`title=$${values.length}`);
+    }
+    if (input.pinned !== undefined) {
+      values.push(input.pinned ? new Date() : null);
+      sets.push(`pinned_at=$${values.length}`);
+    }
+    if (sets.length)
+      await this.db.query(`UPDATE conversations SET ${sets.join(",")} WHERE id=$1`, values);
+    return this.get(actor, projectId, id);
   }
   async remove(actor: Principal, projectId: string, id: string) {
     await this.db.transaction(async (tx) => {

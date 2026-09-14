@@ -140,6 +140,61 @@ test("legacy run details and lists recover only the saved input matching that ru
   ]);
   assert.equal((await store.conversations.run(actor, project.id, run.id)).inputText, null);
 });
+test("conversation pins and titles update in place and stay scoped to their owner", async () => {
+  const project = await store.projects.create(actor, {
+    name: "Conversation pins",
+    description: "",
+  });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Pins",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Pins");
+  const run = await store.conversations.createRun(actor, project.id, thread.id, "input", "pins");
+  await store.conversations.cancel(actor, project.id, run.id);
+  const renamed = await store.conversations.update(actor, project.id, thread.id, {
+    title: "采购复盘",
+  });
+  assert.equal(renamed.title, "采购复盘");
+  const pinned = await store.conversations.update(actor, project.id, thread.id, { pinned: true });
+  assert.ok(pinned.pinnedAt);
+  const pinnedPage = await store.conversations.list(
+    actor,
+    project.id,
+    { limit: 10 },
+    { pinned: true },
+  );
+  assert.deepEqual(
+    pinnedPage.items.map((c) => [c.id, c.pinnedAt !== null]),
+    [[thread.id, true]],
+  );
+  const unpinned = await store.conversations.update(actor, project.id, thread.id, {
+    pinned: false,
+  });
+  assert.equal(unpinned.pinnedAt, null);
+  const emptied = await store.conversations.list(
+    actor,
+    project.id,
+    { limit: 10 },
+    { pinned: true },
+  );
+  assert.deepEqual(emptied.items, []);
+  await assert.rejects(
+    () => store.conversations.update(other, project.id, thread.id, { pinned: true }),
+    { code: "NOT_FOUND" },
+  );
+});
 test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
   const project = await store.projects.create(actor, { name: "Orders", description: "" });
   const model = await store.resources.createModel(actor, project.id, {

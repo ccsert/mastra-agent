@@ -36,6 +36,7 @@ export const conversationDto = (r: Row) =>
     releaseVersion: r.version,
     title: r.title,
     createdAt: date(r.created_at),
+    pinnedAt: r.pinned_at ? date(r.pinned_at) : null,
     parentConversationId: r.parent_conversation_id ?? null,
     parentMessageId: r.parent_message_id ?? null,
   });

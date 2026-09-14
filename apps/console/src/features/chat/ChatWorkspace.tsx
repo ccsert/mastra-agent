@@ -1,18 +1,22 @@
 import {
   CommentOutlined,
   DeleteOutlined,
+  EditOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PlusOutlined,
+  PushpinFilled,
+  PushpinOutlined,
   RobotOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import * as api from "@platform/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
-import { App as AntApp, Button, Modal, Popconfirm, Spin, Tabs, Tag } from "antd";
+import { App as AntApp, Button, Input, Modal, Popconfirm, Spin, Tabs, Tag, Tooltip } from "antd";
 import { lazy, Suspense, useState } from "react";
 import { useSearchParams } from "react-router";
-import { timestamp, unwrap } from "../../shared/api";
+import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
 import {
   projectKey,
@@ -96,6 +100,43 @@ export function ChatWorkspace({
   const conversation = detailQuery.data;
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
+  const [search, setSearch] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; value: string }>();
+  const pinnedQuery = useQuery({
+    queryKey: projectKey(projectId, "conversations", "pins"),
+    queryFn: ({ signal }) =>
+      unwrapPage(
+        api.listConversations({
+          path: { projectId },
+          query: { pinned: "true", limit: 50 },
+          signal,
+        }),
+      ),
+    gcTime: 0,
+    staleTime: 0,
+  });
+  const pinnedItems = pinnedQuery.data?.items ?? [];
+  async function togglePin(c: api.Conversation) {
+    try {
+      await unwrap(
+        api.updateConversation({ path: { projectId, id: c.id }, body: { pinned: !c.pinnedAt } }),
+      );
+      await refresh("conversations");
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : "置顶失败");
+    }
+  }
+  async function renameConversation(id: string, title: string) {
+    const next = title.trim();
+    if (!next) return;
+    try {
+      await unwrap(api.updateConversation({ path: { projectId, id }, body: { title: next } }));
+      await refresh("conversations");
+      void message.success("已重命名");
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : "重命名失败");
+    }
+  }
   return (
     <section className={`chat-workspace${tracing ? " tracing" : ""}`}>
       {!tracing && showList && (
@@ -109,51 +150,35 @@ export function ChatWorkspace({
               onClick={() => setPicking(true)}
             />
           </div>
+          <Input
+            size="small"
+            className="conversation-search"
+            aria-label="搜索会话"
+            placeholder="搜索会话"
+            value={search}
+            allowClear
+            prefix={<SearchOutlined />}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <QueryState label="会话" query={query}>
-            {conversations.length ? (
-              conversations.map((c) => (
-                <div
-                  key={c.id}
-                  className={
-                    conversation?.id === c.id ? "conversation-item selected" : "conversation-item"
-                  }
-                >
-                  <button
-                    type="button"
-                    className="conversation-open"
-                    onClick={() => onSelect(c.id)}
-                  >
-                    <CommentOutlined />
-                    <span>
-                      <strong>{c.title}</strong>
-                      <small>
-                        {c.releaseVersion === 0 ? "草稿试用" : `v${c.releaseVersion}`} ·{" "}
-                        {timestamp(c.createdAt)}
-                      </small>
-                    </span>
-                  </button>
-                  <Popconfirm
-                    title="删除此会话？"
-                    description="会话、消息和运行记录将一并删除。"
-                    okText="删除"
-                    cancelText="取消"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => removeConversation(c.id)}
-                  >
-                    <Button
-                      type="text"
-                      size="small"
-                      className="conversation-delete"
-                      aria-label={`删除会话 ${c.title}`}
-                      loading={deleting === c.id}
-                      icon={<DeleteOutlined />}
-                    />
-                  </Popconfirm>
-                </div>
-              ))
-            ) : (
-              <p className="muted small-pad">从已发布的 Agent 开始一段新对话。</p>
-            )}
+            <ConversationListBody
+              conversations={conversations}
+              pinned={pinnedItems}
+              activeId={conversation?.id}
+              search={search}
+              deleting={deleting}
+              renaming={renaming}
+              onOpen={onSelect}
+              onPin={togglePin}
+              onDelete={removeConversation}
+              onRenameStart={(c) => setRenaming({ id: c.id, value: c.title })}
+              onRenameChange={(value) => setRenaming((old) => (old ? { ...old, value } : old))}
+              onRenameCommit={() => {
+                if (renaming) void renameConversation(renaming.id, renaming.value);
+                setRenaming(undefined);
+              }}
+              onRenameCancel={() => setRenaming(undefined)}
+            />
             <div className="conversation-pagination">
               <PageMore query={query} count={conversations.length} label="会话" />
             </div>
@@ -372,9 +397,14 @@ export function ChatSession({
       query={query}
       loading={
         <div className="chat-skeleton" role="status" aria-label="加载会话历史">
-          {["user", "assistant", "user", "assistant"].map((role) => (
-            <div key={role} className={`chat-skeleton-bubble ${role}`} />
-          ))}
+          {["bubble-user-1", "bubble-assistant-1", "bubble-user-2", "bubble-assistant-2"].map(
+            (key) => (
+              <div
+                key={key}
+                className={`chat-skeleton-bubble ${key.includes("user") ? "user" : "assistant"}`}
+              />
+            ),
+          )}
         </div>
       }
     >
@@ -403,5 +433,201 @@ export function ChatSession({
         </Suspense>
       )}
     </QueryState>
+  );
+}
+
+type ConversationItemProps = {
+  c: api.Conversation;
+  active: boolean;
+  deleting: boolean;
+  renaming?: string;
+  onOpen(): void;
+  onPin(): void;
+  onDelete(): void;
+  onRenameStart(): void;
+  onRenameChange(value: string): void;
+  onRenameCommit(): void;
+  onRenameCancel(): void;
+};
+
+function ConversationItem({
+  c,
+  active,
+  deleting,
+  renaming,
+  onOpen,
+  onPin,
+  onDelete,
+  onRenameStart,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+}: ConversationItemProps) {
+  return (
+    <div className={active ? "conversation-item selected" : "conversation-item"}>
+      {renaming !== undefined ? (
+        <input
+          className="conversation-rename"
+          value={renaming}
+          ref={(node) => node?.focus()}
+          aria-label="重命名会话"
+          onChange={(event) => onRenameChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onRenameCommit();
+            if (event.key === "Escape") onRenameCancel();
+          }}
+          onBlur={onRenameCommit}
+        />
+      ) : (
+        <>
+          <button type="button" className="conversation-open" onClick={onOpen}>
+            {c.pinnedAt ? <PushpinFilled className="conversation-pin-flag" /> : <CommentOutlined />}
+            <span>
+              <strong>{c.title}</strong>
+              <small>
+                {c.releaseVersion === 0 ? "草稿试用" : `v${c.releaseVersion}`} ·{" "}
+                {timestamp(c.createdAt)}
+              </small>
+            </span>
+          </button>
+          <div className="conversation-actions">
+            <Tooltip title={c.pinnedAt ? "取消置顶" : "置顶"}>
+              <Button
+                size="small"
+                type="text"
+                aria-label={c.pinnedAt ? `取消置顶会话 ${c.title}` : `置顶会话 ${c.title}`}
+                icon={c.pinnedAt ? <PushpinFilled /> : <PushpinOutlined />}
+                onClick={onPin}
+              />
+            </Tooltip>
+            <Tooltip title="重命名">
+              <Button
+                size="small"
+                type="text"
+                aria-label={`重命名会话 ${c.title}`}
+                icon={<EditOutlined />}
+                onClick={onRenameStart}
+              />
+            </Tooltip>
+            <Popconfirm
+              title="删除此会话？"
+              description="会话、消息和运行记录将一并删除。"
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              onConfirm={onDelete}
+            >
+              <Button
+                type="text"
+                size="small"
+                aria-label={`删除会话 ${c.title}`}
+                loading={deleting}
+                icon={<DeleteOutlined />}
+              />
+            </Popconfirm>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const recencyGroups = [
+  ["今天", "today"],
+  ["昨天", "yesterday"],
+  ["近 7 天", "week"],
+  ["更早", "older"],
+] as const;
+
+function recencyGroup(iso: string): (typeof recencyGroups)[number][1] {
+  const time = Date.parse(iso);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  if (time >= +startOfToday) return "today";
+  if (time >= +startOfToday - 86400000) return "yesterday";
+  if (time >= +startOfToday - 7 * 86400000) return "week";
+  return "older";
+}
+
+function ConversationListBody({
+  conversations,
+  pinned,
+  activeId,
+  search,
+  deleting,
+  renaming,
+  onOpen,
+  onPin,
+  onDelete,
+  onRenameStart,
+  onRenameChange,
+  onRenameCommit,
+  onRenameCancel,
+}: {
+  conversations: api.Conversation[];
+  pinned: api.Conversation[];
+  activeId?: string;
+  search: string;
+  deleting: string;
+  renaming?: { id: string; value: string };
+  onOpen(id: string): void;
+  onPin(c: api.Conversation): void;
+  onDelete(id: string): void;
+  onRenameStart(c: api.Conversation): void;
+  onRenameChange(value: string): void;
+  onRenameCommit(): void;
+  onRenameCancel(): void;
+}) {
+  const keyword = search.trim().toLowerCase();
+  const matches = (c: api.Conversation) => !keyword || c.title.toLowerCase().includes(keyword);
+  const pinnedIds = new Set(pinned.map((c) => c.id));
+  const pinnedShown = pinned.filter(matches);
+  const rest = conversations.filter((c) => !pinnedIds.has(c.id) && matches(c));
+  const sections: [string, api.Conversation[]][] = keyword
+    ? [["搜索结果", rest]]
+    : [
+        ...(pinnedShown.length ? ([["置顶", pinnedShown]] as [string, api.Conversation[]][]) : []),
+        ...recencyGroups
+          .map(
+            ([label, key]) =>
+              [label, rest.filter((c) => recencyGroup(c.createdAt) === key)] as [
+                string,
+                api.Conversation[],
+              ],
+          )
+          .filter(([, items]) => items.length > 0),
+      ];
+  if (!sections.length)
+    return (
+      <p className="muted small-pad">
+        {conversations.length || pinned.length
+          ? "没有匹配的会话。"
+          : "从已发布的 Agent 开始一段新对话。"}
+      </p>
+    );
+  return (
+    <>
+      {sections.map(([label, items]) => (
+        <div key={label} className="conversation-group">
+          <p className="conversation-group-label">{label}</p>
+          {items.map((c) => (
+            <ConversationItem
+              key={c.id}
+              c={c}
+              active={c.id === activeId}
+              deleting={deleting === c.id}
+              renaming={renaming?.id === c.id ? renaming.value : undefined}
+              onOpen={() => onOpen(c.id)}
+              onPin={() => onPin(c)}
+              onDelete={() => onDelete(c.id)}
+              onRenameStart={() => onRenameStart(c)}
+              onRenameChange={onRenameChange}
+              onRenameCommit={onRenameCommit}
+              onRenameCancel={onRenameCancel}
+            />
+          ))}
+        </div>
+      ))}
+    </>
   );
 }

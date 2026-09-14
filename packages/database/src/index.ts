@@ -83,6 +83,10 @@ export class Database implements Queryable {
     const taskFeedback = await readFile(new URL("./task-feedback.sql", import.meta.url), "utf8");
     const agentPreviews = await readFile(new URL("./agent-previews.sql", import.meta.url), "utf8");
     const teamAccess = await readFile(new URL("./team-access.sql", import.meta.url), "utf8");
+    const conversationPins = await readFile(
+      new URL("./conversation-pins.sql", import.meta.url),
+      "utf8",
+    );
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
@@ -162,6 +166,10 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=21",
       );
       if (!agentAppApplied) await tx.query(agentApp);
+      const [pinsApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=22",
+      );
+      if (!pinsApplied) await tx.query(conversationPins);
     });
   }
   async close() {

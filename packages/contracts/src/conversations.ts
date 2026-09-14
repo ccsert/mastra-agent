@@ -18,10 +18,21 @@ export const Conversation = z
     releaseVersion: z.number().int(),
     title: z.string(),
     createdAt: z.string(),
+    pinnedAt: z.string().nullable().default(null),
     parentConversationId: Id.nullable().default(null),
     parentMessageId: z.string().nullable().default(null),
   })
   .openapi("Conversation");
+export const ConversationUpdateInput = z
+  .object({
+    title: z.string().trim().min(1).max(100).optional(),
+    pinned: z.boolean().optional(),
+  })
+  .strict()
+  .refine((input) => input.title !== undefined || input.pinned !== undefined, {
+    message: "至少提供 title 或 pinned 之一",
+  })
+  .openapi("ConversationUpdate");
 export const SelectedSkill = z.object({
   versionId: Id,
   name: z.string(),

@@ -130,8 +130,7 @@ test("conversation navigation collapses without remounting the live composer or 
       path = new URL(request.url).pathname,
       shelled = shell(request);
     if (shelled) return shelled;
-    if (path.endsWith("/conversations"))
-      return Response.json({ items: [conversation], nextCursor: null });
+    if (path.endsWith("/conversations")) return Response.json([conversation]);
     if (path.endsWith("/conversations/conversation-new")) return Response.json(conversation);
     if (path.endsWith("/session")) {
       historyReads++;
@@ -153,4 +152,62 @@ test("conversation navigation collapses without remounting the live composer or 
   assert.equal(input.value, "尚未发送的草稿");
   assert.equal(historyReads, 1);
   assert.equal(router.state.location.pathname, "/projects/A/chat/conversation-new");
+});
+test("the conversation list groups by recency and manages pins, titles and search", async (t) => {
+  const now = Date.now();
+  const iso = (daysAgo: number) => new Date(now - daysAgo * 86400000).toISOString();
+  const base = [
+    { ...conversation, id: "conv-today", title: "今天的任务", createdAt: iso(0) },
+    { ...conversation, id: "conv-old", title: "更早的归档", createdAt: iso(30) },
+  ];
+  const titles = new Map<string, string>();
+  const pins = new Set<string>(["conv-today"]);
+  const patches: { id: string; body: Record<string, unknown> }[] = [];
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init),
+      path = new URL(request.url).pathname,
+      shelled = shell(request);
+    if (shelled) return shelled;
+    const view = (c: (typeof base)[number]) => ({
+      ...c,
+      title: titles.get(c.id) ?? c.title,
+      pinnedAt: pins.has(c.id) ? iso(0) : null,
+    });
+    if (request.method === "PATCH") {
+      const id = path.split("/").at(-1) ?? "";
+      const body = (await request.json()) as Record<string, unknown>;
+      patches.push({ id, body });
+      if (typeof body.title === "string") titles.set(id, body.title);
+      if (body.pinned === true) pins.add(id);
+      if (body.pinned === false) pins.delete(id);
+      return Response.json(base.filter((c) => c.id === id).map(view)[0]);
+    }
+    if (path === "/api/v1/projects/A/conversations") {
+      const url = new URL(request.url);
+      const items = base
+        .filter((c) => (url.searchParams.get("pinned") === "true" ? pins.has(c.id) : true))
+        .map(view);
+      return Response.json(items);
+    }
+    return Response.json([]);
+  });
+  mountConsole({ initialEntries: ["/projects/A/chat"] });
+  await screen.findByText("置顶");
+  await screen.findByText("更早");
+  // The pinned conversation leaves its recency group, so 今天 has no own section.
+  assert.equal(screen.queryByText("今天"), null);
+  fireEvent.click(screen.getByRole("button", { name: "置顶会话 更早的归档" }));
+  await waitFor(() => assert.deepEqual(patches.at(-1), { id: "conv-old", body: { pinned: true } }));
+  fireEvent.click(screen.getByRole("button", { name: "重命名会话 更早的归档" }));
+  const input = screen.getByRole("textbox", { name: "重命名会话" });
+  fireEvent.change(input, { target: { value: "采购复盘" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() =>
+    assert.deepEqual(patches.at(-1), { id: "conv-old", body: { title: "采购复盘" } }),
+  );
+  await screen.findByText("采购复盘");
+  fireEvent.change(screen.getByRole("textbox", { name: "搜索会话" }), {
+    target: { value: "采购" },
+  });
+  await screen.findByText("搜索结果");
 });

@@ -7,6 +7,7 @@ import {
   ConversationRunSummary,
   ConversationSession,
   ConversationTrace,
+  ConversationUpdateInput,
   EditConversationInput,
   Id,
   Message,
@@ -253,14 +254,21 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       method: "get",
       path: "/api/v1/projects/{projectId}/conversations",
       operationId: "listConversations",
-      request: { params: projectParams, query: PageQuery },
+      request: {
+        params: projectParams,
+        query: PageQuery.extend({ pinned: z.enum(["true"]).optional() }),
+      },
       responses: { 200: pageJson(Conversation), ...errors },
     }),
     async (c) => {
+      const query = c.req.valid("query");
       const page = await conversations.list(
         c.get("principal"),
         c.req.valid("param").projectId,
-        c.req.valid("query"),
+        query,
+        {
+          pinned: query.pinned === "true",
+        },
       );
       if (page.nextCursor) c.header("X-Next-Cursor", page.nextCursor);
       return c.json(page.items, 200);
@@ -311,6 +319,22 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
     async (c) => {
       const { projectId, id } = c.req.valid("param");
       return c.json(await conversations.remove(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "patch",
+      path: "/api/v1/projects/{projectId}/conversations/{id}",
+      operationId: "updateConversation",
+      request: { params: itemParams, body: body(ConversationUpdateInput) },
+      responses: { 200: json(Conversation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.update(c.get("principal"), projectId, id, c.req.valid("json")),
+        200,
+      );
     },
   );
   app.openapi(

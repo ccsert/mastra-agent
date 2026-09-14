@@ -336,7 +336,7 @@ test("conversation history errors are local and leaving the page cancels retry",
   fireEvent.click(screen.getByRole("link", { name: "对话" }));
   fireEvent.click(
     await screen.findByRole("button", {
-      name: (name) => name.includes("订单讨论") && !name.startsWith("删除"),
+      name: (name) => name.includes("订单讨论") && name.includes("comment"),
     }),
   );
   await screen.findByText("会话历史加载失败");

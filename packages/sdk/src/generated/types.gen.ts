@@ -584,6 +584,7 @@ export type Conversation = {
     releaseVersion: number;
     title: string;
     createdAt: string;
+    pinnedAt?: string | null;
     parentConversationId?: string | null;
     parentMessageId?: string | null;
 };
@@ -939,6 +940,11 @@ export type ConversationCapabilities = {
 export type ConversationInput = {
     agentId: string;
     title?: string;
+};
+
+export type ConversationUpdate = {
+    title?: string;
+    pinned?: boolean;
 };
 
 export type RunInput = {
@@ -4662,6 +4668,7 @@ export type ListConversationsData = {
     query?: {
         cursor?: string;
         limit?: number;
+        pinned?: 'true';
     };
     url: '/api/v1/projects/{projectId}/conversations';
 };
@@ -4866,6 +4873,58 @@ export type GetConversationResponses = {
 };
 
 export type GetConversationResponse = GetConversationResponses[keyof GetConversationResponses];
+
+export type UpdateConversationData = {
+    body: ConversationUpdate;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}';
+};
+
+export type UpdateConversationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateConversationError = UpdateConversationErrors[keyof UpdateConversationErrors];
+
+export type UpdateConversationResponses = {
+    /**
+     * 成功
+     */
+    200: Conversation;
+};
+
+export type UpdateConversationResponse = UpdateConversationResponses[keyof UpdateConversationResponses];
 
 export type ListMessagesData = {
     body?: never;
