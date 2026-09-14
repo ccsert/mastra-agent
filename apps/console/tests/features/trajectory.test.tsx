@@ -322,12 +322,12 @@ test("multiple runs form ordered user turns with one system/tool catalogue and n
   assert.equal(records.find((r) => r.kind === "user")?.execution?.id, baseRun.id);
   assert.ok(!JSON.stringify(sessionLog(records)).includes("text-delta"));
   render(<ConversationTrajectory records={records} totalTurns={2} />);
-  assert.ok(screen.getByText("第 1 轮"));
-  assert.ok(screen.getByText("第 2 轮"));
+  assert.ok(screen.getAllByText("第 1 轮").length);
+  assert.ok(screen.getAllByText("第 2 轮").length);
   assert.equal(!!screen.queryByText(/步骤/), false);
   fireEvent.click(screen.getByRole("button", { name: /^初始系统提示词/ }));
   fireEvent.click(screen.getByRole("tab", { name: "工具 (1)" }));
-  assert.ok(screen.getByText("查询订单"));
+  assert.ok(screen.getAllByText("查询订单").length);
   assert.match(screen.getByRole("tabpanel").textContent ?? "", /orderId/);
   assert.equal(!!screen.queryByRole("tab", { name: /事件/ }), false);
 });

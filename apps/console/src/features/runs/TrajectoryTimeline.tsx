@@ -24,11 +24,14 @@ export function TrajectoryTimeline({
   selected,
   onSelect,
   mode,
+  onWindowChange,
 }: {
   timeline: TraceTimeline;
   selected?: string;
   onSelect(id: string): void;
   mode: "sequence" | "duration";
+  /** Lets the owner scope on-demand event reads to the visible window. */
+  onWindowChange?(window: TimelineWindow): void;
 }) {
   const [window, setWindow] = useState(FULL_TIMELINE);
   const [selection, setSelection] = useState<TimelineWindow | null>(null);
@@ -43,6 +46,9 @@ export function TrajectoryTimeline({
   const suppressClick = useRef(false);
   const windowRef = useRef(window);
   windowRef.current = window;
+  useEffect(() => {
+    onWindowChange?.(window);
+  }, [window, onWindowChange]);
   const width = window.end - window.start;
   const all = useMemo(() => timeline.flatMap((lane) => lane.spans), [timeline]);
   const marks = useMemo(

@@ -58,12 +58,16 @@ async function readTraceSnapshot(
     [conversationId, rows.map((r) => r.id)],
   );
   const capturedAt = new Date().toISOString();
-  const events = await db.query(
-    `SELECT q.id AS run_id,e.* FROM unnest($1::uuid[]) AS q(id)
-      CROSS JOIN LATERAL (SELECT seq,chunk,created_at,occurred_at FROM run_events WHERE run_id=q.id ORDER BY seq LIMIT 501) e
-      ORDER BY q.id,e.seq`,
-    [rows.map((r) => r.id)],
-  );
+  // Summary turns skip event payloads; clients read them per run on demand.
+  const eventRows =
+    query.events === "full"
+      ? await db.query(
+          `SELECT q.id AS run_id,e.* FROM unnest($1::uuid[]) AS q(id)
+          CROSS JOIN LATERAL (SELECT seq,chunk,created_at,occurred_at FROM run_events WHERE run_id=q.id ORDER BY seq LIMIT 501) e
+          ORDER BY q.id,e.seq`,
+          [rows.map((r) => r.id)],
+        )
+      : [];
   const requests = await db.query(
     "SELECT seq,chunk,created_at,occurred_at FROM run_events WHERE run_id=$1 AND chunk->>'type'='data-model-request' ORDER BY seq LIMIT 1",
     [initial.id],
@@ -75,15 +79,17 @@ async function readTraceSnapshot(
       request: requests[0] ? runEventDto(requests[0]) : null,
     },
     turns: rows.map((r) => {
-      const found = events.filter((e) => e.run_id === r.id);
+      const found = eventRows.filter((e) => e.run_id === r.id);
+      const count = counts.find((c) => c.run_id === r.id);
       return {
         number: r.turn_number,
         run: runDto(r),
         events: found.slice(0, 500).map(runEventDto),
-        hasMoreEvents: found.length > 500,
+        hasMoreEvents:
+          query.events === "summary" ? Number(count?.event_count ?? 0) > 0 : found.length > 500,
         checkpoint: {
-          eventCount: counts.find((c) => c.run_id === r.id)?.event_count ?? 0,
-          lastSeq: counts.find((c) => c.run_id === r.id)?.last_seq ?? -1,
+          eventCount: count?.event_count ?? 0,
+          lastSeq: count?.last_seq ?? -1,
           capturedAt,
         },
         messages: messages.flatMap((m) => {

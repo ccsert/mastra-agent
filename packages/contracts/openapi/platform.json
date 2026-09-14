@@ -13494,6 +13494,19 @@
             "required": false,
             "name": "limit",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "summary",
+                "full"
+              ],
+              "default": "full"
+            },
+            "required": false,
+            "name": "events",
+            "in": "query"
           }
         ],
         "responses": {
