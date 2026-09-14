@@ -385,7 +385,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .skill-page-toolbar,
-  .skill-detail-heading {
+  .skill-detail-head {
     align-items: flex-start;
     flex-wrap: wrap;
   }

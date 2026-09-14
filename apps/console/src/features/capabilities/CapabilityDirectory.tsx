@@ -279,17 +279,27 @@ function Cards({
       {detail && (
         <Drawer
           open
-          title={detail.name}
+          title={
+            <span className="capability-drawer-title">
+              {kind === "skills" ? <BookOutlined /> : <ToolOutlined />}
+              {detail.name}
+              <Tag>v{detail.version}</Tag>
+            </span>
+          }
           size="min(720px, 100vw)"
           onClose={() => setSelected(undefined)}
         >
-          <div className="capability-detail">
-            <div>
-              <Tag>系统内置</Tag>
-              <Tag>只读</Tag>
-              <Tag>v{detail.version}</Tag>
+          <div className="skill-detail">
+            <div className="skill-detail-head">
+              <div className="skill-detail-head-meta">
+                <Tag>系统内置</Tag>
+                <Tag>只读</Tag>
+                <span>
+                  {kind === "skills" ? "平台助手按需读取的任务指导" : "平台助手的系统工具入口"}
+                </span>
+              </div>
             </div>
-            <p>{detail.description}</p>
+            <p className="skill-detail-desc">{detail.description}</p>
             <dl>
               <dt>使用范围</dt>
               <dd>平台助手专用 · 不可直接绑定业务 Agent</dd>
@@ -308,15 +318,15 @@ function Cards({
                   : "未选择任务，仅展示能力目录"}
               </dd>
             </dl>
-            <h3>{"instructions" in detail ? "指导内容" : "输入参数"}</h3>
-            <pre>
-              {"instructions" in detail
-                ? detail.instructions
-                : JSON.stringify(detail.inputSchema, null, 2)}
-            </pre>
-            <p className="capability-footnote">
-              内容指纹 · <code>{detail.digest}</code>
-            </p>
+            <section className="skill-detail-section">
+              <h3>{"instructions" in detail ? "指导内容" : "输入参数"}</h3>
+              <pre className="skill-detail-source">
+                {"instructions" in detail
+                  ? detail.instructions
+                  : JSON.stringify(detail.inputSchema, null, 2)}
+              </pre>
+            </section>
+            <small className="resource-id">内容指纹 · {detail.digest}</small>
           </div>
         </Drawer>
       )}

@@ -20,8 +20,14 @@ import { usePageActionTargets } from "../../shared/PageActions";
 import { useOperation } from "../../shared/useOperation";
 import { SystemCapabilityDirectory } from "../capabilities/index";
 import { SkillFileTree } from "./SkillFileTree";
-import { SkillImport, SkillProvenance } from "./SkillImport";
+import { SkillImport } from "./SkillImport";
 
+function sourceLabel(skill: SkillVersion) {
+  if (!skill.source) return "历史导入";
+  return skill.source.kind === "zip"
+    ? "ZIP 导入"
+    : `${skill.source.repository} · ${skill.source.commit.slice(0, 8)}`;
+}
 function SkillDetails({
   skill,
   onClose,
@@ -61,7 +67,7 @@ function SkillDetails({
   return (
     <Drawer
       title={
-        <Space>
+        <Space size={8}>
           <FileZipOutlined />
           {skill.name}
           <Tag>v{skill.version}</Tag>
@@ -72,71 +78,75 @@ function SkillDetails({
       onClose={onClose}
       size="min(1120px, 100vw)"
     >
-      <div className="skill-detail-heading">
-        <div>
-          <Tag color={skill.enabled ? "success" : "default"}>
-            {skill.enabled ? "可绑定" : "已停用"}
-          </Tag>
-          <span className="muted">{timestamp(skill.createdAt)}</span>
-        </div>
-        <Space wrap>
-          {canEdit && skill.source && skill.source.kind !== "zip" && (
+      <div className="skill-detail">
+        {error && <Alert type="error" title={error} />}
+        <div className="skill-detail-head">
+          <div className="skill-detail-head-meta">
+            <Tag color={skill.enabled ? "success" : "default"}>
+              {skill.enabled ? "可绑定" : "已停用"}
+            </Tag>
+            <span>{sourceLabel(skill)}</span>
+            <span>登记于 {timestamp(skill.createdAt)}</span>
+            {skill.compatibility && <span>环境要求：{skill.compatibility}</span>}
+          </div>
+          <Space wrap>
+            {canEdit && skill.source && skill.source.kind !== "zip" && (
+              <Button
+                icon={<SyncOutlined />}
+                aria-label="检查上游更新"
+                loading={busy}
+                onClick={() =>
+                  void run(async (signal) => {
+                    onUpdate(
+                      await unwrap(
+                        api.previewSkillUpdate({
+                          path: { projectId, id: skill.id },
+                          body: {},
+                          signal,
+                        }),
+                        signal,
+                      ),
+                    );
+                  })
+                }
+              >
+                检查上游更新
+              </Button>
+            )}
             <Button
-              icon={<SyncOutlined />}
-              aria-label="检查上游更新"
+              disabled={!canManage}
+              title={canManage ? undefined : "版本启停需要项目管理员权限"}
+              danger={skill.enabled}
               loading={busy}
               onClick={() =>
                 void run(async (signal) => {
-                  onUpdate(
-                    await unwrap(
-                      api.previewSkillUpdate({
-                        path: { projectId, id: skill.id },
-                        body: {},
-                        signal,
-                      }),
+                  await unwrap(
+                    api.setSkillAccess({
+                      path: { projectId, id: skill.id },
+                      body: { enabled: !skill.enabled },
                       signal,
-                    ),
+                    }),
+                    signal,
                   );
+                  await refresh("skills");
+                  signal.throwIfAborted();
+                  message.success(
+                    skill.enabled
+                      ? "版本已停用，后续访问会被拒绝，进行中的调用将在授权检查后停止"
+                      : "版本已启用",
+                  );
+                  onClose();
                 })
               }
             >
-              检查上游更新
+              {skill.enabled ? "停用此版本" : "启用此版本"}
             </Button>
-          )}
-          <Button
-            disabled={!canManage}
-            title={canManage ? undefined : "版本启停需要项目管理员权限"}
-            danger={skill.enabled}
-            loading={busy}
-            onClick={() =>
-              void run(async (signal) => {
-                await unwrap(
-                  api.setSkillAccess({
-                    path: { projectId, id: skill.id },
-                    body: { enabled: !skill.enabled },
-                    signal,
-                  }),
-                  signal,
-                );
-                await refresh("skills");
-                signal.throwIfAborted();
-                message.success(
-                  skill.enabled
-                    ? "版本已停用，后续访问会被拒绝，进行中的调用将在授权检查后停止"
-                    : "版本已启用",
-                );
-                onClose();
-              })
-            }
-          >
-            {skill.enabled ? "停用此版本" : "启用此版本"}
-          </Button>
-        </Space>
-      </div>
-      {error && <Alert type="error" title={error} />}
-      <SkillProvenance source={skill.source} />
-      <p>{skill.description}</p>
-      <div className="capability-detail">
+          </Space>
+        </div>
+        {skill.warnings.map((warning) => (
+          <Alert key={warning} type="warning" title={warning} className="form-alert" />
+        ))}
+        <p className="skill-detail-desc">{skill.description}</p>
         <dl>
           <dt>绑定权限</dt>
           <dd>
@@ -155,49 +165,48 @@ function SkillDetails({
                 : "只读访问，不能导入或启停版本"}
           </dd>
         </dl>
-      </div>
-      {skill.compatibility && <p className="form-note">环境要求：{skill.compatibility}</p>}
-      {skill.warnings.map((warning) => (
-        <Alert key={warning} type="warning" title={warning} className="form-alert" />
-      ))}
-      <section className="skill-file-browser">
-        <SkillFileTree files={skill.files} path={path} onSelect={setPath} />
-        <div className="skill-file-viewer">
-          <div className="skill-file-toolbar">
-            <div>
-              <code>{path}</code>
-              <small>
-                {file?.size} B · {file?.encoding === "utf-8" ? "文本" : "二进制"}
-              </small>
+        <section className="skill-detail-section">
+          <h3>文件内容</h3>
+          <div className="skill-file-browser">
+            <SkillFileTree files={skill.files} path={path} onSelect={setPath} />
+            <div className="skill-file-viewer">
+              <div className="skill-file-toolbar">
+                <div>
+                  <code>{path}</code>
+                  <small>
+                    {file?.size} B · {file?.encoding === "utf-8" ? "文本" : "二进制"}
+                  </small>
+                </div>
+                <Button onClick={download} disabled={!bytes}>
+                  下载文件
+                </Button>
+              </div>
+              <QueryState label="Skill 文件" query={query}>
+                {bytes && (
+                  <pre className="skill-source">
+                    {file?.encoding === "utf-8"
+                      ? new TextDecoder().decode(bytes)
+                      : "二进制资源，可下载查看。"}
+                  </pre>
+                )}
+              </QueryState>
             </div>
-            <Button onClick={download} disabled={!bytes}>
-              下载文件
-            </Button>
           </div>
-          <QueryState label="Skill 文件" query={query}>
-            {bytes && (
-              <pre className="skill-source">
-                {file?.encoding === "utf-8"
-                  ? new TextDecoder().decode(bytes)
-                  : "二进制资源，可下载查看。"}
-              </pre>
-            )}
-          </QueryState>
-        </div>
-      </section>
-      <div className="skill-entrypoints">
-        <h3>可授权脚本入口 · {skill.entrypoints.length}</h3>
-        {skill.entrypoints.length ? (
-          skill.entrypoints.map((entry) => <code key={entry}>{entry}</code>)
-        ) : (
-          <p>此版本用于提供指令与资料，不包含当前支持的脚本入口。</p>
-        )}
-        <p className="form-note">
-          在 Agent 的「Skills」中勾选入口并发布后，Agent 可自主执行。脚本接收 JSON
-          标准输入，文本结果进入当前运行记录；默认无网络和业务凭据。
-        </p>
+        </section>
+        <section className="skill-detail-section">
+          <h3>可授权脚本入口 · {skill.entrypoints.length}</h3>
+          {skill.entrypoints.length ? (
+            skill.entrypoints.map((entry) => <code key={entry}>{entry}</code>)
+          ) : (
+            <p>此版本用于提供指令与资料，不包含当前支持的脚本入口。</p>
+          )}
+          <p className="form-note">
+            在 Agent 的「Skills」中勾选入口并发布后，Agent 可自主执行。脚本接收 JSON
+            标准输入，文本结果进入当前运行记录；默认无网络和业务凭据。
+          </p>
+        </section>
+        <small className="resource-id">内容摘要 · {skill.digest}</small>
       </div>
-      <small className="resource-id">内容摘要 · {skill.digest}</small>
     </Drawer>
   );
 }
