@@ -6,6 +6,11 @@ import { runSkillSandbox } from "../../apps/runtime/src/skills/sandbox.ts";
 
 const exec = promisify(execFile),
   image = process.env.SKILL_TEST_IMAGE;
+
+if (!image)
+  console.warn(
+    "[skill-sandbox.test] SKILL_TEST_IMAGE is not set; Docker skill sandbox coverage will be skipped",
+  );
 const docker = async (args: string[]) =>
   (await exec("docker", args, { timeout: 10000 })).stdout.trim();
 const run = (
@@ -15,7 +20,7 @@ const run = (
   signal = AbortSignal.timeout(40000),
 ) => runSkillSandbox({ image, path, files: new Map([[path, Buffer.from(script)]]), input, signal });
 test("Docker Skill execution enforces readonly packages, network isolation and no host credentials; Node/Python/Bash work", {
-  skip: !image,
+  skip: image ? false : "SKILL_TEST_IMAGE is not set; skill sandbox coverage is skipped",
   timeout: 30000,
 }, async () => {
   const previous = process.env.SKILL_HOST_CANARY;
@@ -54,7 +59,7 @@ test("Docker Skill execution enforces readonly packages, network isolation and n
   }
 });
 test("output overflow and cancellation kill the container process tree and remove its private volume", {
-  skip: !image,
+  skip: image ? false : "SKILL_TEST_IMAGE is not set; skill sandbox coverage is skipped",
   timeout: 25000,
 }, async () => {
   await assert.rejects(

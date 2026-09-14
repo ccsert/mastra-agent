@@ -9,6 +9,11 @@ import { Platform } from "../../apps/control-plane/src/platform.ts";
 import { Message, type Principal } from "../../packages/contracts/src/index.ts";
 import { required } from "../../scripts/env.ts";
 
+if (!process.env.TASK_SANDBOX_IMAGE)
+  console.warn(
+    "[platform.test] TASK_SANDBOX_IMAGE is not set; Docker browser sandbox coverage in this file will be skipped",
+  );
+
 const schema = `test_store_${process.pid}`,
   admin = new Database(required("DATABASE_URL")),
   db = new Database(required("DATABASE_URL"), schema),
@@ -1167,7 +1172,9 @@ test("feedback is owned, idempotent, lease-fenced and remains available after a 
 });
 
 test("large browser images survive the control-plane durable snapshot contract", {
-  skip: !process.env.TASK_SANDBOX_IMAGE,
+  skip: process.env.TASK_SANDBOX_IMAGE
+    ? false
+    : "TASK_SANDBOX_IMAGE is not set; browser sandbox coverage is skipped",
   timeout: 60000,
 }, async () => {
   const { startModelFixture } = await import("../fixtures/model-fixture.ts");

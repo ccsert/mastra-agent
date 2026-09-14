@@ -7,8 +7,15 @@ import { executeJob } from "../../apps/runtime/src/agents/execute.ts";
 import { agentJob } from "../fixtures/agent-job.ts";
 import { startModelFixture } from "../fixtures/model-fixture.ts";
 
+if (!process.env.TASK_SANDBOX_IMAGE)
+  console.warn(
+    "[web-workspace.test] TASK_SANDBOX_IMAGE is not set; Docker browser sandbox coverage will be skipped",
+  );
+
 test("model loop writes a webpage, runs it, inspects a real browser and exports bytes", {
-  skip: !process.env.TASK_SANDBOX_IMAGE,
+  skip: process.env.TASK_SANDBOX_IMAGE
+    ? false
+    : "TASK_SANDBOX_IMAGE is not set; browser sandbox coverage is skipped",
   timeout: 120000,
 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "platform-web-test-"));
