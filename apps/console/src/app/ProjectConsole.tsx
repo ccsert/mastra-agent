@@ -1,6 +1,7 @@
 import {
   DeploymentUnitOutlined,
   FolderOpenOutlined,
+  InfoCircleOutlined,
   LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
@@ -284,13 +285,11 @@ export function ProjectConsole({
               >
                 {!conversationPage && !authoringPage && (
                   <div className="page-heading">
-                    <div>
-                      <div className="breadcrumb">
-                        {page === "team" ? "组织与访问" : (selectedProject?.name ?? "工作空间")}{" "}
-                        <span>/</span> {pageTitles[page][0]}
-                      </div>
+                    <div className="page-heading-title">
                       <h1>{pageTitles[page][0]}</h1>
-                      <p>{pageTitles[page][1]}</p>
+                      <Tooltip title={pageTitles[page][1]}>
+                        <InfoCircleOutlined aria-label="页面说明" />
+                      </Tooltip>
                     </div>
                     {projectId &&
                       ["agents", "models", "tools"].includes(page) &&
