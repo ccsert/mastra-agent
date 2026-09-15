@@ -39,8 +39,13 @@ type Citation = {
   version?: number;
   location?: SourceLocation | null;
 };
-export function MessageContext({ trace = false }: { trace?: boolean }) {
+/** Runs live outside the project console too (platform assistant); the project
+ * dependency is isolated here so footer rendering never requires a provider. */
+function TraceLink({ runId }: { runId: string }) {
   const projectId = useProjectId();
+  return <Link to={projectPath(projectId, "runs", runId)}>查看本轮轨迹</Link>;
+}
+export function MessageContext({ trace = false }: { trace?: boolean }) {
   const metadata = useAuiState((s) => s.message.metadata.custom);
   const skills = Array.isArray(metadata?.selectedSkills) ? metadata.selectedSkills : [];
   return (
@@ -54,9 +59,7 @@ export function MessageContext({ trace = false }: { trace?: boolean }) {
             </Tag>
           ) : null,
         )}
-      {trace && typeof metadata?.runId === "string" && (
-        <Link to={projectPath(projectId, "runs", metadata.runId)}>查看本轮轨迹</Link>
-      )}
+      {trace && typeof metadata?.runId === "string" && <TraceLink runId={metadata.runId} />}
     </div>
   );
 }
