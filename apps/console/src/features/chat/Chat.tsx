@@ -188,6 +188,11 @@ export function Chat({
           `/api/v1/projects/${projectId}/conversations/${conversationId}/stream?runId=${encodeURIComponent(id)}`,
       },
       body: () => ({ skillVersionIds: selectedRef.current }),
+      // The server owns stored history and reads only the newest user message;
+      // shipping the whole thread overflows the 256KB request body limit.
+      prepareSendMessagesRequest: async ({ messages }) => ({
+        body: { messages: messages.slice(-1), skillVersionIds: selectedRef.current },
+      }),
       fetch: async (input, init) => {
         const sending = init?.method === "POST";
         transportFailed.current = false;
