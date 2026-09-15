@@ -244,6 +244,83 @@ test("conversation pins and titles update in place and stay scoped to their owne
     { code: "NOT_FOUND" },
   );
 });
+test("runs auto-compact when the last measured context exceeds the agent window", async () => {
+  const project = await store.projects.create(actor, { name: "Auto compact", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "AutoCompact",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "AutoCompact");
+  const first = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "第一次提问",
+    "auto-1",
+  );
+  await store.conversations.cancel(actor, project.id, first.id);
+  await db.query("INSERT INTO run_events(run_id,seq,chunk) VALUES($1,0,$2)", [
+    first.id,
+    JSON.stringify({
+      type: "data-model-step",
+      data: {
+        usage: { inputTokens: 1000 },
+        stepIndex: 0,
+        completedAt: "2026-09-15T00:00:00Z",
+        finishReason: "stop",
+      },
+    }),
+  ]);
+  const normal = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "第二次提问",
+    "auto-2",
+  );
+  await store.conversations.cancel(actor, project.id, normal.id);
+  const [normalRow] = await db.query("SELECT context_action FROM runs WHERE id=$1", [normal.id]);
+  assert.equal(normalRow.context_action, null);
+  // Usage above 75% of the default 32000-token window flips the next run to compaction.
+  await db.query("UPDATE run_events SET chunk=$2 WHERE run_id=$1 AND seq=0", [
+    first.id,
+    JSON.stringify({
+      type: "data-model-step",
+      data: {
+        usage: { inputTokens: 25000 },
+        stepIndex: 0,
+        completedAt: "2026-09-15T00:00:00Z",
+        finishReason: "stop",
+      },
+    }),
+  ]);
+  const auto = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "第三次提问",
+    "auto-3",
+  );
+  const [autoRow] = await db.query("SELECT context_action FROM runs WHERE id=$1", [auto.id]);
+  assert.equal(autoRow.context_action, "compact");
+  // Leave no queued run behind: later tests claim the next queued run.
+  await store.conversations.cancel(actor, project.id, auto.id);
+  await assert.rejects(
+    () => store.conversations.createRun(other, project.id, thread.id, "越权提问", "auto-other"),
+    { code: "NOT_FOUND" },
+  );
+});
 test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
   const project = await store.projects.create(actor, { name: "Orders", description: "" });
   const model = await store.resources.createModel(actor, project.id, {

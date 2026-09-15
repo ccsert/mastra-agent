@@ -407,7 +407,7 @@ export function Chat({
             <p>
               {contextInfo.createdAt
                 ? `最近压缩：${new Date(contextInfo.createdAt).toLocaleString()}`
-                : "尚未手动压缩。长任务可能触发模型上下文自动裁剪。"}
+                : "尚未手动压缩。历史接近模型窗口阈值时会自动压缩，也可用 /compact 立即压缩。"}
             </p>
             <p>摘要只替换后续模型请求中的历史；首条原始目标仍单独保留。原文和轨迹可继续追溯。</p>
             {contextInfo.summary && (

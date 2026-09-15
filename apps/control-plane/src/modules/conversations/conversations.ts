@@ -423,7 +423,23 @@ export class Conversations {
       ).length
     )
       throw new ApiError(409, "CONVERSATION_BUSY", "此会话正在执行，请等待完成或取消");
+    // Manual /compact, or automatic compaction once the last measured model
+    // context reaches ~75% of the agent's window (Observational-Memory-style
+    // threshold): the run first summarizes history, then answers normally.
+    // Auto-compaction is best effort — an over-budget transcript just skips it.
     const compact = /^\/compact(?:\s|$)/i.test(input.trim());
+    let autoCompact = false;
+    if (!compact) {
+      const window = snapshot.agent.executionLimits?.contextTokens ?? 32000;
+      const [usage] = await tx.query(
+        `SELECT e.chunk->'data'->'usage'->>'inputTokens' AS tokens
+         FROM run_events e JOIN runs r ON r.id=e.run_id
+         WHERE r.conversation_id=$1 AND e.chunk->>'type'='data-model-step'
+         ORDER BY r.created_at DESC,r.id DESC,e.seq DESC LIMIT 1`,
+        [conversationId],
+      );
+      autoCompact = Number(usage?.tokens ?? 0) >= Math.floor(window * 0.75);
+    }
     if (compact) {
       if (input.replace(/^\/compact\s*/i, "").length > 1000)
         throw new ApiError(400, "INVALID_COMMAND", "压缩关注点请控制在 1000 字以内");
@@ -435,6 +451,10 @@ export class Conversations {
           "CONTEXT_TOO_LARGE",
           "本次历史超过压缩预算，请新建会话或分阶段整理",
         );
+    }
+    if (autoCompact && !compact) {
+      const transcript = compactTranscript(await modelHistory(tx, conversationId));
+      if (!transcript.trim() || transcript.length > 1000000) autoCompact = false;
     }
     const id = randomUUID(),
       messageId = randomUUID();
@@ -467,7 +487,7 @@ export class Conversations {
         metadata: { runId: id, selectedSkills: selectedSkills(snapshot, selection) },
       },
     ]);
-    if (compact)
+    if (compact || autoCompact)
       await tx.query(
         "UPDATE runs SET context_action='compact',context_through=(SELECT max(position) FROM messages WHERE conversation_id=$2) WHERE id=$1",
         [id, conversationId],
