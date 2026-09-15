@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>mastra-agent · 平台架构总览</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-soft: #111823;
+    --panel: #151d29;
+    --panel-2: #1b2534;
+    --line: #26313f;
+    --line-soft: #1e2836;
+    --text: #dfe7f1;
+    --muted: #8b9bb0;
+    --dim: #6b7a8d;
+    --accent: #5eead4;
+    --accent-2: #7dd3fc;
+    --accent-3: #c4b5fd;
+    --warn: #fbbf24;
+    --danger: #fb7185;
+    --ok: #4ade80;
+    --cp: #7dd3fc;
+    --rt: #5eead4;
+    --db: #c4b5fd;
+    --ui: #fbbf24;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(125, 211, 252, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 90% 0%, rgba(94, 234, 212, 0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code {
+    background: rgba(125, 211, 252, 0.09);
+    border: 1px solid rgba(125, 211, 252, 0.16);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: #bfe6ff;
+    white-space: nowrap;
+  }
+
+  /* ---------- layout ---------- */
+  .wrap { display: flex; max-width: 1500px; margin: 0 auto; }
+  nav.side {
+    position: sticky; top: 0; align-self: flex-start;
+    width: 232px; flex: 0 0 232px; height: 100vh;
+    border-right: 1px solid var(--line-soft);
+    padding: 26px 14px 40px; overflow-y: auto;
+    background: rgba(11, 15, 20, 0.85); backdrop-filter: blur(8px);
+  }
+  nav.side .brand { font-weight: 650; font-size: 15px; letter-spacing: 0.2px; margin: 0 8px 4px; }
+  nav.side .brand span { color: var(--accent); }
+  nav.side .sub { margin: 0 8px 22px; font-size: 11.5px; color: var(--dim); letter-spacing: 0.4px; }
+  nav.side a {
+    display: block; padding: 6px 10px; border-radius: 7px; color: var(--muted);
+    font-size: 13.2px; border-left: 2px solid transparent; text-decoration: none;
+  }
+  nav.side a:hover { background: var(--panel); color: var(--text); text-decoration: none; }
+  nav.side a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(94,234,212,0.06); }
+  nav.side .grp { margin: 18px 8px 6px; font-size: 10.5px; letter-spacing: 1.1px; color: var(--dim); text-transform: uppercase; }
+  main { flex: 1; min-width: 0; padding: 40px 44px 120px; }
+
+  /* ---------- typography ---------- */
+  h1 { font-size: 31px; line-height: 1.25; margin: 0 0 10px; letter-spacing: -0.4px; }
+  h2 {
+    font-size: 21px; margin: 58px 0 6px; padding-bottom: 9px;
+    border-bottom: 1px solid var(--line); letter-spacing: -0.2px;
+  }
+  h2 .num { color: var(--dim); font-family: var(--mono); font-size: 14px; margin-right: 9px; font-weight: 400; }
+  h3 { font-size: 16px; margin: 30px 0 8px; color: #eaf1f9; }
+  h4 { font-size: 13.5px; margin: 20px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; }
+  p { margin: 9px 0; color: #c6d3e2; }
+  .lead { font-size: 16px; color: #b9c8da; max-width: 78ch; }
+  .muted { color: var(--muted); }
+  .dim { color: var(--dim); }
+  ul, ol { margin: 8px 0; padding-left: 22px; color: #c6d3e2; }
+  li { margin: 5px 0; }
+  strong { color: #f0f6fc; font-weight: 620; }
+
+  /* ---------- stat strip ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; margin: 24px 0 8px; }
+  .stat {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px;
+  }
+  .stat .v { font-family: var(--mono); font-size: 21px; font-weight: 600; color: var(--accent); line-height: 1.2; }
+  .stat .k { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+
+  /* ---------- panels ---------- */
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin: 16px 0;
+  }
+  .panel.tight { padding: 14px 16px; }
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(94, 234, 212, 0.05);
+    border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); background: rgba(251, 191, 36, 0.05); }
+  .callout.danger { border-left-color: var(--danger); background: rgba(251, 113, 133, 0.05); }
+  .callout .t { font-weight: 620; color: #f0f6fc; font-size: 13.5px; margin-bottom: 3px; }
+  .callout p { margin: 4px 0; font-size: 14px; }
+
+  /* ---------- topology ---------- */
+  .topo { margin: 22px 0 8px; }
+  .tier {
+    border: 1px solid var(--line); border-radius: 13px; padding: 14px 16px 16px;
+    background: var(--bg-soft); position: relative;
+  }
+  .tier + .tier { margin-top: 0; }
+  .tier-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 11px; }
+  .tier-h .name { font-weight: 640; font-size: 14.5px; }
+  .tier-h .tag {
+    font-family: var(--mono); font-size: 11px; padding: 1.5px 7px; border-radius: 20px;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .tier-h .desc { font-size: 12.5px; color: var(--dim); margin-left: auto; text-align: right; }
+  .tier.ui { border-color: rgba(251, 191, 36, 0.28); }
+  .tier.cp { border-color: rgba(125, 211, 252, 0.28); }
+  .tier.rt { border-color: rgba(94, 234, 212, 0.28); }
+  .tier.db { border-color: rgba(196, 181, 253, 0.28); }
+  .accent-ui { color: var(--ui); } .accent-cp { color: var(--cp); }
+  .accent-rt { color: var(--rt); } .accent-db { color: var(--db); }
+
+  .boxes { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+  .box {
+    background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 9px;
+    padding: 10px 12px; font-size: 13px;
+  }
+  .box .bt { font-weight: 620; font-size: 13px; margin-bottom: 3px; }
+  .box .bd { color: var(--muted); font-size: 12.2px; line-height: 1.55; }
+  .box ul { padding-left: 15px; margin: 4px 0 0; }
+  .box li { font-size: 12.2px; color: var(--muted); margin: 2px 0; }
+
+  .link-row {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 9px 0; font-family: var(--mono); font-size: 11.5px; color: var(--dim);
+  }
+  .link-row .arrow { color: var(--accent); font-size: 15px; letter-spacing: -1px; }
+  .link-row .lbl {
+    background: rgba(94, 234, 212, 0.07); border: 1px solid rgba(94, 234, 212, 0.18);
+    border-radius: 20px; padding: 2px 11px; color: #9ff0e0;
+  }
+
+  /* ---------- tabs ---------- */
+  .tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 16px 0 0; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+    font-family: var(--sans); font-size: 13.4px; padding: 8px 13px 9px; cursor: pointer; border-radius: 7px 7px 0 0;
+  }
+  .tabs button:hover { color: var(--text); background: var(--panel); }
+  .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); background: rgba(94,234,212,0.05); }
+  .tabpane { display: none; padding-top: 6px; }
+  .tabpane.on { display: block; animation: fade 0.22s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- flow steps ---------- */
+  .flow { list-style: none; padding: 0; margin: 14px 0; counter-reset: s; }
+  .flow li {
+    position: relative; padding: 0 0 14px 40px; margin: 0;
+    border-left: 1px solid var(--line); margin-left: 11px;
+  }
+  .flow li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .flow li::before {
+    counter-increment: s; content: counter(s);
+    position: absolute; left: -11px; top: 1px;
+    width: 21px; height: 21px; border-radius: 50%;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--accent); font-family: var(--mono); font-size: 10.5px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .flow .st { font-weight: 600; font-size: 13.6px; color: #eaf1f9; }
+  .flow .sd { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .flow .sd code { font-size: 11.6px; }
+
+  /* ---------- layer explorer ---------- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1080px) { .grid2 { grid-template-columns: 1fr; } }
+  .tree {
+    background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px 15px; font-family: var(--mono); font-size: 12.1px; line-height: 1.75;
+    color: var(--muted); overflow-x: auto;
+  }
+  .tree b { color: #eaf1f9; font-weight: 600; }
+  .tree .c { color: var(--dim); }
+  .tree .hl { color: var(--accent); }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.2px; }
+  th {
+    text-align: left; padding: 8px 11px; border-bottom: 1px solid var(--line);
+    color: var(--muted); font-weight: 560; font-size: 11.6px; letter-spacing: 0.6px; text-transform: uppercase;
+  }
+  td { padding: 8px 11px; border-bottom: 1px solid var(--line-soft); vertical-align: top; color: #c6d3e2; }
+  tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 12px; }
+  tbody tr:hover { background: rgba(125, 211, 252, 0.03); }
+
+  /* ---------- badge ---------- */
+  .b {
+    display: inline-block; font-family: var(--mono); font-size: 10.8px; padding: 1.5px 7px;
+    border-radius: 5px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+  }
+  .b.ok { color: #86efac; border-color: rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.08); }
+  .b.warn { color: #fcd34d; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
+  .b.bad { color: #fda4af; border-color: rgba(251, 113, 133, 0.3); background: rgba(251, 113, 133, 0.08); }
+  .b.info { color: #a5d8ff; border-color: rgba(125, 211, 252, 0.3); background: rgba(125, 211, 252, 0.08); }
+
+  /* ---------- table groups ---------- */
+  .tblgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(238px, 1fr)); gap: 12px; margin: 14px 0; }
+  .tblcard { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tblcard .h { font-size: 12px; letter-spacing: 0.7px; text-transform: uppercase; color: var(--accent); margin-bottom: 7px; }
+  .tblcard ul { padding: 0; margin: 0; list-style: none; }
+  .tblcard li { font-family: var(--mono); font-size: 11.7px; color: var(--muted); margin: 2.5px 0; }
+  .tblcard li span { color: var(--dim); font-family: var(--sans); font-size: 11.2px; }
+
+  /* ---------- sequence diagram ---------- */
+  .seq { overflow-x: auto; margin: 16px 0; }
+  .seq table { min-width: 660px; font-size: 12.4px; }
+  .seq td { border-bottom: 1px solid var(--line-soft); padding: 6px 10px; }
+  .seq .actor { color: var(--cp); font-weight: 600; white-space: nowrap; }
+  .seq .actor.rt { color: var(--rt); }
+  .seq .actor.db { color: var(--db); }
+  .seq .actor.ui { color: var(--ui); }
+
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 5px 16px; margin: 12px 0; font-size: 13.2px; }
+  .kv dt { font-family: var(--mono); color: var(--accent-2); font-size: 12.2px; white-space: nowrap; }
+  .kv dd { margin: 0; color: #c6d3e2; }
+
+  .foot { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.3px; color: var(--dim); }
+  .skill-tip { font-size: 12.5px; color: var(--dim); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="side">
+  <div class="brand">mastra<span>-agent</span></div>
+  <div class="sub">平台架构总览 · 2026-09-15</div>
+  <div class="grp">全貌</div>
+  <a href="#s1">1 · 一句话与规模</a>
+  <a href="#s2">2 · 三进程拓扑</a>
+  <a href="#s3">3 · 端到端数据流</a>
+  <div class="grp">分层</div>
+  <a href="#s4">4 · 控制台</a>
+  <a href="#s5">5 · 控制面</a>
+  <a href="#s6">6 · Runtime</a>
+  <a href="#s7">7 · 共享包</a>
+  <div class="grp">机制</div>
+  <a href="#s8">8 · 租约与可靠性</a>
+  <a href="#s9">9 · 数据模型</a>
+  <a href="#s10">10 · 安全边界</a>
+  <a href="#s11">11 · 部署形态</a>
+  <a href="#s12">12 · 技术选型与依赖</a>
+  <a href="#s13">13 · 架构约束</a>
+  <a href="#s14">14 · 已知缺口</a>
+</nav>
+
+<main>
+
+<h1>mastra-agent · 企业 Agent 平台架构</h1>
+<p class="lead">
+  面向业务团队的 Agent 平台：集中控制面管理资源与权限，独立 Runtime 执行 Agent、工作流、知识库检索与受限脚本，
+  控制台提供 14 个工作页面，并通过 OpenAPI 生成 SDK + iframe 组件向第三方业务系统开放接入。
+</p>
+
+<!-- ============ 1 ============ -->
+<h2 id="s1"><span class="num">01</span>一句话与规模</h2>
+
+<div class="stats">
+  <div class="stat"><div class="v">4</div><div class="k">应用 apps/</div></div>
+  <div class="stat"><div class="v">6</div><div class="k">共享包 packages/</div></div>
+  <div class="stat"><div class="v">49</div><div class="k">数据库表</div></div>
+  <div class="stat"><div class="v">4</div><div class="k">Runtime 执行泳道</div></div>
+  <div class="stat"><div class="v">19</div><div class="k">内部 HTTP 端点</div></div>
+  <div class="stat"><div class="v">76.5k</div><div class="k">TS/TSX 行数</div></div>
+  <div class="stat"><div class="v">23</div><div class="k">SQL 迁移文件</div></div>
+  <div class="stat"><div class="v">88</div><div class="k">测试文件</div></div>
+</div>
+
+<div class="callout">
+  <div class="t">架构上最重要的一句话</div>
+  <p>
+    <strong>Runtime 没有数据库依赖，也没有数据库凭据。</strong>
+    它只通过 <code>/internal/runtime/*</code> 这组 HTTP 接口与控制面通信，凭据、租约、事件持久化全部由控制面掌握。
+    这条边界由 <code>dependency-cruiser</code> 规则 <code>runtime-has-no-database-access</code> 在 CI 中强制，是为了让
+    Runtime 可以单独部署到客户私网。
+  </p>
+</div>
+
+<p class="muted">
+  代码量分布（不含 <code>node_modules</code> 与构建产物）：控制台 32.4k 行 / 201 文件，控制面 12.7k 行 / 79 文件，
+  Runtime 4.0k 行 / 36 文件，共享包 14.9k 行 / 49 文件，测试 11.8k 行 / 55 文件。
+  另有 <code>apps/agent-ui-example</code> 是原生 JS 的第三方订单工作台示例，不计入 TS 统计。
+</p>
+
+<!-- ============ 2 ============ -->
+<h2 id="s2"><span class="num">02</span>三进程拓扑</h2>
+<p>开发环境下有三个独立进程加一个 PostgreSQL 容器；生产 Compose 中每个部分各自成镜像。</p>
+
+<div class="topo">
+
+  <div class="tier ui">
+    <div class="tier-h">
+      <span class="name accent-ui">控制台 Console</span>
+      <span class="tag">apps/console · :5179</span>
+      <span class="desc">React 19 + Vite + AntD 6<br/>浏览器侧，同源代理 /api</span>
+    </div>
+    <div class="boxes">
+      <div class="box">
+        <div class="bt">app/</div>
+        <div class="bd">登录 / 项目切换 / 路由 / 导航框架 / 编辑器组装</div>
+      </div>
+      <div class="box">
+        <div class="bt">features/ · 16 个</div>
+        <div class="bd">agents · chat · workflows · knowledge · skills · mcp · runs · models · tools · mcp · members · applications · runtimes · overview · projects · capabilities</div>
+      </div>
+      <div class="box">
+        <div class="bt">shared/</div>
+        <div class="bd">TanStack Query 项目缓存 · 分页状态 · assistant-ui 封装</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="link-row">
+    <span class="arrow">▼</span>
+    <span class="lbl">HTTPS 同源 · /api/v1/* + /openapi.json · Cookie 会话（httpOnly / SameSite=Strict）</span>
+  </div>
+
+  <div class="tier cp">
+    <div class="tier-h">
+      <span class="name accent-cp">控制面 Control Plane</span>
+      <span class="tag">apps/control-plane · :4110</span>
+      <span class="desc">Hono · 唯一持有数据库连接<br/>同时服务浏览器与 Runtime</span>
+    </div>
+    <div class="boxes">
+      <div class="box">
+        <div class="bt">modules/ · 14 个领域模块</div>
+        <div class="bd">identity · members · projects · access · resources · agents · skills · conversations · knowledge · mcp · workflows · applications · runtimes · assistant</div>
+      </div>
+      <div class="box">
+        <div class="bt">infrastructure/</div>
+        <div class="bd">AES-256-GCM 凭据保管 · scrypt 口令 · 游标分页 · 领域错误 · 记录映射 · 执行上下文</div>
+      </div>
+      <div class="box">
+        <div class="bt">http/ + app.ts</div>
+        <div class="bd">中间件顺序 · 公共响应契约 · 198 行组装入口，只有它注册路由</div>
+      </div>
+      <div class="box">
+        <div class="bt">project-authorization.ts</div>
+        <div class="bd">按「方法 + 项目子资源」映射权限，未分类默认 <code>resource.manage</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="link-row">
+    <span class="arrow">▼</span>
+    <span class="lbl">/internal/runtime/* · <code>Authorization: Platform-Runtime &lt;token&gt;</code>（两个方向：控制面 ← Runtime 主动轮询）</span>
+  </div>
+
+  <div class="tier rt">
+    <div class="tier-h">
+      <span class="name accent-rt">Runtime 执行面</span>
+      <span class="tag">apps/runtime · :4112</span>
+      <span class="desc">Mastra 1.64 · 无数据库 · 无凭据存储<br/>4 条泳道并行轮询领任务</span>
+    </div>
+    <div class="boxes">
+      <div class="box">
+        <div class="bt">agents/ · 15 文件</div>
+        <div class="bd">Agent 执行 · durable 恢复 · 预算 · 上下文裁剪 · 子代理委派 · 轨迹观测 · 网页工作区</div>
+      </div>
+      <div class="box">
+        <div class="bt">workflows/</div>
+        <div class="bd">FlowGram 定义 → Mastra 工作流执行 · AI 编排生成</div>
+      </div>
+      <div class="box">
+        <div class="bt">knowledge/</div>
+        <div class="bd">MDocument 分块 · 向量入库 · 检索与重排</div>
+      </div>
+      <div class="box">
+        <div class="bt">skills/</div>
+        <div class="bd">版本化 Skill 来源 · Docker 沙箱脚本执行 · 串行队列</div>
+      </div>
+      <div class="box">
+        <div class="bt">mcp/ · tools/</div>
+        <div class="bd">MCP 客户端（官方 SDK）·  HTTP 工具调用</div>
+      </div>
+      <div class="box">
+        <div class="bt">control-plane/</div>
+        <div class="bd">认证 HTTP 客户端 · 联系状态 · 可取消轮询</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="link-row">
+    <span class="arrow">▼</span>
+    <span class="lbl">pg 连接池（仅控制面）· 49 张表 · pgvector 扩展</span>
+  </div>
+
+  <div class="tier db">
+    <div class="tier-h">
+      <span class="name accent-db">PostgreSQL 16 + pgvector</span>
+      <span class="tag">:5442（开发）</span>
+      <span class="desc">多租户隔离唯一实现层<br/>应用层 SQL 谓词 + 事务</span>
+    </div>
+    <div class="boxes">
+      <div class="box"><div class="bt">租户与身份</div><div class="bd">tenants · users · projects · project_members · sessions · member_invitations · auth_nonces · access_audit</div></div>
+      <div class="box"><div class="bt">资源与发布</div><div class="bd">resources · releases（固定版本快照）· applications</div></div>
+      <div class="box"><div class="bt">会话与运行</div><div class="bd">conversations · messages · runs · run_events · run_tool_receipts · task_artifacts · task_feedback</div></div>
+      <div class="box"><div class="bt">知识 / 工作流 / Skill</div><div class="bd">knowledge_* · workflows · workflow_jobs · workflow_node_runs · skill_versions · skill_files · mcp_*</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ 3 ============ -->
+<h2 id="s3"><span class="num">03</span>端到端数据流</h2>
+<p>五个最主要的使用路径。下面每一步都对应真实代码路径。</p>
+
+<div class="tabs" data-tabs="flows">
+  <button class="on" data-t="f1">用户对话</button>
+  <button data-t="f2">工作流执行</button>
+  <button data-t="f3">知识库入库与检索</button>
+  <button data-t="f4">Skill 脚本沙箱</button>
+  <button data-t="f5">第三方应用接入</button>
+</div>
+
+<div class="tabpane on" id="f1">
+  <ol class="flow">
+    <li><div class="st">控制台提交消息</div><div class="sd"><code>POST /api/v1/projects/:id/conversations/:cid/runs</code> —— 带 <code>requestId</code> 做幂等。浏览器在响应头之前取消也会保留请求，转而去取消 Run，避免"以为没发出去实际已执行"。</div></li>
+    <li><div class="st">控制面建立 Run 并冻结发布快照</div><div class="sd">校验 <code>agent.run</code> 权限 → 在事务内锁会话行 → 写入 <code>runs</code>（含 <code>release_id</code>、deadline、<code>runtime_id</code>）。唯一索引 <code>one_active_run_per_conversation</code> 阻止同一会话并发运行。</div></li>
+    <li><div class="st">Runtime 认领</div><div class="sd"><code>POST /internal/runtime/claim</code> → 控制面 <code>SELECT ... FOR UPDATE SKIP LOCKED</code>，签发 <code>lease_token</code>，置 <code>lease_until = now() + 20s</code>。</div></li>
+    <li><div class="st">控制面回传执行所需全部材料</div><div class="sd">模型配置与凭据、工具定义、Skill 版本、知识库快照、历史消息 —— <strong>凭据在这一步解密后随任务下发</strong>，Runtime 全程不访问数据库。</div></li>
+    <li><div class="st">执行 + 心跳 + 事件上报</div><div class="sd">Runtime 建 Mastra Agent 流式执行；每 4s 心跳续租（同时收回 <code>cancelRequested</code>）；每个 chunk 通过 <code>POST .../events</code> 上报，序号严格连续、内容幂等去重。</div></li>
+    <li><div class="st">控制面转 SSE 给浏览器</div><div class="sd">浏览器订阅 <code>.../stream</code>，控制面轮询 <code>run_events</code> 推送。断线重连走 GET 续传，不会重复发 POST。</div></li>
+    <li><div class="st">收尾</div><div class="sd">Runtime <code>POST .../finish</code> 提交终态与助手消息；控制面在锁内复核租约后落库，写入 <code>messages</code>。</div></li>
+  </ol>
+</div>
+
+<div class="tabpane" id="f2">
+  <ol class="flow">
+    <li><div class="st">画布草稿 → Mastra 工作流定义</div><div class="sd">FlowGram 画布管理草稿与撤销，<code>canvas/</code> 里的文档转换把画布结构映射为可执行树，后端做拓扑与类型校验。</div></li>
+    <li><div class="st">发布固定版本</div><div class="sd">发布时生成 <code>releases</code> 快照，工具/Agent 版本一并固定。后续改草稿不影响已绑定版本的运行。</div></li>
+    <li><div class="st">提交运行</div><div class="sd"><code>POST /api/v1/projects/:id/workflow-runs</code> 写入 <code>workflow_jobs</code>，同样是幂等 + 唯一约束。</div></li>
+    <li><div class="st">Runtime 工作流泳道认领</div><div class="sd">当前只用到 <code>.then()</code> / <code>.branch()</code> / <code>.map()</code> / <code>.commit()</code> 这一档控制流；Mastra 的 parallel / dountil / foreach / sleep / suspend-resume / time travel 均未使用。</div></li>
+    <li><div class="st">节点执行与逐节点上报</div><div class="sd">Agent 节点、工具节点、变量映射节点分别执行，节点级事件写入 <code>workflow_node_runs</code> 与轨迹。</div></li>
+    <li><div class="st">结论文档落库</div><div class="sd">输出写入工作区产物，运行详情页按调用 ID 归并交错的输入输出。</div></li>
+  </ol>
+  <div class="callout warn">
+    <div class="t">注意</div>
+    <p>工作流内嵌的 Agent 节点在调用工具时<strong>不携带 <code>access.task</code></strong>，因此没有工具收据保护；租约过期重放时存在重复副作用风险。子代理显式剥离了该能力。</p>
+  </div>
+</div>
+
+<div class="tabpane" id="f3">
+  <ol class="flow">
+    <li><div class="st">上传文档</div><div class="sd">文档先经子进程解析（<code>env: {}</code>、<code>--max-old-space-size=512</code>、stdio 关闭、30s 超时后 SIGKILL），解析器自身还有 ZIP 炸弹与页数上限防护。</div></li>
+    <li><div class="st">分块</div><div class="sd">用 <code>@mastra/rag</code> 的 <code>MDocument</code> 做 chunking，按 Markdown 或纯文本分支处理。</div></li>
+    <li><div class="st">入库作业</div><div class="sd">写入 <code>knowledge_jobs</code>，Runtime 知识库泳道认领，通过控制面发往 <code>/embeddings</code>，维度校验（<code>DIMENSION_MISMATCH</code>）后写入 <code>knowledge_chunks.embedding</code>（pgvector）。</div></li>
+    <li><div class="st">检索</div><div class="sd">查询向量化 → 向量召回 → 若绑定了重排模型则调 <code>/rerank</code> 得到 <code>rerankScore</code> → 返回带来源的命中。</div></li>
+    <li><div class="st">Agent 使用</div><div class="sd">Agent 只能检索自己发布快照里绑定的知识库，运行时二次校验，防止越权检索。</div></li>
+  </ol>
+</div>
+
+<div class="tabpane" id="f4">
+  <ol class="flow">
+    <li><div class="st">导入 Skill</div><div class="sd">支持 ZIP 与 Git 来源。ZIP 解析在解压前和解压中都做体积限制，拒绝符号链接、加密条目、路径穿越（Zip-Slip），做 NFC 与大小写冲突检测。</div></li>
+    <li><div class="st">固定版本与授权</div><div class="sd">内容修改产生新版本；<code>skill_files</code> 记录文件摘要；Agent 发布快照绑定具体版本与脚本授权，包内声明不等于已授权。</div></li>
+    <li><div class="st">运行时提供指令与资料</div><div class="sd">通过 <code>CompositeVersionedSkillSource</code> 提供版本化 Skill，读取权限与当前运行租约绑定；停用版本会取消进行中的流。</div></li>
+    <li><div class="st">脚本在 Docker 沙箱执行</div><div class="sd">镜像必须 digest 固定或本地 <code>sha256:</code>（<code>--pull=never</code>，无宿主回退）；技能内容经只读命名卷挂载，不用宿主绑定路径。</div></li>
+    <li><div class="st">容器约束</div><div class="sd"><code>--user 1000:1000 --network none --read-only --cap-drop ALL --memory 128m --pids-limit 64 no-new-privileges</code>，仅注入 <code>HOME</code>/<code>PYTHONDONTWRITEBYTECODE</code>，不含任何宿主环境变量与凭据。</div></li>
+    <li><div class="st">超时与清理</div><div class="sd">30s 软停、47s 硬 SIGKILL 加 <code>docker rm -f</code>；stdout+stderr 合计上限 64KiB；清理后重新校验容器与卷确实不存在，否则抛 <code>SKILL_CLEANUP_FAILED</code>。</div></li>
+  </ol>
+  <div class="callout danger">
+    <div class="t">缺口</div>
+    <p>容器与卷按名字清理，<strong>没有按 label 的启动清扫</strong>。进程被 SIGKILL（Compose 的 <code>stop_grace_period: 30s</code> 短于 47s 硬超时）会永久残留容器、临时目录与命名卷。</p>
+  </div>
+</div>
+
+<div class="tabpane" id="f5">
+  <ol class="flow">
+    <li><div class="st">注册应用</div><div class="sd">项目管理员创建应用身份，拿到 <code>accessKey</code> 与一次性下发的 <code>secretKey</code>；密钥加密存储，列表只返回 <code>accessKey</code>。</div></li>
+    <li><div class="st">签名调用</div><div class="sd">请求头 <code>Platform-HMAC &lt;id&gt;:&lt;accessKey&gt;:&lt;sig&gt;</code>，签名 = HMAC-SHA256(secret, method ∥ target ∥ timestamp ∥ nonce ∥ sha256(body))，时间窗 ±5 分钟。</div></li>
+    <li><div class="st">防重放</div><div class="sd"><code>auth_nonces</code> 插入用 <code>ON CONFLICT DO NOTHING RETURNING</code>，重复 nonce 抛 <code>REPLAY_DETECTED</code>；签名比对用 <code>timingSafeEqual</code>。</div></li>
+    <li><div class="st">能力被收窄</div><div class="sd">应用身份被硬编码为「只能访问自己所在的这一个项目」且只有 <code>project.read</code> + <code>agent.run</code>，泄露凭据无法横向移动。</div></li>
+    <li><div class="st">嵌入业务系统</div><div class="sd">通过生成的 OpenAPI SDK 调用，或用 iframe 嵌入页面协作（origin 固定 + postMessage 桥 + 8s 存活探测）。</div></li>
+  </ol>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 id="s4"><span class="num">04</span>控制台分层</h2>
+
+<div class="grid2">
+  <div>
+    <h4>目录结构</h4>
+    <div class="tree">
+<b>apps/console/src/</b>
+├── <b>app/</b>            <span class="c">// 登录、项目、路由、导航、编辑器组装</span>
+│   ├── auth/
+│   ├── routing/      <span class="c">// routes.tsx · NavigationGuard · ProjectPage</span>
+│   └── styles/
+├── <b>features/</b>       <span class="c">// 16 个功能模块，各自 index.ts 为公开入口</span>
+│   ├── chat/         <span class="c">// 25 文件，最大</span>
+│   ├── workflows/    <span class="c">// 24 文件：canvas / fields / model</span>
+│   ├── runs/         <span class="c">// 13 文件：轨迹投影与阅读器</span>
+│   ├── assistant/    <span class="c">// 8 文件：平台助手</span>
+│   ├── knowledge/ · agents/ · skills/ · mcp/
+│   ├── models/ · tools/ · members/ · applications/
+│   └── runtimes/ · overview/ · projects/ · capabilities/
+└── <b>shared/</b>         <span class="c">// 不依赖 features 与 app</span>
+    ├── data/         <span class="c">// 项目缓存、分页、错误状态</span>
+    ├── assistant-ui/ <span class="c">// vendored 上游 + 本地插槽</span>
+    └── ai/
+    </div>
+  </div>
+  <div>
+    <h4>状态职责的三分</h4>
+    <div class="panel tight">
+      <dl class="kv">
+        <dt>TanStack Query</dt>
+        <dd>服务端状态。<strong>每个项目一个 QueryClient 实例</strong>，切项目即销毁，因此跨项目天然无法读到彼此缓存。</dd>
+        <dt>assistant-ui</dt>
+        <dd>实时消息线程。会话历史只作为 <code>initialMessages</code> 注入一次，后台刷新不会重置流式消息。</dd>
+        <dt>FlowGram</dt>
+        <dd>工作流草稿、表单与撤销。<strong>不入资源缓存</strong>，后台查询更新不覆盖本地草稿。</dd>
+        <dt>URL</dt>
+        <dd>14 个页面与详情页由路由驱动；菜单是真实链接，支持刷新、历史导航与登录回跳。</dd>
+      </dl>
+    </div>
+    <h4>14 个页面</h4>
+    <p class="mono" style="font-size:12px;line-height:1.9;color:var(--muted)">
+      overview · agents · skills · chat · knowledge · workflows · models · tools · mcp · runs · applications · runtimes · settings · team
+    </p>
+    <div class="callout warn" style="margin-top:14px">
+      <div class="t">构建产物体积</div>
+      <p>实测 <code>dist</code>：<code>antd</code> 1.2MB、<code>chat</code> 976KB、<code>workflows</code>(FlowGram) 842KB、<code>index</code> 766KB（十个功能挤在一起）。
+      <code>vite.config.ts</code> 只定义了两个分包组，且 <code>index.html</code> 把 <code>chat</code> 与 <code>antd</code> 都写进了 <code>modulepreload</code> —— 因为 <code>PlatformAssistant → AssistantToolCard → chat/index → ChatMessage → @assistant-ui</code> 这条静态导入链绕过了 <code>lazy()</code>。</p>
+    </div>
+  </div>
+</div>
+
+<h4>控制台依赖的包</h4>
+<table>
+  <thead><tr><th>包</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">@platform/sdk</td><td>Hey API 从 OpenAPI 生成的类型安全客户端，所有 API 调用走它，不手写请求</td></tr>
+    <tr><td class="mono">@platform/agent-ui</td><td>框架无关的页面状态 / 业务动作 / iframe 协作协议</td></tr>
+    <tr><td class="mono">react-router</td><td>路由与导航保护</td></tr>
+    <tr><td class="mono">@tanstack/react-query</td><td>服务器状态、分页无限查询、取消</td></tr>
+    <tr><td class="mono">antd 6 / tailwind</td><td>组件库与工具类样式</td></tr>
+    <tr><td class="mono">@assistant-ui/react</td><td>聊天线程基础（vendored 到 <code>shared/assistant-ui</code>，带升级清单）</td></tr>
+    <tr><td class="mono">@flowgram.ai/*</td><td>工作流画布，懒加载隔离</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 5 ============ -->
+<h2 id="s5"><span class="num">05</span>控制面分层</h2>
+
+<div class="grid2">
+  <div>
+    <h4>14 个领域模块</h4>
+    <table>
+      <thead><tr><th>模块</th><th>职责</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">access</td><td>唯一的授权原语 <code>Access.scope/require</code>，每次请求从数据库重读权限，不做会话缓存</td></tr>
+        <tr><td class="mono">identity</td><td>首建、登录、登出、邀请加入、会话令牌哈希</td></tr>
+        <tr><td class="mono">members</td><td>租户成员、项目成员、邀请、访问审计、转移所有权</td></tr>
+        <tr><td class="mono">projects</td><td>项目生命周期与访问范围</td></tr>
+        <tr><td class="mono">resources</td><td>模型 / 工具资源、执行凭据解析、地址与参数规范</td></tr>
+        <tr><td class="mono">agents</td><td>Agent 草稿、校验、固定发布快照</td></tr>
+        <tr><td class="mono">conversations</td><td>会话、消息、运行队列、租约、事件、SSE、轨迹</td></tr>
+        <tr><td class="mono">knowledge</td><td>知识库、文档、分块、向量、检索、解析子进程</td></tr>
+        <tr><td class="mono">workflows</td><td>画布草稿、发布、运行队列、能力目录、AI 编排</td></tr>
+        <tr><td class="mono">skills</td><td>版本授权、ZIP 与 Git 来源导入、包内文件</td></tr>
+        <tr><td class="mono">mcp</td><td>服务登记、能力发现、导入审阅</td></tr>
+        <tr><td class="mono">applications</td><td>AppID 与 AK/SK、HMAC 验签、nonce 防重放</td></tr>
+        <tr><td class="mono">runtimes</td><td>Runtime 注册、启停、状态</td></tr>
+        <tr><td class="mono">assistant</td><td>平台助手会话、变更提案、页面协作</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <h4>请求进入控制面的顺序</h4>
+    <div class="panel tight">
+      <ol style="margin:0">
+        <li><strong>结构化日志中间件</strong> —— 记录 <code>X-Request-Id</code> 与状态码</li>
+        <li><strong>错误映射</strong> —— 领域错误 → 原样消息；Zod → 400；其余一律泛化 <code>503 INTERNAL_ERROR</code></li>
+        <li><strong>写入保护</strong> —— 非 GET/HEAD/OPTIONS 且带 <code>Origin</code> 时必须命中允许列表，且 <code>Content-Type: application/json</code></li>
+        <li><strong>路径策略门</strong> —— <code>authorizeProjectRequest</code> 按方法 + 子资源映射权限，未分类默认 <code>resource.manage</code></li>
+        <li><strong>路由处理</strong> —— 领域方法内部再调 <code>Access.require</code> 做真实校验</li>
+      </ol>
+    </div>
+    <div class="callout">
+      <div class="t">授权是双层的</div>
+      <p>路径策略门是粗筛，真正的判定在领域方法里的 <code>Access.require</code>（90+ 处调用点）。两层不一致时以领域方法为准 —— 例如 <code>conversation-runs</code> 没被路径策略列出，于是落到 <code>resource.manage</code>，比处理函数实际要求的 <code>project.read</code> 更严。</p>
+    </div>
+  </div>
+</div>
+
+<h4>控制面向浏览器暴露的路由</h4>
+<table>
+  <thead><tr><th>分组</th><th>路径</th></tr></thead>
+  <tbody>
+    <tr><td>认证</td><td class="mono">/api/v1/auth/{status,setup,login,logout,join} · /api/v1/me</td></tr>
+    <tr><td>团队</td><td class="mono">/api/v1/team/{members,invitations,audit,transfer-owner} · /api/v1/runtimes · /api/v1/model-vendors</td></tr>
+    <tr><td>项目</td><td class="mono">/api/v1/projects · /api/v1/projects/{projectId}/{access,members,invitations,audit}</td></tr>
+    <tr><td>Agent / 会话</td><td class="mono">.../agents[/{id}/{preview,publish,releases}] · .../conversations[/{id}/{messages,session,stream,runs,edit,derive,reset,context,trajectory,capabilities}]</td></tr>
+    <tr><td>运行</td><td class="mono">.../runs[/{id}/{cancel,events,feedback,workspace}] · .../conversation-runs</td></tr>
+    <tr><td>资源</td><td class="mono">.../models[/{id},/discovery,/probe] · .../tools[/{id},/probe] · .../applications[/{id}/revoke]</td></tr>
+    <tr><td>其它</td><td class="mono">.../knowledge · .../workflows · .../workflow-runs · .../workflow-generations · .../skills · .../mcp-servers</td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 6 ============ -->
+<h2 id="s6"><span class="num">06</span>Runtime 执行面</h2>
+
+<p>入口 <code>main.ts</code> 只做两件事：起一个 <code>/health</code> + <code>/ready</code> 的极简 HTTP 服务，然后启动 <code>runWorker</code>。
+<code>worker.ts</code> 用 <code>Promise.all</code> 并行拉起四条泳道。</p>
+
+<table>
+  <thead><tr><th>泳道</th><th>认领端点</th><th>做什么</th></tr></thead>
+  <tbody>
+    <tr><td class="mono accent-rt">agents</td><td class="mono">/internal/runtime/claim</td><td>Agent 对话执行，含 durable 恢复、工具收据、子代理委派、网页工作区</td></tr>
+    <tr><td class="mono accent-rt">workflows</td><td class="mono">/internal/runtime/workflows/claim</td><td>工作流节点执行与 AI 编排生成</td></tr>
+    <tr><td class="mono accent-rt">knowledge</td><td class="mono">/internal/runtime/knowledge/claim</td><td>文档分块、向量入库、检索与重排</td></tr>
+    <tr><td class="mono accent-rt">mcp</td><td class="mono">/internal/runtime/mcp/claim</td><td>MCP 能力发现与契约快照</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <div class="t">并发模型是垂直的</div>
+  <p>每条泳道是 <code>while (!signal.aborted)</code> 的顺序循环：认领一个、跑完、再领下一个。<strong>没有进程内并发度开关</strong>，
+  只能靠多起几个带不同 <code>RUNTIME_ID</code> 的进程来横向扩展。一个长 Agent 运行会阻塞该进程内其它 Agent 工作。</p>
+</div>
+
+<h4>Runtime 调用的 Mastra 能力面</h4>
+<table>
+  <thead><tr><th>子路径</th><th>用到的导出</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">core/mastra</td><td class="mono">Mastra</td><td>每次运行新建实例，<code>logger: false</code></td></tr>
+    <tr><td class="mono">core/agent</td><td class="mono">Agent · ToolsInput</td><td>单 Agent 执行与流式</td></tr>
+    <tr><td class="mono">core/tools</td><td class="mono">createTool · Tool · ToolHooks</td><td>平台工具、MCP 工具、技能工具的封装与观测钩子</td></tr>
+    <tr><td class="mono">core/workflows</td><td class="mono">createWorkflow · createStep · Workflow · WorkflowRunState</td><td>工作流执行（仅 then / branch / map / commit）</td></tr>
+    <tr><td class="mono">core/workspace</td><td class="mono">Workspace · LocalFilesystem · createWorkspaceTools · createSkillTools · CompositeVersionedSkillSource</td><td>网页工作区与版本化 Skill 来源</td></tr>
+    <tr><td class="mono">core/storage</td><td class="mono">BlobStore · StorageBlobEntry</td><td>自实现 <code>WorkflowsStorage</code>，底层走控制面 HTTP</td></tr>
+    <tr><td class="mono">core/processors</td><td class="mono">TokenLimiterProcessor · ProcessInputStepArgs</td><td>继承实现 <code>TaskContextProcessor</code></td></tr>
+    <tr><td class="mono">core/stream</td><td class="mono">LanguageModelUsage</td><td>用量统计（仅类型）</td></tr>
+    <tr><td class="mono">@mastra/rag</td><td class="mono">MDocument</td><td>文档分块</td></tr>
+    <tr><td class="mono">@mastra/ai-sdk</td><td class="mono">toAISdkStream</td><td>Mastra 流 → AI SDK v7 UI 流</td></tr>
+    <tr><td class="mono">@mastra/agent-browser</td><td class="mono">AgentBrowser</td><td>网页任务浏览器控制</td></tr>
+  </tbody>
+</table>
+
+<h4>刻意没用 Mastra 的部分</h4>
+<p class="muted">这些不是遗漏，而是为了保住「Runtime 无数据库」这条边界而自建：</p>
+<table>
+  <thead><tr><th>官方能力</th><th>我们的替代实现</th></tr></thead>
+  <tbody>
+    <tr><td><code>@mastra/memory</code>（working memory / semantic recall / observational memory）</td><td>控制面持有会话历史，自写 <code>compaction.ts</code> 滚动摘要</td></tr>
+    <tr><td><code>@mastra/mcp</code>（MCPClient/MCPServer）</td><td>直接用 <code>@modelcontextprotocol/sdk</code> 裸客户端</td></tr>
+    <tr><td><code>@mastra/pg</code> 等 storage adapter</td><td>裸 SQL + 自实现 <code>WorkflowsStorage</code> / <code>BlobStore</code></td></tr>
+    <tr><td>Mastra vector store / <code>createVectorQueryTool</code></td><td>pgvector + 自调 <code>/embeddings</code>、<code>/rerank</code></td></tr>
+    <tr><td><code>core/evals</code> · <code>@mastra/evals</code> · scorers</td><td><code>scripts/knowledge-eval.ts</code></td></tr>
+    <tr><td><code>core/observability</code> · <code>core/telemetry</code> · 15 个 exporter</td><td>自写 <code>trace.ts</code> + <code>run_events</code> 表</td></tr>
+    <tr><td><code>core/network/vNext</code> · supervisor agents · SubAgent</td><td>自写 <code>delegation.ts</code> + 平台侧子代理记录</td></tr>
+    <tr><td>Guardrails processors（注入检测 / 内容审核 / PII）</td><td>仅继承了一个 <code>TokenLimiterProcessor</code></td></tr>
+    <tr><td>语音、channels、signals、schedules、server/deployer/Studio/client-js、auth-*</td><td>未使用或自建</td></tr>
+    <tr><td>Sandbox provider（<code>@mastra/docker</code> / e2b / daytona…）</td><td>自调 docker CLI 写 <code>skills/sandbox.ts</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ============ 7 ============ -->
+<h2 id="s7"><span class="num">07</span>共享包</h2>
+
+<table>
+  <thead><tr><th>包</th><th>依赖</th><th>职责</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">@platform/contracts</td><td class="mono">zod · @hono/zod-openapi · ajv</td><td>Zod 领域契约与导出的 OpenAPI。<strong>唯一的契约源头</strong>，SDK 与前端类型都从它生成</td></tr>
+    <tr><td class="mono">@platform/database</td><td class="mono">pg · contracts</td><td>连接池、事务、23 个 SQL 迁移文件</td></tr>
+    <tr><td class="mono">@platform/operations</td><td class="mono">—（零依赖）</td><td>服务配置、结构化日志、请求关联、本机开发来源解析</td></tr>
+    <tr><td class="mono">@platform/agent-ui</td><td class="mono">contracts · uuid</td><td>框架无关的页面状态、业务动作与 iframe 协作 SDK</td></tr>
+    <tr><td class="mono">@platform/sdk</td><td class="mono">—（生成产物）</td><td>Hey API 生成的客户端、服务端签名辅助函数</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="t">单向依赖</div>
+  <p><code>packages/*</code> <strong>不允许反向依赖 <code>apps/*</code></strong>（规则 <code>packages-do-not-depend-on-applications</code>）。
+  control-plane 依赖 contracts + database + operations；runtime 只依赖 contracts + operations；console 依赖 sdk + agent-ui。
+  <code>operations</code> 零依赖是有意为之，两端都能安全引用。</p>
+</div>
+
+<!-- ============ 8 ============ -->
+<h2 id="s8"><span class="num">08</span>租约与可靠性协议</h2>
+<p>这是整个系统里工程含量最高的部分。所有运行态写入都在事务内复核租约，形成围栏。</p>
+
+<div class="grid2">
+  <div>
+    <h4>一次运行的租约时间线</h4>
+    <div class="panel tight">
+      <dl class="kv">
+        <dt>认领</dt><dd><code>FOR UPDATE SKIP LOCKED</code> 取一条 <code>runtime_id=$1 AND status='queued' AND deadline&gt;now()</code>（按创建时间排序）</dd>
+        <dt>签发</dt><dd><code>lease_token = randomUUID()</code>，<code>lease_until = now() + 20s</code>，状态置 <code>running</code></dd>
+        <dt>心跳</dt><dd>每 4s 续租 20s，同时回传 <code>cancel_requested</code></dd>
+        <dt>围栏</dt><dd>每次写操作重查 <code>lease_token</code> + <code>status</code> + <code>lease_until</code> + <code>deadline</code>，任一不符即拒绝</dd>
+        <dt>取消</dt><dd>心跳发现取消 → 立刻 <code>controller.abort()</code>；任何返回 <code>CANCELLED</code> 的调用也立即中止</dd>
+      </dl>
+    </div>
+  </div>
+  <div>
+    <h4>事件追加的三个不变量</h4>
+    <div class="panel tight">
+      <dl class="kv">
+        <dt>连续性</dt><dd><code>seq</code> 必须等于 <code>max(seq)+1</code>，主键 <code>(run_id, seq)</code></dd>
+        <dt>幂等</dt><dd>重传相同 <code>(seq, chunk)</code> 直接返回；内容不同则 <code>EVENT_CONFLICT</code></dd>
+        <dt>预算</dt><dd><code>seq ≤ 100000</code>，超限或出现空洞都是永久 409 → 运行失败</dd>
+      </dl>
+      <p class="muted" style="font-size:12.5px;margin:8px 0 0">
+        网络层序号由 Runtime 自己的 <code>seq++</code> 计数器拥有，并通过 <code>delivery</code> Promise 链串行化，
+        保证"模型请求捕获"与"流消费"并发发出时不破坏连续性。
+      </p>
+    </div>
+  </div>
+</div>
+
+<h4>崩溃恢复的判定树</h4>
+<table>
+  <thead><tr><th>条件</th><th>动作</th></tr></thead>
+  <tbody>
+    <tr><td>租约过期，且 <code>recovery_count &lt; 2</code>，且存在 durable 快照，且没有 <code>running</code> 的工具收据</td><td>重新入队，<code>recovery_count + 1</code>，Runtime 走 <code>registered.recover(...)</code> 续跑</td></tr>
+    <tr><td>有工具收据仍为 <code>running</code></td><td>标记 <span class="b bad">TOOL_OUTCOME_UNKNOWN</span> —— 拒绝重放结果不确定的副作用</td></tr>
+    <tr><td><code>recovery_count</code> 已达 2</td><td><span class="b bad">RUNTIME_LOST</span></td></tr>
+    <tr><td>queued 状态且已过 deadline</td><td><span class="b bad">RUNTIME_UNAVAILABLE</span></td></tr>
+    <tr><td>running 且已过 deadline</td><td><span class="b bad">TIMEOUT</span></td></tr>
+    <tr><td>用户已请求取消</td><td><span class="b">CANCELLED</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="t">恢复是单实例亲和的，不是高可用</div>
+  <p><code>reap()</code> 会重新入队但<strong>不清空也不改派 <code>runtime_id</code></strong>，而 <code>claim()</code> 按 <code>runtime_id=$1</code> 过滤。
+  因此被回收的运行只能被<em>同一个</em> runtime 认领。那个进程如果彻底下线，运行会一直排队到 deadline 再判 <code>TIMEOUT</code>。</p>
+</div>
+
+<h4>幂等覆盖</h4>
+<p class="muted">以下都有数据库唯一约束 + 内容哈希比对，冲突返回 409 <code>IDEMPOTENCY_CONFLICT</code>：</p>
+<p class="mono" style="font-size:12px;color:var(--muted)">
+  runs(conversation_id, request_id) · conversation_branch_request · workflow_jobs(workflow_id,actor_id,entry,kind,request_id) ·
+  task_feedback(run_id, request_id) · assistant 提案 / UI 动作 / 应用动作的 (run_id, tool_call_id) ·
+  run 预算 reserve/settle
+</p>
+
+<!-- ============ 9 ============ -->
+<h2 id="s9"><span class="num">09</span>数据模型（49 张表）</h2>
+
+<div class="tblgrid">
+  <div class="tblcard">
+    <div class="h">租户与身份 · 8</div>
+    <ul>
+      <li>tenants</li>
+      <li>users <span>— 口令 scrypt 哈希</span></li>
+      <li>projects</li>
+      <li>project_members <span>— 复合外键锁租户</span></li>
+      <li>sessions <span>— 只存令牌 SHA-256</span></li>
+      <li>member_invitations</li>
+      <li>auth_nonces <span>— 防重放</span></li>
+      <li>access_audit</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">资源与发布 · 5</div>
+    <ul>
+      <li>resources <span>— 模型/工具/助手</span></li>
+      <li>releases <span>— 固定发布快照</span></li>
+      <li>applications <span>— AK/SK</span></li>
+      <li>runtimes <span>— 注册与最后心跳</span></li>
+      <li>schema_migrations</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">会话与运行 · 11</div>
+    <ul>
+      <li>conversations</li>
+      <li>messages <span>— 无 conversation_id 索引 ⚠</span></li>
+      <li>runs <span>— 租约与状态机</span></li>
+      <li>run_events <span>— 主键 (run_id, seq)</span></li>
+      <li>run_tool_receipts <span>— 副作用收据</span></li>
+      <li>run_model_reservations</li>
+      <li>conversation_summaries · conversation_task_state</li>
+      <li>conversation_resets</li>
+      <li>task_artifacts · task_feedback</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">知识库 · 6</div>
+    <ul>
+      <li>knowledge_bases</li>
+      <li>knowledge_documents</li>
+      <li>knowledge_chunks <span>— pgvector embedding</span></li>
+      <li>knowledge_jobs</li>
+      <li>knowledge_document_versions</li>
+      <li>knowledge_document_previews</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">工作流 · 4</div>
+    <ul>
+      <li>workflows <span>— 草稿与修订号</span></li>
+      <li>workflow_releases</li>
+      <li>workflow_jobs</li>
+      <li>workflow_node_runs</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">Skill / MCP · 6</div>
+    <ul>
+      <li>skill_versions · skill_files</li>
+      <li>skill_import_previews</li>
+      <li>mcp_servers · mcp_discoveries</li>
+      <li>mcp_imports</li>
+    </ul>
+  </div>
+  <div class="tblcard">
+    <div class="h">平台助手与协作 · 9</div>
+    <ul>
+      <li>platform_assistant_sessions / settings / proposals</li>
+      <li>assistant_app_registrations / sessions / actions</li>
+      <li>assistant_ui_sessions / actions</li>
+      <li>agent_workflow_snapshots <span>— durable 恢复</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout warn">
+  <div class="t">索引缺口</div>
+  <p><code>messages(conversation_id)</code> <strong>没有索引</strong>，而消息读取全部是 <code>WHERE conversation_id=$1 ORDER BY position</code>。
+  这是系统里增长最快的表，目前等于每次读历史都全表扫描。同样缺索引的还有 <code>sessions(user_id)</code>、<code>auth_nonces(expires_at)</code> 以及若干 <code>(project_id)</code> 外键列。</p>
+</div>
+
+<!-- ============ 10 ============ -->
+<h2 id="s10"><span class="num">10</span>安全边界</h2>
+
+<div class="grid2">
+  <div>
+    <h4>已经做对的</h4>
+    <ul>
+      <li><strong>凭据加密</strong>：AES-256-GCM，每次 12 字节随机 IV，认证标签附加，envelope = base64(iv ∥ tag ∥ ciphertext)。密钥必须是 64 位十六进制，缺失即启动失败。</li>
+      <li><strong>口令</strong>：scrypt + 16 字节随机盐，比对用 <code>timingSafeEqual</code>；未知用户也burn一次哈希，避免用户名枚举。</li>
+      <li><strong>会话</strong>：32 字节随机令牌，数据库只存 SHA-256；cookie <code>httpOnly + SameSite=Strict</code>，12 小时绝对过期。</li>
+      <li><strong>应用签名</strong>：HMAC-SHA256 + 时间窗 + nonce 防重放，签名比对恒定时间。</li>
+      <li><strong>租户隔离</strong>：所有查询带 <code>tenant_id</code>/<code>project_id</code> 谓词，90+ 处 <code>Access.require</code> 覆盖各领域方法；权限每次从数据库重读，撤销即时生效。</li>
+      <li><strong>SQL</strong>：全部参数化；游标是 base64url JSON，绑定租户/项目/调用者，跨主体重放会被拒绝。</li>
+      <li><strong>错误</strong>：不向客户端泄漏堆栈，未分类错误一律泛化 503。</li>
+    </ul>
+  </div>
+  <div>
+    <h4>需要补的</h4>
+    <ul>
+      <li><span class="b bad">高</span> <strong>没有改密 / 重置口令路由</strong>。认证面只有 status/setup/login/logout/join/me，口令一经设置无法轮换。</li>
+      <li><span class="b bad">高</span> <strong>登录限流是进程内全局数组</strong>：20 次 / 60 秒，对所有 <code>/api/v1/auth/*</code> POST 共享。多实例失效，且单个攻击者能打满配额，连带 login/join/logout 一起 DoS。</li>
+      <li><span class="b warn">中</span> <code>COOKIE_SECURE</code> <strong>默认 false</strong>，TLS 部署忘记设就是 cookie 明文传输，且没有启动期拒绝。</li>
+      <li><span class="b warn">中</span> scrypt 用 Node 默认参数（N=16384），低于当前 OWASP 建议；cost 不写进哈希串，事后无法逐行升级。</li>
+      <li><span class="b warn">中</span> 租户隔离<strong>完全靠应用层谓词</strong>，没有 Postgres RLS 或 per-request GUC 兜底 —— 漏一个谓词就是跨租户泄露。</li>
+      <li><span class="b warn">中</span> 探针接口存在设计内 SSRF：只挡三个字面量元数据主机名，不挡内网段，可带 Bearer 凭据请求。</li>
+      <li><span class="b warn">中</span> <code>run_events</code> 只有 10 万条计数上限，<strong>没有字节预算</strong>，而单条事件体上限 8MiB 且完整请求体会落库。</li>
+      <li><span class="b warn">中</span> <code>app.onError</code> 返回泛化 503 但<strong>什么都不记日志</strong>，logger 又刻意不序列化 Error —— 生产环境 503 与数据库错误不可见。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ 11 ============ -->
+<h2 id="s11"><span class="num">11</span>部署形态</h2>
+
+<div class="grid2">
+  <div>
+    <h4>开发（当前运行中）</h4>
+    <div class="tree">
+<b>pnpm dev</b> <span class="c">→ scripts/dev.ts 拉起三个子进程 + 加载 .env.runtime</span>
+
+控制台 Vite dev  <span class="hl">:5179</span>  <span class="c">0.0.0.0，局域网可访问</span>
+   └─ 代理 /api 与 /openapi.json → :4110
+控制面 Hono      <span class="hl">:4110</span>  <span class="c">127.0.0.1</span>
+Runtime Mastra   <span class="hl">:4112</span>  <span class="c">127.0.0.1，/health + /ready</span>
+
+docker compose   <span class="hl">:5442</span>  <span class="c">postgres 16 + pgvector</span>
+    </div>
+    <p class="muted" style="font-size:12.8px">
+      页面、API、会话流都走同一个 5179 入口；启动器按当前网卡动态生成精确来源加入允许列表，IP 变化无需重启。
+      Runtime 用 <code>.env.runtime</code>，<strong>只有 Runtime 设置、没有数据库凭据</strong>。
+    </p>
+  </div>
+  <div>
+    <h4>生产（deploy/）</h4>
+    <div class="tree">
+<b>deploy/compose.yaml</b>
+├── database        <span class="c">agent-platform-postgres:16-vector0.8.6</span>
+├── control-plane   <span class="c">独立镜像</span>
+├── runtime         <span class="c">独立镜像</span>
+├── console         <span class="c">独立镜像 + nginx</span>
+└── platform-data
+
+<b>deploy/runtime.compose.yaml</b>   <span class="c">私有 Runtime 单独部署</span>
+<b>deploy/runtime.skills.compose.yaml</b>  <span class="c">挂 docker socket 跑沙箱</span>
+<b>deploy/runtime.web.compose.yaml</b>     <span class="c">网页任务沙箱</span>
+<b>deploy/Dockerfile</b> · <b>docker-bake.hcl</b> · <b>agent-platform@.service</b>
+    </div>
+    <p class="muted" style="font-size:12.8px">
+      <code>pnpm bundle</code> 编译出各自独立的 Node dist，共享包区分源码开发导出与生产 dist 导出；
+      <code>pnpm deploy</code> 关闭 hoist 后产物不含指向仓库的链接。Runtime 产物不含 tsx 与数据库依赖。
+    </p>
+  </div>
+</div>
+
+<div class="callout warn">
+  <div class="t">部署相关的注意点</div>
+  <p>skills 沙箱需要把 <strong>Docker socket 挂进 Runtime</strong>（<code>runtime.skills.compose.yaml</code>），
+  这意味着 Runtime 进程一旦被 RCE 即等于宿主 root。容器只做了 <code>--user 1000:1000</code> + cap-drop，没有 user-namespace 重映射。
+  另外仓库<strong>没有配置 CI</strong>（无 <code>.github/</code>），<code>pnpm check</code> 全靠本地手动执行。</p>
+</div>
+
+<!-- ============ 12 ============ -->
+<h2 id="s12"><span class="num">12</span>技术选型与依赖</h2>
+
+<table>
+  <thead><tr><th>层面</th><th>选型</th><th>版本</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>运行时</td><td>Node.js</td><td class="mono">≥ 24.13</td><td>需要 <code>AbortSignal.any</code>、<code>AbortSignal.timeout</code> 等</td></tr>
+    <tr><td>包管理</td><td>pnpm workspace</td><td class="mono">10.32.1</td><td><code>save-exact</code> 精确锁版</td></tr>
+    <tr><td>Agent 框架</td><td>@mastra/core</td><td class="mono">1.64.0</td><td>打了 1 个补丁（空值保护）；上游已到 1.67</td></tr>
+    <tr><td>Web 框架</td><td>Hono + @hono/zod-openapi</td><td class="mono">—</td><td>控制面；OpenAPI 由路由定义直接产出</td></tr>
+    <tr><td>数据库</td><td>PostgreSQL 16 + pgvector</td><td class="mono">0.8.6</td><td>裸 SQL，无 ORM</td></tr>
+    <tr><td>校验</td><td>Zod 4</td><td class="mono">4.5.4</td><td>契约即校验</td></tr>
+    <tr><td>前端</td><td>React 19 + Vite + Rolldown</td><td class="mono">—</td><td>AntD 6 + Tailwind</td></tr>
+    <tr><td>聊天</td><td>assistant-ui</td><td class="mono">vendored</td><td>钉住上游 SHA + 本地插槽</td></tr>
+    <tr><td>画布</td><td>FlowGram</td><td class="mono">—</td><td>懒加载，与 Mastra 执行分离（ADR-0001）</td></tr>
+    <tr><td>SDK</td><td>Hey API</td><td class="mono">0.99.0</td><td>从 OpenAPI 生成，<code>pnpm sdk:check</code> 保证一致性</td></tr>
+    <tr><td>Lint / 架构</td><td>Biome 2.5 · dependency-cruiser 18</td><td class="mono">—</td><td>467 文件、354 模块、1379 条依赖纳入检查</td></tr>
+    <tr><td>测试</td><td>node:test + Testing Library</td><td class="mono">—</td><td>无快照、无 jest-dom</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="t">关于 patch</div>
+  <p><code>patches/@mastra__core@1.64.0.patch</code> 只改一处：给 <code>getActiveDurableAgentWorkflowExecutions</code> 的
+  <code>entry</code> 加 <code>?.</code> 空值保护，规避上游模块级 registry 的竞态。跟随版本升级风险低，
+  但补丁文件名带内容哈希，上游换 bundle 就会失配。</p>
+</div>
+
+<!-- ============ 13 ============ -->
+<h2 id="s13"><span class="num">13</span>架构约束（自动强制）</h2>
+<p>不是文档约定，而是 <code>.dependency-cruiser.cjs</code> 里的规则，且 <code>tests/contracts/architecture.test.ts</code> 会在临时目录故意构造违规、逐条验证规则真的会拒绝。</p>
+
+<table>
+  <thead><tr><th>规则</th><th>阻止什么</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">*-public-entry <span class="muted">(自动生成)</span></td><td>跨模块访问内部实现，只能走 <code>index.ts</code>（控制面额外允许 <code>routes.ts</code>，控制台允许 <code>styles.css</code>）</td></tr>
+    <tr><td class="mono">only-composition-registers-domain-routes</td><td>除 <code>app.ts</code> 外任何位置注册领域路由</td></tr>
+    <tr><td class="mono">domain-implementation-does-not-depend-on-http</td><td>领域实现引入 HTTP 层</td></tr>
+    <tr><td class="mono">infrastructure-does-not-depend-on-domains</td><td>infrastructure/http 反向依赖领域</td></tr>
+    <tr><td class="mono">domains-do-not-import-composition-root</td><td>领域导入 <code>platform.ts</code>（含 type-only）</td></tr>
+    <tr><td class="mono">console-shared-does-not-depend-on-features</td><td>控制台共享层反向依赖 features 或 app</td></tr>
+    <tr><td class="mono">console-features-do-not-depend-on-app</td><td>功能模块反向依赖 app</td></tr>
+    <tr><td class="mono">contracts-do-not-import-their-barrel</td><td>契约内部文件读 <code>index.ts</code></td></tr>
+    <tr><td class="mono">runtime-has-no-database-access</td><td>Runtime 访问 <code>pg</code> / <code>pg-pool</code> / <code>@platform/database</code></td></tr>
+    <tr><td class="mono">packages-do-not-depend-on-applications</td><td>共享包反向依赖应用</td></tr>
+    <tr><td class="mono">*-cannot-import-another-application</td><td>三个应用之间的源码互相引用</td></tr>
+    <tr><td class="mono">no-runtime-cycles · no-unresolved-imports</td><td>运行时循环依赖与未解析导入</td></tr>
+  </tbody>
+</table>
+
+<h4>统一检查入口</h4>
+<p class="mono" style="font-size:12.5px;color:var(--muted)">
+pnpm check = lint → architecture:check → build（services + sdk + typecheck + console） → sdk:check → test → test:console
+</p>
+<p class="muted" style="font-size:13px">当前实测：lint 通过（467 文件）、architecture 通过（354 模块 / 1379 依赖）、typecheck 通过。</p>
+
+<!-- ============ 14 ============ -->
+<h2 id="s14"><span class="num">14</span>已知缺口</h2>
+
+<table>
+  <thead><tr><th>优先级</th><th>缺口</th><th>位置</th></tr></thead>
+  <tbody>
+    <tr><td><span class="b bad">上线前</span></td><td>无改密 / 重置口令路由</td><td class="mono">identity/routes.ts</td></tr>
+    <tr><td><span class="b bad">上线前</span></td><td>登录限流为进程内全局计数，多实例失效且可被 DoS</td><td class="mono">identity/routes.ts:25-35</td></tr>
+    <tr><td><span class="b bad">上线前</span></td><td><code>messages(conversation_id)</code> 缺索引，历史读取全表扫</td><td class="mono">database/schema.sql:25</td></tr>
+    <tr><td><span class="b bad">上线前</span></td><td>未分类错误返回 503 但不落日志，生产故障不可见</td><td class="mono">app.ts:96-102</td></tr>
+    <tr><td><span class="b warn">交付</span></td><td>没有 CI，<code>pnpm check</code> 全靠手动</td><td class="mono">仓库根</td></tr>
+    <tr><td><span class="b warn">交付</span></td><td>分包点错位，assistant-ui 落在首屏关键路径</td><td class="mono">vite.config.ts · PlatformAssistant</td></tr>
+    <tr><td><span class="b warn">交付</span></td><td>MCP / 工作流 / 知识库目录类轮询无终止条件</td><td class="mono">*/queries.ts</td></tr>
+    <tr><td><span class="b warn">可靠性</span></td><td>无跨实例故障转移，运行只能被同一 runtime 认领</td><td class="mono">conversations/queue.ts</td></tr>
+    <tr><td><span class="b warn">可靠性</span></td><td>模型调用完全不重试，一次瞬时 5xx 即判失败</td><td class="mono">agents/budget.ts</td></tr>
+    <tr><td><span class="b warn">可靠性</span></td><td><code>run_events</code> 无保留策略、无字节预算</td><td class="mono">conversations/queue.ts</td></tr>
+    <tr><td><span class="b warn">可靠性</span></td><td>沙箱容器/卷硬崩溃后残留，无按 label 的启动清扫</td><td class="mono">skills/sandbox.ts</td></tr>
+    <tr><td><span class="b info">长期</span></td><td>Mastra 集成有 3 处版本钉死的变通，升级会集中炸</td><td class="mono">durable.ts · tool-boundary.ts · context.ts</td></tr>
+    <tr><td><span class="b info">长期</span></td><td>消息列表无虚拟化；<code>ChatWorkspace</code>/<code>PlatformAssistant</code> 仍是 god component</td><td class="mono">features/chat · features/assistant</td></tr>
+    <tr><td><span class="b info">长期</span></td><td>租户隔离缺数据库层兜底（RLS 或统一作用域封装）</td><td class="mono">modules/access</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="t">一句话总结</div>
+  <p>这是一个<strong>执行可靠性协议做得相当扎实、架构边界被机器强制</strong>的开发里程碑：租约 + 围栏 + 幂等事件 + 工具收据这套东西是真功夫，
+  Runtime 无数据库这条边界让私网部署成为可能。主要风险不在业务逻辑层，而在<strong>运维与安全基建</strong>那一层 —— 认证轮换、限流、索引、日志、CI、分包点。
+  项目自己在 README 里标注的「尚未完成企业级生产验收」是准确的。</p>
+</div>
+
+<div class="foot">
+  基于仓库当前代码实测生成（2026-09-15，commit <code>2c992dd</code>）· 数据来自源码、<code>pnpm-lock.yaml</code>、
+  <code>packages/database/src/*.sql</code> 与 <code>apps/console/dist</code> 构建产物。<br/>
+  所有数字均为实测值；标注「⚠」「缺口」的条目是本次审查发现的具体问题，非推测。
+</div>
+
+</main>
+</div>
+
+<script>
+// ---- tab switching ----
+document.querySelectorAll('[data-tabs]').forEach((group) => {
+  const name = group.dataset.tabs;
+  group.querySelectorAll('button[data-t]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('button[data-t]').forEach((b) => b.classList.remove('on'));
+      btn.classList.add('on');
+      const root = group.parentElement;
+      root.querySelectorAll('.tabpane').forEach((p) => p.classList.remove('on'));
+      const pane = root.querySelector('#' + btn.dataset.t);
+      if (pane) pane.classList.add('on');
+    });
+  });
+});
+
+// ---- scroll spy for the side nav ----
+const links = [...document.querySelectorAll('nav.side a')];
+const targets = links
+  .map((a) => document.querySelector(a.getAttribute('href')))
+  .filter(Boolean);
+const obs = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      links.forEach((l) => l.classList.remove('active'));
+      const hit = links.find((l) => l.getAttribute('href') === '#' + e.target.id);
+      if (hit) hit.classList.add('active');
+    });
+  },
+  { rootMargin: '-8% 0px -78% 0px', threshold: 0 }
+);
+targets.forEach((t) => obs.observe(t));
+</script>
+</body>
+</html>

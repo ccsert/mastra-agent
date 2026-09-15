@@ -5418,7 +5418,9 @@ export type RegisterRuntimeResponses = {
 export type RegisterRuntimeResponse = RegisterRuntimeResponses[keyof RegisterRuntimeResponses];
 
 export type DeleteRuntimeData = {
-    body?: never;
+    body: {
+        [key: string]: never;
+    };
     path: {
         id: string;
     };

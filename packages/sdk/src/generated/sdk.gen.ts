@@ -449,7 +449,14 @@ export const registerRuntime = <ThrowOnError extends boolean = false>(options: O
     }
 });
 
-export const deleteRuntime = <ThrowOnError extends boolean = false>(options: Options<DeleteRuntimeData, ThrowOnError>): RequestResult<DeleteRuntimeResponses, DeleteRuntimeErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRuntimeResponses, DeleteRuntimeErrors, ThrowOnError>({ url: '/api/v1/runtimes/{id}', ...options });
+export const deleteRuntime = <ThrowOnError extends boolean = false>(options: Options<DeleteRuntimeData, ThrowOnError>): RequestResult<DeleteRuntimeResponses, DeleteRuntimeErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRuntimeResponses, DeleteRuntimeErrors, ThrowOnError>({
+    url: '/api/v1/runtimes/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const updateRuntime = <ThrowOnError extends boolean = false>(options: Options<UpdateRuntimeData, ThrowOnError>): RequestResult<UpdateRuntimeResponses, UpdateRuntimeErrors, ThrowOnError> => (options.client ?? client).patch<UpdateRuntimeResponses, UpdateRuntimeErrors, ThrowOnError>({
     url: '/api/v1/runtimes/{id}',

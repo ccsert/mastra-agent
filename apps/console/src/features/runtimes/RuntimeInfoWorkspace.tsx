@@ -84,7 +84,7 @@ export function RuntimeInfoWorkspace({ user }: { user: Principal }) {
   }
   async function remove(runtime: RuntimeInfo) {
     try {
-      await unwrap(api.deleteRuntime({ path: { id: runtime.id } }));
+      await unwrap(api.deleteRuntime({ path: { id: runtime.id }, body: {} }));
       await refresh("runtimes");
       void message.success("Runtime 已删除");
     } catch (error) {

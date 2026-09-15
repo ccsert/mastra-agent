@@ -56,7 +56,10 @@ export function registerRuntimeRoutes(app: ApiApp, runtimes: Runtimes) {
       method: "delete",
       path: "/api/v1/runtimes/{id}",
       operationId: "deleteRuntime",
-      request: { params: z.object({ id: z.string().min(1) }) },
+      request: {
+        params: z.object({ id: z.string().min(1) }),
+        body: body(z.object({}).strict()),
+      },
       responses: { 200: json(z.object({ ok: z.boolean() })), ...errors },
     }),
     async (c) => {
