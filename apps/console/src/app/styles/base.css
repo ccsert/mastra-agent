@@ -749,3 +749,12 @@ a:focus-visible {
   font-size: 10px;
   color: #9aa89f;
 }
+.topbar-page {
+  margin: 0 2px 0 10px;
+  padding-left: 12px;
+  border-left: 1px solid #e2e8e3;
+  font-size: 14px;
+  font-weight: 600;
+  color: #33413a;
+  white-space: nowrap;
+}

@@ -189,9 +189,12 @@ test("the conversation list groups by recency and manages pins, titles and searc
         .map(view);
       return Response.json(items);
     }
+    if (path.endsWith("/conversations/conv-today"))
+      return Response.json({ ...conversation, id: "conv-today" });
     return Response.json([]);
   });
-  mountConsole({ initialEntries: ["/projects/A/chat"] });
+  mountConsole({ initialEntries: ["/projects/A/chat/conv-today"] });
+  fireEvent.click(await screen.findByRole("button", { name: "展开会话列表" }));
   await screen.findByText("置顶");
   await screen.findByText("更早");
   // The pinned conversation leaves its recency group, so 今天 has no own section.

@@ -12,15 +12,20 @@ import {
   useMessageTiming,
 } from "@assistant-ui/react";
 import type { SourceLocation } from "@platform/sdk";
-import { Button, Tag } from "antd";
-import { useState } from "react";
+import * as api from "@platform/sdk";
+import { App as AntApp, Button, Tag } from "antd";
+import { GitBranch } from "lucide-react";
+import { useContext, useState } from "react";
 import { Link } from "react-router";
+import { v4 as uuid } from "uuid";
 import { useProjectAccess } from "../../shared/access";
+import { unwrap } from "../../shared/api";
 import { TooltipIconButton } from "../../shared/assistant-ui";
 import { useProjectId } from "../../shared/data/ProjectData";
 import { projectPath } from "../../shared/navigation";
 import { DocumentReader, locationLabel } from "../knowledge";
-import { ResultToolCard } from "./ChatToolCards";
+import { ChatEditContext } from "./ChatEdit";
+import { ResultToolCard, ToolTraceContext } from "./ChatToolCards";
 import { readAloudSupported } from "./voice";
 
 type Citation = {
@@ -128,6 +133,44 @@ export function AssistantContext() {
   return <MessageContext trace />;
 }
 
+/** Derive a new conversation that copies history up to this reply; nothing reruns. */
+function AssistantDerive() {
+  const trace = useContext(ToolTraceContext);
+  const edit = useContext(ChatEditContext);
+  const { message } = AntApp.useApp();
+  const messageId = useAuiState((s) => s.message.id);
+  const running = useAuiState((s) => s.thread.isRunning);
+  const [busy, setBusy] = useState(false);
+  const fork = edit?.onFork;
+  if (!trace || !fork) return null;
+  const derive = async () => {
+    setBusy(true);
+    try {
+      const branch = await unwrap(
+        api.deriveConversation({
+          path: { projectId: trace.projectId, id: trace.conversationId },
+          body: { upToMessageId: messageId, requestId: uuid() },
+        }),
+      );
+      fork(branch.id);
+      void message?.success?.("已派生新分支，原会话保留");
+    } catch (error) {
+      void message?.error?.(error instanceof Error ? error.message : "派生失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <TooltipIconButton
+      tooltip="从此回复派生新分支"
+      disabled={running || busy}
+      onClick={() => void derive()}
+    >
+      <GitBranch />
+    </TooltipIconButton>
+  );
+}
+
 export function MessageExtras() {
   const timing = useMessageTiming();
   return (
@@ -150,6 +193,7 @@ export function MessageExtras() {
           </AuiIf>
         </>
       )}
+      <AssistantDerive />
       {/* useMessageTiming estimates token counts. Only display observed client latency. */}
       {!!timing?.totalStreamTime && (
         <span className="message-timing" title="浏览器观测耗时">

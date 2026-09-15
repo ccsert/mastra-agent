@@ -51,3 +51,37 @@ test("native message editor cancels without changing history and branches on sen
     { input: "修改后的问题", messageId: "u1", requestId: "ignored" },
   );
 });
+
+test("assistant replies expose derive that branches without rerunning", async () => {
+  const bodies: unknown[] = [];
+  let forked = "";
+  globalThis.fetch = async (url, init) => {
+    const path = url instanceof Request ? url.url : String(url);
+    if (path.endsWith("/capabilities")) return Response.json({ skills: [] });
+    if (path.endsWith("/derive")) {
+      bodies.push(url instanceof Request ? await url.json() : JSON.parse(String(init?.body)));
+      return Response.json({ id: "derived" });
+    }
+    throw new Error(`Unexpected ${url}`);
+  };
+  render(
+    <ProjectData projectId="project">
+      <Chat
+        projectId="project"
+        conversationId="derive-src"
+        messages={[
+          { id: "u1", role: "user", parts: [{ type: "text", text: "问题" }] },
+          { id: "a1", role: "assistant", parts: [{ type: "text", text: "回复" }] },
+        ]}
+        onFinish={() => {}}
+        onFork={(id) => {
+          forked = id;
+        }}
+      />
+    </ProjectData>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "从此回复派生新分支" }));
+  await waitFor(() => assert.equal(forked, "derived"));
+  assert.equal(bodies.length, 1);
+  assert.equal((bodies[0] as { upToMessageId: string }).upToMessageId, "a1");
+});

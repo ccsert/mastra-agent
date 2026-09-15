@@ -33,6 +33,13 @@ export const ConversationUpdateInput = z
     message: "至少提供 title 或 pinned 之一",
   })
   .openapi("ConversationUpdate");
+export const DeriveConversationInput = z
+  .object({
+    upToMessageId: z.string().min(1).max(200),
+    requestId: z.string().min(8).max(100),
+  })
+  .strict()
+  .openapi("ConversationDerive");
 export const SelectedSkill = z.object({
   versionId: Id,
   name: z.string(),

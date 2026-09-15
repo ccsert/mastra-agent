@@ -600,6 +600,74 @@ export class Conversations {
     });
     return this.get(actor, projectId, result);
   }
+  /** Derive a branch that copies saved history up to and including one message.
+   * Nothing is re-run; the user continues the derived conversation themselves. */
+  async derive(
+    actor: Principal,
+    projectId: string,
+    conversationId: string,
+    input: { upToMessageId: string; requestId: string },
+  ) {
+    const result = await this.db.transaction(async (tx) => {
+      const source = await this.get(actor, projectId, conversationId, tx, true);
+      const [prior] = await tx.query(
+        "SELECT id FROM conversations WHERE parent_conversation_id=$1 AND branch_request_id=$2",
+        [conversationId, input.requestId],
+      );
+      if (prior) return text(prior, "id");
+      const [message] = await tx.query(
+        `SELECT m.position FROM messages m LEFT JOIN runs r ON r.id::text=m.data->'metadata'->>'runId' AND r.conversation_id=m.conversation_id
+         WHERE m.conversation_id=$1 AND (m.id=$2 OR r.request_id=$2) ORDER BY m.position LIMIT 1`,
+        [conversationId, input.upToMessageId],
+      );
+      if (!message) throw notFound();
+      const history = await tx.query(
+        "SELECT data FROM messages WHERE conversation_id=$1 AND position<=$2 ORDER BY position",
+        [conversationId, message.position],
+      );
+      if (!history.length) throw notFound();
+      const id = randomUUID();
+      await tx.query(
+        `INSERT INTO conversations(id,tenant_id,project_id,actor_id,entry,agent_id,release_id,title,parent_conversation_id,parent_message_id,branch_request_id)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          id,
+          actor.tenantId,
+          projectId,
+          actor.id,
+          actor.entry,
+          source.agentId,
+          source.releaseId,
+          `${source.title}（派生）`,
+          conversationId,
+          message.id,
+          input.requestId,
+        ],
+      );
+      for (const row of history) {
+        const data = Message.parse(row.data);
+        const copied = {
+          ...data,
+          id: randomUUID(),
+          ...(data.metadata
+            ? {
+                metadata: {
+                  ...data.metadata,
+                  originConversationId: data.metadata.originConversationId ?? conversationId,
+                },
+              }
+            : {}),
+        };
+        await tx.query("INSERT INTO messages(id,conversation_id,data) VALUES($1,$2,$3)", [
+          copied.id,
+          id,
+          copied,
+        ]);
+      }
+      return id;
+    });
+    return this.get(actor, projectId, result);
+  }
   async run(actor: Principal, projectId: string, id: string) {
     const access = await this.projects.access.project(actor, projectId);
     const [r] = await this.db.query(

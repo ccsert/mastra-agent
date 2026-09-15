@@ -14,7 +14,7 @@ import * as api from "@platform/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { App as AntApp, Button, Input, Modal, Popconfirm, Spin, Tabs, Tag, Tooltip } from "antd";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
@@ -100,6 +100,16 @@ export function ChatWorkspace({
   const conversation = detailQuery.data;
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
+  // Entering 对话 lands in the most recent conversation, exactly as if it was clicked.
+  const autoSelected = useRef(false);
+  useEffect(() => {
+    if (selectedId || autoSelected.current) return;
+    const latest = conversations[0];
+    if (latest) {
+      autoSelected.current = true;
+      onSelect(latest.id);
+    }
+  }, [conversations, selectedId, onSelect]);
   const [search, setSearch] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; value: string }>();
   const pinnedQuery = useQuery({
@@ -283,7 +293,7 @@ export function ChatWorkspace({
               </>
             )}
           </QueryState>
-        ) : (
+        ) : conversations.length ? null : (
           <div className="chat-empty-session">
             <div className="chat-welcome">
               <span className="chat-welcome-icon">

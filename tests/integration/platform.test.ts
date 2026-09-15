@@ -140,6 +140,55 @@ test("legacy run details and lists recover only the saved input matching that ru
   ]);
   assert.equal((await store.conversations.run(actor, project.id, run.id)).inputText, null);
 });
+test("conversations derive a copy up to a message without rerunning", async () => {
+  const project = await store.projects.create(actor, { name: "Derive", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Derive",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Derive");
+  const run = await store.conversations.createRun(actor, project.id, thread.id, "input", "derive");
+  await store.conversations.cancel(actor, project.id, run.id);
+  const [message] = await db.query(
+    "SELECT id FROM messages WHERE conversation_id=$1 ORDER BY position DESC LIMIT 1",
+    [thread.id],
+  );
+  const derived = await store.conversations.derive(actor, project.id, thread.id, {
+    upToMessageId: String(message.id),
+    requestId: "derive-1",
+  });
+  assert.equal(derived.parentConversationId, thread.id);
+  assert.ok(derived.title.includes("派生"));
+  const [copied] = await db.query(
+    "SELECT count(*)::int AS n FROM messages WHERE conversation_id=$1",
+    [derived.id],
+  );
+  assert.ok(Number(copied.n) >= 1);
+  const repeated = await store.conversations.derive(actor, project.id, thread.id, {
+    upToMessageId: String(message.id),
+    requestId: "derive-1",
+  });
+  assert.equal(repeated.id, derived.id);
+  await assert.rejects(
+    () =>
+      store.conversations.derive(other, project.id, thread.id, {
+        upToMessageId: String(message.id),
+        requestId: "derive-other",
+      }),
+    { code: "NOT_FOUND" },
+  );
+});
 test("conversation pins and titles update in place and stay scoped to their owner", async () => {
   const project = await store.projects.create(actor, {
     name: "Conversation pins",

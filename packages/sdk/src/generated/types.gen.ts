@@ -947,6 +947,11 @@ export type ConversationUpdate = {
     pinned?: boolean;
 };
 
+export type ConversationDerive = {
+    upToMessageId: string;
+    requestId: string;
+};
+
 export type RunInput = {
     conversationId: string;
     input: string;
@@ -4925,6 +4930,58 @@ export type UpdateConversationResponses = {
 };
 
 export type UpdateConversationResponse = UpdateConversationResponses[keyof UpdateConversationResponses];
+
+export type DeriveConversationData = {
+    body: ConversationDerive;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/derive';
+};
+
+export type DeriveConversationErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DeriveConversationError = DeriveConversationErrors[keyof DeriveConversationErrors];
+
+export type DeriveConversationResponses = {
+    /**
+     * 成功
+     */
+    200: Conversation;
+};
+
+export type DeriveConversationResponse = DeriveConversationResponses[keyof DeriveConversationResponses];
 
 export type ListMessagesData = {
     body?: never;

@@ -2,7 +2,6 @@
 "use client";
 
 import {
-  ActionBarMorePrimitive,
   ActionBarPrimitive,
   type AssistantState,
   AuiIf,
@@ -14,14 +13,7 @@ import {
   type ToolCallMessagePartComponent,
   useAuiState,
 } from "@assistant-ui/react";
-import {
-  ArrowDownIcon,
-  CheckIcon,
-  CopyIcon,
-  DownloadIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-} from "lucide-react";
+import { ArrowDownIcon, CheckIcon, CopyIcon, DownloadIcon, PencilIcon } from "lucide-react";
 import {
   type ComponentType,
   createContext,
@@ -376,26 +368,11 @@ const AssistantActionBar: FC = () => {
           </AuiIf>
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
-      <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger asChild>
-          <TooltipIconButton tooltip="更多消息操作" className="data-[state=open]:bg-accent">
-            <MoreHorizontalIcon />
-          </TooltipIconButton>
-        </ActionBarMorePrimitive.Trigger>
-        <ActionBarMorePrimitive.Content
-          side="bottom"
-          align="start"
-          sideOffset={6}
-          className="aui-action-bar-more-content assistant-elements bg-popover text-popover-foreground data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border p-1.5"
-        >
-          <ActionBarPrimitive.ExportMarkdown asChild>
-            <ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none">
-              <DownloadIcon className="size-4" />
-              下载为 Markdown
-            </ActionBarMorePrimitive.Item>
-          </ActionBarPrimitive.ExportMarkdown>
-        </ActionBarMorePrimitive.Content>
-      </ActionBarMorePrimitive.Root>
+      <ActionBarPrimitive.ExportMarkdown asChild>
+        <TooltipIconButton tooltip="下载为 Markdown">
+          <DownloadIcon className="size-4" />
+        </TooltipIconButton>
+      </ActionBarPrimitive.ExportMarkdown>
       {AssistantActions && <AssistantActions />}
     </ActionBarPrimitive.Root>
   );
@@ -413,18 +390,16 @@ const UserMessage: FC = () => {
       {editing && EditComposer ? (
         <EditComposer />
       ) : (
-        <>
-          <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-            <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
-              <MessagePrimitive.Parts />
-            </div>
+        <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+          <div className="aui-user-message-content peer bg-muted text-foreground rounded-xl px-4 py-2 wrap-break-word empty:hidden">
+            <MessagePrimitive.Parts />
           </div>
-          {/* Below the bubble instead of floating beside it: the floating bar is
-              clipped by the viewport's overflow-x-hidden on wide messages. */}
-          <div className="aui-user-action-bar-wrapper col-start-2 flex justify-end pt-0.5 empty:hidden">
+          {/* Floating below the bubble: reserving flow height would shift the
+              message every time the hover bar appears. */}
+          <div className="aui-user-action-bar-wrapper absolute top-full right-0 z-10 mt-1">
             <UserActionBar />
           </div>
-        </>
+        </div>
       )}
 
       {UserFooter && <UserFooter />}

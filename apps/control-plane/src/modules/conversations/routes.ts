@@ -8,6 +8,7 @@ import {
   ConversationSession,
   ConversationTrace,
   ConversationUpdateInput,
+  DeriveConversationInput,
   EditConversationInput,
   Id,
   Message,
@@ -333,6 +334,22 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
       const { projectId, id } = c.req.valid("param");
       return c.json(
         await conversations.update(c.get("principal"), projectId, id, c.req.valid("json")),
+        200,
+      );
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/derive",
+      operationId: "deriveConversation",
+      request: { params: itemParams, body: body(DeriveConversationInput) },
+      responses: { 200: json(Conversation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(
+        await conversations.derive(c.get("principal"), projectId, id, c.req.valid("json")),
         200,
       );
     },

@@ -1,7 +1,6 @@
 import {
   DeploymentUnitOutlined,
   FolderOpenOutlined,
-  InfoCircleOutlined,
   LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
@@ -255,43 +254,14 @@ export function ProjectConsole({
                       popupMatchSelectWidth={240}
                     />
                     <Tag>开发环境</Tag>
+                    {!conversationPage && !authoringPage && (
+                      <h1 className="topbar-page">{pageTitles[page][0]}</h1>
+                    )}
                   </div>
                   <div className="topbar-actions">
-                    {assistantTrigger}
-
-                    <Button
-                      type="text"
-                      icon={<PlusOutlined key="PlusOutlined" />}
-                      disabled={!teamAdmin}
-                      onClick={() => openEditor("project")}
-                    >
-                      新建项目
-                    </Button>
-                    <Tooltip title="刷新数据">
-                      <Button
-                        aria-label="刷新数据"
-                        type="text"
-                        icon={<ReloadOutlined spin={loading} />}
-                        onClick={() => void refresh()}
-                      />
-                    </Tooltip>
-                  </div>
-                </header>
-              )}
-            >
-              <main
-                data-agent-target="page"
-                className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}${authoringPage ? " agent-authoring-page" : ""}`}
-              >
-                {!conversationPage && !authoringPage && (
-                  <div className="page-heading">
-                    <div className="page-heading-title">
-                      <h1>{pageTitles[page][0]}</h1>
-                      <Tooltip title={pageTitles[page][1]}>
-                        <InfoCircleOutlined aria-label="页面说明" />
-                      </Tooltip>
-                    </div>
                     {projectId &&
+                      !conversationPage &&
+                      !authoringPage &&
                       ["agents", "models", "tools"].includes(page) &&
                       allowed(page === "agents" ? "agent.edit" : "resource.manage") && (
                         <Button
@@ -321,8 +291,32 @@ export function ProjectConsole({
                           }
                         </Button>
                       )}
+                    {assistantTrigger}
+
+                    <Button
+                      type="text"
+                      icon={<PlusOutlined key="PlusOutlined" />}
+                      disabled={!teamAdmin}
+                      onClick={() => openEditor("project")}
+                    >
+                      新建项目
+                    </Button>
+                    <Tooltip title="刷新数据">
+                      <Button
+                        aria-label="刷新数据"
+                        type="text"
+                        icon={<ReloadOutlined spin={loading} />}
+                        onClick={() => void refresh()}
+                      />
+                    </Tooltip>
                   </div>
-                )}
+                </header>
+              )}
+            >
+              <main
+                data-agent-target="page"
+                className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}${authoringPage ? " agent-authoring-page" : ""}`}
+              >
                 {!projectId && page !== "team" ? (
                   <section className="panel">
                     <Blank
