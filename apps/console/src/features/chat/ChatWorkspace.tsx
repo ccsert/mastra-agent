@@ -14,7 +14,7 @@ import * as api from "@platform/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { App as AntApp, Button, Input, Modal, Popconfirm, Spin, Tabs, Tag, Tooltip } from "antd";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
@@ -123,6 +123,8 @@ export function ChatWorkspace({
   }, [conversations, selectedId, onSelect, lastConversationKey, query.isSuccess]);
   const [search, setSearch] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; value: string }>();
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const pinnedQuery = useQuery({
     queryKey: projectKey(projectId, "conversations", "pins"),
     queryFn: ({ signal }) =>
@@ -156,6 +158,18 @@ export function ChatWorkspace({
       void message.success("已重命名");
     } catch (error) {
       void message.error(error instanceof Error ? error.message : "重命名失败");
+    }
+  }
+  const titleCommitting = useRef(false);
+  async function commitTitle() {
+    if (!titleEditing || titleCommitting.current || !conversation) return;
+    titleCommitting.current = true;
+    const next = titleDraft.trim();
+    setTitleEditing(false);
+    try {
+      if (next && next !== conversation.title) await renameConversation(conversation.id, next);
+    } finally {
+      titleCommitting.current = false;
     }
   }
   return (
@@ -235,7 +249,38 @@ export function ChatWorkspace({
                     </div>
                   )}
                   <div className="chat-title">
-                    <h1>{conversation.title}</h1>
+                    {titleEditing ? (
+                      <input
+                        className="chat-title-rename"
+                        value={titleDraft}
+                        ref={(node) => node?.focus()}
+                        aria-label="重命名会话"
+                        maxLength={100}
+                        onChange={(e) => setTitleDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void commitTitle();
+                          if (e.key === "Escape") setTitleEditing(false);
+                        }}
+                        onBlur={() => void commitTitle()}
+                      />
+                    ) : (
+                      <>
+                        <h1>{conversation.title}</h1>
+                        <Tooltip title="点击标题可重命名">
+                          <Button
+                            type="text"
+                            size="small"
+                            aria-label="重命名会话"
+                            icon={<EditOutlined />}
+                            className="chat-title-edit"
+                            onClick={() => {
+                              setTitleDraft(conversation.title);
+                              setTitleEditing(true);
+                            }}
+                          />
+                        </Tooltip>
+                      </>
+                    )}
                     <Tag title="此会话使用创建时的 Agent 发布版本">
                       {conversation.releaseVersion === 0
                         ? "草稿试用"

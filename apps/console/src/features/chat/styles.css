@@ -1620,3 +1620,25 @@
   color: white;
   font-size: 12px;
 }
+
+/* Rename directly on the conversation title in the header. */
+.chat-title-rename {
+  flex: 1;
+  min-width: 200px;
+  max-width: 480px;
+  padding: 3px 10px;
+  border: 1px solid #9db8a8;
+  border-radius: 8px;
+  outline: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #285c49;
+  background: #fff;
+}
+.chat-title-edit {
+  color: #9aa89f;
+}
+.chat-title:hover .chat-title-edit,
+.chat-title-edit:focus-visible {
+  color: #32674a;
+}
