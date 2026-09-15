@@ -40,7 +40,7 @@ export class Platform {
       this.skills,
     );
     this.applications = new Applications(db, vault, this.projects);
-    this.runtimes = new Runtimes(db, runtimeId);
+    this.runtimes = new Runtimes(db, runtimeId, this.projects.access);
   }
   async initialize() {
     await this.db.migrate();

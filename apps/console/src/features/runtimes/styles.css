@@ -75,3 +75,39 @@
     font-size: 11px;
   }
 }
+
+.runtime-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.runtime-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.runtime-issued dl {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 10px 12px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.runtime-issued dt {
+  color: #8a9890;
+}
+.runtime-issued dd {
+  margin: 0;
+  min-width: 0;
+}
+.runtime-copy-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.runtime-copy-line code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}

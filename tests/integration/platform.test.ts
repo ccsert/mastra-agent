@@ -321,6 +321,38 @@ test("runs auto-compact when the last measured context exceeds the agent window"
     { code: "NOT_FOUND" },
   );
 });
+test("runtime registry issues credentials and enforces lifecycle", async () => {
+  const name = `边缘 Runtime ${randomUUID().slice(0, 8)}`;
+  const registered = await store.runtimes.register(actor, { name });
+  assert.equal(registered.name, name);
+  assert.ok(registered.token.length >= 32);
+  // Issued credentials authenticate; wrong ones do not.
+  assert.equal(await store.runtimes.authenticate(registered.id, registered.token), true);
+  assert.equal(await store.runtimes.authenticate(registered.id, "wrong"), false);
+  assert.equal(await store.runtimes.authenticate("no-such-runtime", registered.token), false);
+  // Disabling revokes authentication without deleting the registration.
+  await store.runtimes.update(actor, registered.id, { enabled: false });
+  assert.equal(await store.runtimes.authenticate(registered.id, registered.token), false);
+  await store.runtimes.update(actor, registered.id, { enabled: true });
+  assert.equal(await store.runtimes.authenticate(registered.id, registered.token), true);
+  // Rename keeps authentication intact.
+  await store.runtimes.update(actor, registered.id, { name: "边缘 Runtime 改名" });
+  assert.equal(await store.runtimes.authenticate(registered.id, registered.token), true);
+  // The built-in runtime cannot be deleted or disabled.
+  await assert.rejects(() => store.runtimes.delete(actor, "hosted-local"), {
+    code: "RUNTIME_BUILT_IN",
+  });
+  await assert.rejects(() => store.runtimes.update(actor, "hosted-local", { enabled: false }), {
+    code: "RUNTIME_BUILT_IN",
+  });
+  // Cross-tenant admins cannot see or manage it.
+  await assert.rejects(() => store.runtimes.delete(other, registered.id), { code: "FORBIDDEN" });
+  // Deletion removes authentication.
+  await store.runtimes.delete(actor, registered.id);
+  assert.equal(await store.runtimes.authenticate(registered.id, registered.token), false);
+  const listed = await store.runtimes.list(actor);
+  assert.ok(!listed.some((r) => r.id === registered.id));
+});
 test("published revisions and conversation ownership are durable, secrets never enter public snapshots", async () => {
   const project = await store.projects.create(actor, { name: "Orders", description: "" });
   const model = await store.resources.createModel(actor, project.id, {

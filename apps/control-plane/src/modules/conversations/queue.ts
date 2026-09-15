@@ -23,8 +23,8 @@ export class Queue {
     readonly vault: Vault,
     readonly runtimeId: string,
   ) {}
-  async heartbeat() {
-    await this.db.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [this.runtimeId]);
+  async heartbeat(runtimeId = this.runtimeId) {
+    await this.db.query("UPDATE runtimes SET last_seen_at=now() WHERE id=$1", [runtimeId]);
   }
   async reap() {
     await this.db.query(`UPDATE runs r SET status='queued',lease_token=NULL,lease_until=NULL,recovery_count=recovery_count+1
@@ -37,12 +37,12 @@ export class Queue {
     await this.db.query("DELETE FROM auth_nonces WHERE expires_at<now()");
     await this.db.query("DELETE FROM sessions WHERE expires_at<now()");
   }
-  async claim(): Promise<ExecutionJob | null> {
-    await this.heartbeat();
+  async claim(runtimeId = this.runtimeId): Promise<ExecutionJob | null> {
+    await this.heartbeat(runtimeId);
     return this.db.transaction(async (tx) => {
       const [run] = await tx.query(
         "SELECT * FROM runs WHERE runtime_id=$1 AND status='queued' AND deadline>now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
-        [this.runtimeId],
+        [runtimeId],
       );
       if (!run) return null;
       const leaseToken = randomUUID();

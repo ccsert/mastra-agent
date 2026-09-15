@@ -964,6 +964,23 @@ export type RuntimeInfo = {
     name: string;
     lastSeenAt: string | null;
     online: boolean;
+    enabled: boolean;
+    builtIn: boolean;
+};
+
+export type RuntimeRegistered = {
+    id: string;
+    name: string;
+    token: string;
+};
+
+export type RuntimeRegister = {
+    name: string;
+};
+
+export type RuntimeUpdate = {
+    name?: string;
+    enabled?: boolean;
 };
 
 export type Application = {
@@ -5350,6 +5367,159 @@ export type ListRuntimesResponses = {
 };
 
 export type ListRuntimesResponse = ListRuntimesResponses[keyof ListRuntimesResponses];
+
+export type RegisterRuntimeData = {
+    body: RuntimeRegister;
+    path?: never;
+    query?: never;
+    url: '/api/v1/runtimes';
+};
+
+export type RegisterRuntimeErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RegisterRuntimeError = RegisterRuntimeErrors[keyof RegisterRuntimeErrors];
+
+export type RegisterRuntimeResponses = {
+    /**
+     * 成功
+     */
+    200: RuntimeRegistered;
+};
+
+export type RegisterRuntimeResponse = RegisterRuntimeResponses[keyof RegisterRuntimeResponses];
+
+export type DeleteRuntimeData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/runtimes/{id}';
+};
+
+export type DeleteRuntimeErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DeleteRuntimeError = DeleteRuntimeErrors[keyof DeleteRuntimeErrors];
+
+export type DeleteRuntimeResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+    };
+};
+
+export type DeleteRuntimeResponse = DeleteRuntimeResponses[keyof DeleteRuntimeResponses];
+
+export type UpdateRuntimeData = {
+    body: RuntimeUpdate;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/runtimes/{id}';
+};
+
+export type UpdateRuntimeErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateRuntimeError = UpdateRuntimeErrors[keyof UpdateRuntimeErrors];
+
+export type UpdateRuntimeResponses = {
+    /**
+     * 成功
+     */
+    200: RuntimeInfo;
+};
+
+export type UpdateRuntimeResponse = UpdateRuntimeResponses[keyof UpdateRuntimeResponses];
 
 export type ListApplicationsData = {
     body?: never;

@@ -114,7 +114,7 @@ export function ProjectPage() {
     case "applications":
       return <ApplicationsWorkspace projectId={projectId} />;
     case "runtimes":
-      return <RuntimeInfoWorkspace />;
+      return <RuntimeInfoWorkspace user={user} />;
     case "knowledge":
       return (
         <QueryState label="模型服务" query={modelsQuery}>

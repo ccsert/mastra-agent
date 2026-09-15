@@ -145,14 +145,34 @@ export function createApp(platform: Platform, config: AppConfig) {
   registerApplicationRoutes(app, platform.applications);
   registerChatRoute(app, platform.conversations);
   app.use("/internal/*", async (c, next) => {
+    const runtimeId = c.req.header("x-runtime-id") ?? "";
+    const bearer = c.req.header("authorization") ?? "";
+    const token = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
+    // The deployment's own runtime authenticates via config; registered
+    // runtimes via their issued (hashed) token. Either can be disabled.
+    const hosted =
+      runtimeId === platform.runtimeId && secureEqual(bearer, `Bearer ${config.runtimeToken}`);
+    if (!hosted) {
+      if (!(await platform.runtimes.authenticate(runtimeId, token)))
+        throw new ApiError(401, "RUNTIME_UNAUTHENTICATED", "Runtime 凭据无效");
+    } else if (!(await platform.runtimes.hostedEnabled()))
+      throw new ApiError(403, "RUNTIME_DISABLED", "Runtime 已停用");
+    // Registered runtimes connect for lifecycle management; knowledge, MCP and
+    // workflow job routing stays on the hosted runtime until profiles land.
     if (
-      !secureEqual(c.req.header("authorization") ?? "", `Bearer ${config.runtimeToken}`) ||
-      c.req.header("x-runtime-id") !== platform.runtimeId
+      !hosted &&
+      [
+        "/internal/runtime/knowledge/claim",
+        "/internal/runtime/mcp/claim",
+        "/internal/runtime/workflows/claim",
+      ].some((route) => c.req.path.startsWith(route))
     )
-      throw new ApiError(401, "RUNTIME_UNAUTHENTICATED", "Runtime 凭据无效");
+      throw new ApiError(403, "RUNTIME_ROUTING_UNAVAILABLE", "此类任务目前仅由托管 Runtime 认领");
     await next();
   });
-  app.post("/internal/runtime/claim", async (c) => c.json({ job: await queue.claim() }));
+  app.post("/internal/runtime/claim", async (c) =>
+    c.json({ job: await queue.claim(c.req.header("x-runtime-id") ?? undefined) }),
+  );
   app.post("/internal/runtime/runs/:id/heartbeat", async (c) => {
     const input = z.object({ leaseToken: z.string() }).parse(await c.req.json());
     return c.json(await queue.renew(Id.parse(c.req.param("id")), input.leaseToken));

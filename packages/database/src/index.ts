@@ -87,6 +87,10 @@ export class Database implements Queryable {
       new URL("./conversation-pins.sql", import.meta.url),
       "utf8",
     );
+    const runtimeLifecycle = await readFile(
+      new URL("./runtime-lifecycle.sql", import.meta.url),
+      "utf8",
+    );
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
@@ -170,6 +174,10 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=22",
       );
       if (!pinsApplied) await tx.query(conversationPins);
+      const [runtimeLifecycleApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=23",
+      );
+      if (!runtimeLifecycleApplied) await tx.query(runtimeLifecycle);
     });
   }
   async close() {
