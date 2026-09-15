@@ -14,7 +14,7 @@ import * as api from "@platform/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { App as AntApp, Button, Input, Modal, Popconfirm, Spin, Tabs, Tag, Tooltip } from "antd";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
@@ -28,7 +28,7 @@ import {
 } from "../../shared/data/ProjectData";
 import { PageMore, pageItems } from "../../shared/data/pages";
 import { QueryState } from "../../shared/data/QueryState";
-import { writeSessionValue } from "../../shared/data/session-storage";
+import { readSessionValue, writeSessionValue } from "../../shared/data/session-storage";
 import type { ResourceSelection } from "../../shared/navigation";
 import { ConversationTrace } from "../runs/index";
 import { draftStorageKey } from "./continuity";
@@ -100,16 +100,28 @@ export function ChatWorkspace({
   const conversation = detailQuery.data;
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
-  // Entering 对话 lands in the most recent conversation, exactly as if it was clicked.
+  // Entering 对话 returns to the conversation you last viewed in this project,
+  // falling back to the most recent one — never bouncing to a random landing.
   const autoSelected = useRef(false);
+  const lastConversationKey = useCallback(
+    (id: string) =>
+      storageScope ? `${storageScope}:${projectId}:${id}:last-conversation` : undefined,
+    [storageScope, projectId],
+  );
   useEffect(() => {
-    if (selectedId || autoSelected.current) return;
-    const latest = conversations[0];
-    if (latest) {
-      autoSelected.current = true;
-      onSelect(latest.id);
-    }
-  }, [conversations, selectedId, onSelect]);
+    if (selectedId) writeSessionValue(lastConversationKey("viewed"), selectedId);
+  }, [selectedId, lastConversationKey]);
+  useEffect(() => {
+    if (selectedId || autoSelected.current || !query.isSuccess) return;
+    const saved = readSessionValue(lastConversationKey("viewed"));
+    const savedId = typeof saved === "string" ? saved : "";
+    const known = !!savedId && conversations.some((c) => c.id === savedId);
+    const target = known ? savedId : conversations[0]?.id;
+    if (!target) return;
+    autoSelected.current = true;
+    if (savedId && !known) writeSessionValue(lastConversationKey("viewed"), undefined);
+    onSelect(target);
+  }, [conversations, selectedId, onSelect, lastConversationKey, query.isSuccess]);
   const [search, setSearch] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; value: string }>();
   const pinnedQuery = useQuery({
