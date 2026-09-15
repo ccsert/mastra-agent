@@ -14,7 +14,7 @@ import * as api from "@platform/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { App as AntApp, Button, Input, Modal, Popconfirm, Spin, Tabs, Tag, Tooltip } from "antd";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { timestamp, unwrap, unwrapPage } from "../../shared/api";
 import { Blank } from "../../shared/Blank";
@@ -100,9 +100,9 @@ export function ChatWorkspace({
   const conversation = detailQuery.data;
   const query = useProjectPages("conversations"),
     conversations = pageItems(query.data);
-  // Entering 对话 returns to the conversation you last viewed in this project,
-  // falling back to the most recent one — never bouncing to a random landing.
-  const autoSelected = useRef(false);
+  // Entering 对话 without a conversation id (menu clicks land on /chat) returns
+  // to the conversation you last viewed in this project — never a blank pane.
+  // The selectedId guard also makes re-clicking 对话 keep the current one.
   const lastConversationKey = useCallback(
     (id: string) =>
       storageScope ? `${storageScope}:${projectId}:${id}:last-conversation` : undefined,
@@ -112,13 +112,12 @@ export function ChatWorkspace({
     if (selectedId) writeSessionValue(lastConversationKey("viewed"), selectedId);
   }, [selectedId, lastConversationKey]);
   useEffect(() => {
-    if (selectedId || autoSelected.current || !query.isSuccess) return;
+    if (selectedId || !query.isSuccess) return;
     const saved = readSessionValue(lastConversationKey("viewed"));
     const savedId = typeof saved === "string" ? saved : "";
     const known = !!savedId && conversations.some((c) => c.id === savedId);
     const target = known ? savedId : conversations[0]?.id;
     if (!target) return;
-    autoSelected.current = true;
     if (savedId && !known) writeSessionValue(lastConversationKey("viewed"), undefined);
     onSelect(target);
   }, [conversations, selectedId, onSelect, lastConversationKey, query.isSuccess]);
