@@ -39,6 +39,14 @@ function CopyLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function deployEnv(issued: Issued) {
+  return [
+    `CONTROL_PLANE_URL=${location.origin}  # 控制面地址：生产为对外域名，本机开发为 http://127.0.0.1:4110`,
+    `RUNTIME_ID=${issued.id}`,
+    `RUNTIME_TOKEN=${issued.token}`,
+  ].join("\n");
+}
+
 export function RuntimeInfoWorkspace({ user }: { user: Principal }) {
   const refresh = useProjectRefresh();
   const { message } = AntApp.useApp();
@@ -215,9 +223,34 @@ export function RuntimeInfoWorkspace({ user }: { user: Principal }) {
                 <CopyLine label="RUNTIME_TOKEN" value={issued.token} />
               </dd>
             </dl>
-            <p className="form-note">
-              在 Runtime 部署配置中设置以上凭据与控制面地址，启动后即出现在上方列表。
-            </p>
+            <h4 className="runtime-deploy-title">部署步骤</h4>
+            <ol className="runtime-deploy-steps">
+              <li>
+                目标机器安装 Docker，并从平台发布渠道获取 Runtime 镜像与
+                deploy/runtime.compose.yaml；
+              </li>
+              <li>在 compose 文件同目录创建 .env，写入以下配置（控制面地址按实际部署调整）；</li>
+              <li>执行 docker compose -f runtime.compose.yaml up -d，启动后本页即显示在线。</li>
+            </ol>
+            <div className="runtime-deploy-env">
+              <div className="runtime-copy-line">
+                <pre>{deployEnv(issued)}</pre>
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(deployEnv(issued));
+                      void message.success("已复制部署配置");
+                    } catch {
+                      void message.error("复制失败，请手动选择复制");
+                    }
+                  }}
+                >
+                  复制
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </Modal>

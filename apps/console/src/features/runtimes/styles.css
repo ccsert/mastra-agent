@@ -111,3 +111,32 @@
   overflow-wrap: anywhere;
   font-size: 11px;
 }
+
+.runtime-deploy-title {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #71807a;
+}
+.runtime-deploy-steps {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #54655b;
+}
+.runtime-deploy-env {
+  border: 1px solid #e1e7df;
+  border-radius: 8px;
+  background: #f6f8f5;
+  padding: 10px 12px;
+}
+.runtime-deploy-env pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    11px / 1.7 ui-monospace,
+    monospace;
+  color: #3f4c45;
+}
