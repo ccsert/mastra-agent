@@ -195,29 +195,31 @@ export function ChatWorkspace({
             prefix={<SearchOutlined />}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <QueryState label="会话" query={query}>
-            <ConversationListBody
-              conversations={conversations}
-              pinned={pinnedItems}
-              activeId={conversation?.id}
-              search={search}
-              deleting={deleting}
-              renaming={renaming}
-              onOpen={onSelect}
-              onPin={togglePin}
-              onDelete={removeConversation}
-              onRenameStart={(c) => setRenaming({ id: c.id, value: c.title })}
-              onRenameChange={(value) => setRenaming((old) => (old ? { ...old, value } : old))}
-              onRenameCommit={() => {
-                if (renaming) void renameConversation(renaming.id, renaming.value);
-                setRenaming(undefined);
-              }}
-              onRenameCancel={() => setRenaming(undefined)}
-            />
-            <div className="conversation-pagination">
-              <PageMore query={query} count={conversations.length} label="会话" />
-            </div>
-          </QueryState>
+          <div className="conversation-list-body">
+            <QueryState label="会话" query={query}>
+              <ConversationListBody
+                conversations={conversations}
+                pinned={pinnedItems}
+                activeId={conversation?.id}
+                search={search}
+                deleting={deleting}
+                renaming={renaming}
+                onOpen={onSelect}
+                onPin={togglePin}
+                onDelete={removeConversation}
+                onRenameStart={(c) => setRenaming({ id: c.id, value: c.title })}
+                onRenameChange={(value) => setRenaming((old) => (old ? { ...old, value } : old))}
+                onRenameCommit={() => {
+                  if (renaming) void renameConversation(renaming.id, renaming.value);
+                  setRenaming(undefined);
+                }}
+                onRenameCancel={() => setRenaming(undefined)}
+              />
+              <div className="conversation-pagination">
+                <PageMore query={query} count={conversations.length} label="会话" />
+              </div>
+            </QueryState>
+          </div>
         </aside>
       )}
       <div className="chat-main">

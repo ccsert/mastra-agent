@@ -1642,3 +1642,29 @@
 .chat-title-edit:focus-visible {
   color: #32674a;
 }
+
+/* Keep the header and search fixed; only the conversation items scroll. */
+@media (min-width: 601px) {
+  .conversation-list {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+  .conversation-list-head,
+  .conversation-search {
+    flex-shrink: 0;
+  }
+  .conversation-list-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 16px;
+  }
+}
+@media (max-width: 600px) {
+  /* The mobile strip scrolls as one piece; the wrapper must not break it. */
+  .conversation-list-body {
+    display: contents;
+  }
+}
