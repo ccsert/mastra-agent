@@ -314,6 +314,10 @@ test("runs auto-compact when the last measured context exceeds the agent window"
   );
   const [autoRow] = await db.query("SELECT context_action FROM runs WHERE id=$1", [auto.id]);
   assert.equal(autoRow.context_action, "compact");
+  // Occupancy projection: estimated tokens for the current model view.
+  const projected = await store.conversations.context(actor, project.id, thread.id);
+  assert.ok((projected.contextTokens ?? 0) >= 1);
+  assert.equal(projected.contextWindow, 32000);
   // Leave no queued run behind: later tests claim the next queued run.
   await store.conversations.cancel(actor, project.id, auto.id);
   await assert.rejects(

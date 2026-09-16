@@ -280,7 +280,9 @@ function ratioLevel(tokens: number, window: number) {
 }
 
 function formatTokens(tokens: number) {
-  return tokens >= 10000 ? `${Math.round(tokens / 1000)}K` : `${(tokens / 1000).toFixed(1)}K`;
+  if (tokens >= 10000) return `${Math.round(tokens / 1000)}K`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+  return String(tokens);
 }
 
 function ContextUsageDetails({

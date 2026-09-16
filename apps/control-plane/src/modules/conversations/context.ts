@@ -10,68 +10,43 @@ export async function conversationContext(tx: Queryable, id: string) {
     [id],
   );
   const [limits] = await tx.query(
-    `SELECT COALESCE((rel.snapshot->'agent'->'executionLimits'->>'contextTokens')::int, 32000) AS window
+    `SELECT COALESCE((rel.snapshot->'agent'->'executionLimits'->>'contextTokens')::int, 32000) AS window,
+       COALESCE(rel.snapshot->'agent'->>'instructions','') AS instructions,
+       COALESCE(rel.snapshot->'tools','[]'::jsonb) AS tools
      FROM conversations c JOIN releases rel ON rel.id=c.release_id WHERE c.id=$1`,
     [id],
   );
-  // Current occupancy: the newest regular run's last measured model input —
-  // compaction runs measure the summarizer, not the conversation.
-  const [usage] = await tx.query(
-    `SELECT CASE WHEN jsonb_typeof(e.chunk)='object'
-       THEN (e.chunk->'data'->'usage'->>'inputTokens')::int END AS tokens
-     FROM run_events e JOIN runs r ON r.id=e.run_id
-     WHERE r.conversation_id=$1 AND COALESCE(r.context_action,'')<>'compact'
-       AND e.chunk->>'type'='data-model-step'
-     ORDER BY r.created_at DESC,r.id DESC,e.seq DESC LIMIT 1`,
-    [id],
-  );
-  // Composition estimate from the newest assembled request, so the breakdown
-  // reflects what the model actually received (system prompt, tool
-  // definitions, conversation messages including any summary).
-  const [lastRequest] = await tx.query(
-    `SELECT e.chunk->'data'->'request' AS request
-     FROM run_events e JOIN runs r ON r.id=e.run_id
-     WHERE r.conversation_id=$1 AND COALESCE(r.context_action,'')<>'compact'
-       AND e.chunk->>'type'='data-model-request'
-     ORDER BY r.created_at DESC,r.id DESC,e.seq DESC LIMIT 1`,
-    [id],
-  );
-  let breakdown: { system: number; tools: number; messages: number } | null = null;
-  const request = (lastRequest?.request ?? null) as
-    | { messages?: { role?: string; content?: unknown }[]; tools?: unknown[] }
-    | undefined;
-  if (request && Array.isArray(request.messages)) {
-    let systemChars = 0,
-      toolChars = 0,
-      messageChars = 0;
-    for (const message of request.messages) {
-      const role = String(message.role ?? "user");
-      const size =
-        typeof message.content === "string"
-          ? message.content.length
-          : JSON.stringify(message.content ?? "").length;
-      if (role === "system" || role === "developer") systemChars += size;
-      else messageChars += size;
+  // Occupancy projection for the NEXT request: the summary plus uncovered
+  // messages, exactly as the runtime reassembles them after compaction.
+  const history = await modelHistory(tx, id);
+  // The system prompt and tool definitions travel with every request; take
+  // them from the agent's published snapshot rather than the last request.
+  const systemChars = String(limits?.instructions ?? "").length;
+  const toolsChars = JSON.stringify(limits?.tools ?? []).length;
+  let messageChars = 0;
+  for (const message of history)
+    for (const part of message.parts) {
+      messageChars +=
+        typeof part.text === "string" ? part.text.length : JSON.stringify(part ?? null).length;
     }
-    toolChars = JSON.stringify(request.tools ?? []).length;
-    const total = Math.max(1, systemChars + toolChars + messageChars);
-    const measured = Number(usage?.tokens ?? 0) || Math.round(total / 3);
-    const share = (chars: number) => Math.round((chars / total) * measured);
-    breakdown = {
-      system: share(systemChars),
-      tools: share(toolChars),
-      messages: share(messageChars),
-    };
-  }
+  const totalChars = Math.max(1, systemChars + toolsChars + messageChars);
+  // Mixed CJK/latin heuristic: ~3.5 characters per token. The ~ prefix marks
+  // every displayed number as an estimate.
+  const tokens = Math.ceil(totalChars / 3.5);
+  const share = (chars: number) => Math.round((chars / totalChars) * tokens);
   return ConversationContext.parse({
     totalMessages: Number(row.total),
     coveredMessages: Number(row.covered),
     summary: row.summary ?? null,
     runId: row.run_id ?? null,
     createdAt: row.created_at ? new Date(String(row.created_at)).toISOString() : null,
-    contextTokens: usage?.tokens ?? null,
+    contextTokens: tokens,
     contextWindow: Number(limits?.window ?? 32000),
-    contextBreakdown: breakdown,
+    contextBreakdown: {
+      system: share(systemChars),
+      tools: share(toolsChars),
+      messages: share(messageChars),
+    },
   });
 }
 export async function modelHistory(tx: Queryable, id: string) {

@@ -682,9 +682,12 @@ test("compaction checkpoints only successful summaries and preserves original go
   assert.equal(context.coveredMessages, 4);
   assert.equal(context.totalMessages, 4);
   assert.equal(context.summary, "事实 A；资源 id-B；待用户保存草稿。");
-  // Stringified event chunks never break the occupancy read.
-  assert.equal(context.contextTokens, null);
+  // Stringified event chunks never break the occupancy read; the projection
+  // estimates tokens from the compacted model view (summary + uncovered),
+  // and the agent's published instructions count as the system part.
+  assert.ok((context.contextTokens ?? 0) >= 1);
   assert.equal(context.contextWindow, 16000);
+  assert.ok((context.contextBreakdown?.system ?? 0) >= 1);
   await platform.conversations.createRun(
     owner,
     projectId,
