@@ -39,7 +39,7 @@
 }
 .auth-story > small {
   font-size: 11px;
-  color: #638775;
+  color: var(--text-quiet-dark);
 }
 .auth-flow {
   display: flex;
@@ -55,7 +55,7 @@
   border-radius: 8px;
 }
 .auth-flow .anticon {
-  margin-right: 6px;
+  margin-inline-end: 6px;
 }
 .auth-flow i {
   width: 24px;
@@ -79,13 +79,13 @@
 .auth-form > p {
   font-size: 12px;
   line-height: 1.8;
-  color: #91a297;
+  color: var(--text-quiet);
   margin-bottom: 35px;
 }
 .auth-form .auth-hint {
-  font-size: 10px;
+  font-size: 11px;
   margin: 20px 0 0;
-  color: #a7b3a9;
+  color: var(--text-quiet);
 }
 .auth-form .ant-form-item-label > label {
   font-size: 12px;

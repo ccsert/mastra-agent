@@ -205,7 +205,9 @@ function SkillDetails({
             标准输入，文本结果进入当前运行记录；默认无网络和业务凭据。
           </p>
         </section>
-        <small className="resource-id">内容摘要 · {skill.digest}</small>
+        <small className="resource-id" title={skill.digest}>
+          内容摘要 · {skill.digest}
+        </small>
       </div>
     </Drawer>
   );

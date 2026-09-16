@@ -78,6 +78,16 @@ test("opening an active run resumes by GET, restores exactly one answer and can 
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url.endsWith("/capabilities")) return Response.json({ skills: [] });
+    if (url.includes("/context"))
+      return Response.json({
+        totalMessages: 0,
+        coveredMessages: 0,
+        summary: null,
+        runId: null,
+        createdAt: null,
+        contextTokens: null,
+        contextWindow: null,
+      });
     if (url.includes("/stream?")) {
       gets++;
       assert.equal(init?.method, "GET");

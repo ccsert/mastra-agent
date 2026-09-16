@@ -30,8 +30,11 @@
   margin: 16px 0 8px;
 }
 .metric small {
-  color: #9ca79f;
+  color: var(--text-quiet);
   font-size: 11px;
+}
+.metric strong {
+  font-variant-numeric: tabular-nums;
 }
 .onboarding {
   padding: 26px 28px;
@@ -55,7 +58,7 @@
 .onboarding p {
   font-size: 12px;
   line-height: 1.9;
-  color: #7e9184;
+  color: var(--text-quiet);
   max-width: 380px;
 }
 .onboarding-steps {
@@ -72,7 +75,7 @@
   border-radius: 7px;
   padding: 12px;
   background: #fff9;
-  text-align: left;
+  text-align: start;
   color: #354d40;
 }
 .onboarding-steps button:hover {
@@ -88,13 +91,13 @@
 }
 .onboarding-steps small {
   display: block;
-  font-size: 10px;
-  color: #8d9d91;
+  font-size: 11px;
+  color: var(--text-quiet);
   margin-top: 3px;
 }
 .onboarding-steps button > .anticon {
   font-size: 11px;
-  color: #99ac9d;
+  color: var(--text-quiet);
 }
 .step-number {
   width: 28px;
@@ -103,8 +106,9 @@
   place-items: center;
   border: 1px solid #dce8dd;
   border-radius: 50%;
-  color: #87a18c;
+  color: var(--text-secondary);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .step-number.done {
   background: #e4f0e7;

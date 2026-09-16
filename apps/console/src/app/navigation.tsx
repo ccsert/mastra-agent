@@ -4,6 +4,7 @@ import {
   BookOutlined,
   BranchesOutlined,
   CloudServerOutlined,
+  ClusterOutlined,
   CodeOutlined,
   CommentOutlined,
   FileZipOutlined,
@@ -16,18 +17,18 @@ import type { Page } from "../shared/navigation";
 
 export type { Page } from "../shared/navigation";
 export const navigation: [Page, string, React.ReactNode][] = [
-  ["overview", "工作台", <AppstoreOutlined key="AppstoreOutlined" />],
-  ["agents", "Agents", <RobotOutlined key="RobotOutlined" />],
-  ["skills", "Skills", <FileZipOutlined key="skills" />],
-  ["chat", "对话", <CommentOutlined key="CommentOutlined" />],
-  ["knowledge", "知识库", <BookOutlined key="knowledge" />],
-  ["workflows", "工作流", <BranchesOutlined key="workflows" />],
-  ["models", "模型服务", <ApiOutlined key="ApiOutlined" />],
-  ["tools", "工具", <ToolOutlined key="ToolOutlined" />],
-  ["mcp", "MCP 服务", <ApiOutlined key="mcp" />],
-  ["applications", "应用接入", <CodeOutlined key="CodeOutlined" />],
-  ["runtimes", "Runtime", <CloudServerOutlined key="CloudServerOutlined" />],
-  ["settings", "项目设置", <SettingOutlined key="SettingOutlined" />],
+  ["overview", "工作台", <AppstoreOutlined key="AppstoreOutlined" aria-hidden="true" />],
+  ["agents", "Agents", <RobotOutlined key="RobotOutlined" aria-hidden="true" />],
+  ["skills", "Skills", <FileZipOutlined key="skills" aria-hidden="true" />],
+  ["chat", "对话", <CommentOutlined key="CommentOutlined" aria-hidden="true" />],
+  ["knowledge", "知识库", <BookOutlined key="knowledge" aria-hidden="true" />],
+  ["workflows", "工作流", <BranchesOutlined key="workflows" aria-hidden="true" />],
+  ["models", "模型服务", <ApiOutlined key="ApiOutlined" aria-hidden="true" />],
+  ["tools", "工具", <ToolOutlined key="ToolOutlined" aria-hidden="true" />],
+  ["mcp", "MCP 服务", <ClusterOutlined key="mcp" aria-hidden="true" />],
+  ["applications", "应用接入", <CodeOutlined key="CodeOutlined" aria-hidden="true" />],
+  ["runtimes", "Runtime", <CloudServerOutlined key="CloudServerOutlined" aria-hidden="true" />],
+  ["settings", "项目设置", <SettingOutlined key="SettingOutlined" aria-hidden="true" />],
 ];
 export const pageTitles: Record<Page, [string, string]> = {
   settings: ["项目设置", "管理项目成员，明确配置、发布与使用权限。"],

@@ -111,6 +111,13 @@ export function Chat({
     gcTime: 0,
     staleTime: 0,
   });
+  const contextUsage = useQuery({
+    queryKey: projectKey(projectId, "conversations", conversationId, "context-usage"),
+    queryFn: ({ signal }) =>
+      unwrap(getConversationContext({ path: { projectId, id: conversationId }, signal })),
+    staleTime: 10_000,
+    retry: false,
+  });
   const client = useQueryClient();
   const scope = useStorageScope(),
     storageKey = draftStorageKey(scope, conversationId);
@@ -253,6 +260,8 @@ export function Chat({
       pendingCancel.current = false;
       setCancelling(false);
       onFinish();
+      // Context occupancy changes the moment a run settles; refresh the chip.
+      void contextUsage.refetch();
     },
   });
   useEffect(() => {
@@ -498,6 +507,14 @@ export function Chat({
                     loading={capabilities.isPending}
                     error={capabilities.isError}
                     onRetry={() => void capabilities.refetch()}
+                    contextUsage={
+                      contextUsage.data
+                        ? {
+                            tokens: contextUsage.data.contextTokens,
+                            window: contextUsage.data.contextWindow,
+                          }
+                        : undefined
+                    }
                   />
                 </>
               }

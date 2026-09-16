@@ -29,7 +29,7 @@ export function Overview({
       <div className="metrics">
         {[
           [
-            <RobotOutlined key="RobotOutlined" />,
+            <RobotOutlined key="RobotOutlined" aria-hidden="true" />,
             "Agent",
             agentsQuery.data?.length ?? "—",
             agentsQuery.data
@@ -37,19 +37,19 @@ export function Overview({
               : "等待数据",
           ],
           [
-            <ApiOutlined key="ApiOutlined" />,
+            <ApiOutlined key="ApiOutlined" aria-hidden="true" />,
             "模型服务",
             modelsQuery.data?.length ?? "—",
             "已登记配置",
           ],
           [
-            <ToolOutlined key="ToolOutlined" />,
+            <ToolOutlined key="ToolOutlined" aria-hidden="true" />,
             "工具",
             toolsQuery.data?.length ?? "—",
             "只读与确定性能力",
           ],
           [
-            <DeploymentUnitOutlined key="DeploymentUnitOutlined" />,
+            <DeploymentUnitOutlined key="DeploymentUnitOutlined" aria-hidden="true" />,
             "最近运行",
             runsQuery.data?.length ?? "—",
             runsQuery.data
@@ -104,13 +104,17 @@ export function Overview({
           ].map((step, i) => (
             <button type="button" key={step.label} onClick={step.action}>
               <span className={step.done ? "step-number done" : "step-number"}>
-                {step.done ? <CheckCircleOutlined key="CheckCircleOutlined" /> : i + 1}
+                {step.done ? (
+                  <CheckCircleOutlined key="CheckCircleOutlined" aria-label="已完成" />
+                ) : (
+                  i + 1
+                )}
               </span>
               <span>
                 <strong>{step.label}</strong>
                 <small>{step.detail}</small>
               </span>
-              <ArrowRightOutlined key="ArrowRightOutlined" />
+              <ArrowRightOutlined key="ArrowRightOutlined" aria-hidden="true" />
             </button>
           ))}
         </div>
@@ -118,12 +122,12 @@ export function Overview({
       <div className="section-heading">
         <h2>项目中的 Agents</h2>
         <Button type="link" onClick={() => navigate("agents")}>
-          查看全部 <ArrowRightOutlined key="ArrowRightOutlined" />
+          查看全部 <ArrowRightOutlined key="ArrowRightOutlined" aria-hidden="true" />
         </Button>
       </div>
       <AgentCollection limit={3} onEdit={onEdit} onConversation={onConversation} />
       <div className="scope-note">
-        <ExperimentOutlined key="ExperimentOutlined" />
+        <ExperimentOutlined key="ExperimentOutlined" aria-hidden="true" />
         <p>
           当前已开放 Agent 对话、工具调用、知识库检索、标准 Skills 和 AI
           工作流。嵌入组件将继续接入这套平台。

@@ -7,6 +7,7 @@ import {
   CompressOutlined,
   FileZipOutlined,
   InfoCircleOutlined,
+  PieChartOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
 import {
@@ -17,7 +18,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import type { ConversationCapabilities } from "@platform/sdk";
-import { Button, Tag } from "antd";
+import { Button, Tag, Tooltip } from "antd";
 
 import { ComposerTriggerPopover, TooltipIconButton } from "../../shared/assistant-ui";
 import { skillCommands, skillTriggerMatcher, systemCommands } from "./commands";
@@ -35,6 +36,7 @@ export function ChatComposer({
   error,
   onRetry,
   onCommand,
+  contextUsage,
 }: {
   skills: ConversationCapabilities["skills"];
   selected: string[];
@@ -47,6 +49,7 @@ export function ChatComposer({
   error: boolean;
   onRetry(): void;
   onCommand?: (text: string) => boolean;
+  contextUsage?: { tokens?: number | null; window?: number | null };
 }) {
   const composerText = useAuiState((s) => s.composer.text);
   const running = useAuiState((s) => s.thread.isRunning) || recovering;
@@ -180,6 +183,24 @@ export function ChatComposer({
             )}
           </div>
           <div className="composer-submit">
+            {contextUsage?.window != null && contextUsage.tokens != null && (
+              <Tooltip
+                title={`上下文占用（最近一次实测）· 达到窗口 75% 时下次运行自动压缩历史，/compact 可立即压缩`}
+              >
+                <button
+                  type="button"
+                  className={`composer-usage ${ratioLevel(contextUsage.tokens, contextUsage.window)}`}
+                  aria-label="上下文占用"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onCommand?.("/context");
+                  }}
+                >
+                  <PieChartOutlined />
+                  {formatTokens(contextUsage.tokens)} / {formatTokens(contextUsage.window)}
+                </button>
+              </Tooltip>
+            )}
             <span className="composer-key-hint">Shift + Enter 换行</span>
             {!running && (
               <ComposerPrimitive.Send
@@ -215,4 +236,16 @@ export function ChatComposer({
       </ComposerPrimitive.Root>
     </ComposerPrimitive.Unstable_TriggerPopoverRoot>
   );
+}
+
+const formatTokens = (tokens: number) =>
+  tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+
+/** Matches the automatic-compaction trigger: warn at 75% of the window. */
+function ratioLevel(tokens: number, window: number) {
+  if (window <= 0) return "";
+  const ratio = tokens / window;
+  if (ratio >= 1) return "danger";
+  if (ratio >= 0.75) return "warn";
+  return "";
 }

@@ -89,7 +89,7 @@ export function ProjectConsole({
     <>
       <div className="brand">
         <span className="brand-mark">
-          <DeploymentUnitOutlined key="DeploymentUnitOutlined" />
+          <DeploymentUnitOutlined key="DeploymentUnitOutlined" aria-hidden="true" />
         </span>
         <strong>
           Agent Platform<small>企业智能体平台</small>
@@ -103,7 +103,6 @@ export function ProjectConsole({
             <Link
               to={projectId ? projectPath(projectId, key) : "/"}
               key={key}
-              aria-label={label}
               className={page === key ? "nav-item active" : "nav-item"}
               aria-current={page === key ? "page" : undefined}
             >
@@ -120,7 +119,7 @@ export function ProjectConsole({
             state={{ projectId }}
             className={page === "team" ? "nav-item active" : "nav-item"}
           >
-            <TeamOutlined />
+            <TeamOutlined aria-hidden="true" />
             <span>团队设置</span>
           </Link>
         )}
@@ -162,7 +161,7 @@ export function ProjectConsole({
             <Button
               type="text"
               aria-label="退出登录"
-              icon={<LogoutOutlined key="LogoutOutlined" />}
+              icon={<LogoutOutlined key="LogoutOutlined" aria-hidden="true" />}
               onClick={() => void confirmExit(logout)}
             />
           </Tooltip>
@@ -238,10 +237,10 @@ export function ProjectConsole({
                       type="text"
                       className="mobile-menu"
                       aria-label="打开导航"
-                      icon={<MenuOutlined key="MenuOutlined" />}
+                      icon={<MenuOutlined key="MenuOutlined" aria-hidden="true" />}
                       onClick={() => setMobilePath(location.pathname)}
                     />
-                    <FolderOpenOutlined key="FolderOpenOutlined" />
+                    <FolderOpenOutlined key="FolderOpenOutlined" aria-hidden="true" />
                     <Select
                       aria-label="当前项目"
                       variant="borderless"
@@ -267,7 +266,7 @@ export function ProjectConsole({
                         <Button
                           data-agent-target={page === "agents" ? "agent.create" : undefined}
                           type="primary"
-                          icon={<PlusOutlined key="PlusOutlined" />}
+                          icon={<PlusOutlined key="PlusOutlined" aria-hidden="true" />}
                           onClick={() =>
                             openEditor(
                               (
@@ -295,7 +294,7 @@ export function ProjectConsole({
 
                     <Button
                       type="text"
-                      icon={<PlusOutlined key="PlusOutlined" />}
+                      icon={<PlusOutlined key="PlusOutlined" aria-hidden="true" />}
                       disabled={!teamAdmin}
                       onClick={() => openEditor("project")}
                     >
@@ -305,7 +304,7 @@ export function ProjectConsole({
                       <Button
                         aria-label="刷新数据"
                         type="text"
-                        icon={<ReloadOutlined spin={loading} />}
+                        icon={<ReloadOutlined aria-hidden="true" spin={loading} />}
                         onClick={() => void refresh()}
                       />
                     </Tooltip>
@@ -329,7 +328,7 @@ export function ProjectConsole({
                       action={
                         <Button
                           type="primary"
-                          icon={<PlusOutlined key="PlusOutlined" />}
+                          icon={<PlusOutlined key="PlusOutlined" aria-hidden="true" />}
                           disabled={!teamAdmin}
                           onClick={() => openEditor("project")}
                         >

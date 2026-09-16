@@ -142,7 +142,7 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
         <div className="auth-story">
           <div className="brand">
             <span className="brand-mark">
-              <DeploymentUnitOutlined key="DeploymentUnitOutlined" />
+              <DeploymentUnitOutlined key="DeploymentUnitOutlined" aria-hidden="true" />
             </span>
             <strong>Agent Platform</strong>
           </div>
@@ -160,15 +160,15 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
             </p>
             <div className="auth-flow">
               <span>
-                <ApiOutlined key="ApiOutlined" /> 模型
+                <ApiOutlined key="ApiOutlined" aria-hidden="true" /> 模型
               </span>
               <i />
               <span>
-                <RobotOutlined key="RobotOutlined" /> Agent
+                <RobotOutlined key="RobotOutlined" aria-hidden="true" /> Agent
               </span>
               <i />
               <span>
-                <ThunderboltOutlined key="ThunderboltOutlined" /> 业务
+                <ThunderboltOutlined key="ThunderboltOutlined" aria-hidden="true" /> 业务
               </span>
             </div>
           </div>
@@ -223,10 +223,10 @@ export function SessionBoundary({ children }: { children(session: ConsoleSession
               </Form.Item>
               <Button block type="primary" htmlType="submit" size="large" loading={authBusy}>
                 {initialized ? "登录" : "创建并进入平台"}
-                <ArrowRightOutlined key="ArrowRightOutlined" />
+                <ArrowRightOutlined key="ArrowRightOutlined" aria-hidden="true" />
               </Button>
             </Form>
-            <p className="auth-hint">当前提供本地帐号登录，统一身份中心接入将在后续交付。</p>
+            <p className="auth-hint">当前提供本地账号登录，统一身份中心接入将在后续交付。</p>
           </div>
         </div>
       </div>

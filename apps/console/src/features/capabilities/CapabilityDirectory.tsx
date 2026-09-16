@@ -326,7 +326,9 @@ function Cards({
                   : JSON.stringify(detail.inputSchema, null, 2)}
               </pre>
             </section>
-            <small className="resource-id">内容指纹 · {detail.digest}</small>
+            <small className="resource-id" title={detail.digest}>
+              内容指纹 · {detail.digest}
+            </small>
           </div>
         </Drawer>
       )}

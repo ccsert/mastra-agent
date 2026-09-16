@@ -9,15 +9,29 @@ export async function conversationContext(tx: Queryable, id: string) {
      FROM (SELECT $1::uuid AS id) c LEFT JOIN conversation_summaries s ON s.conversation_id=c.id`,
     [id],
   );
+  const [limits] = await tx.query(
+    `SELECT COALESCE((rel.snapshot->'agent'->'executionLimits'->>'contextTokens')::int, 32000) AS window
+     FROM conversations c JOIN releases rel ON rel.id=c.release_id WHERE c.id=$1`,
+    [id],
+  );
+  // Peak assembled model context actually measured for this conversation.
+  const [usage] = await tx.query(
+    `SELECT max(CASE WHEN jsonb_typeof(e.chunk)='object'
+       THEN (e.chunk->'data'->'usage'->>'inputTokens')::int END) AS tokens
+     FROM run_events e JOIN runs r ON r.id=e.run_id
+     WHERE r.conversation_id=$1 AND e.chunk->>'type'='data-model-step'`,
+    [id],
+  );
   return ConversationContext.parse({
     totalMessages: Number(row.total),
     coveredMessages: Number(row.covered),
     summary: row.summary ?? null,
     runId: row.run_id ?? null,
     createdAt: row.created_at ? new Date(String(row.created_at)).toISOString() : null,
+    contextTokens: usage?.tokens ?? null,
+    contextWindow: Number(limits?.window ?? 32000),
   });
 }
-
 export async function modelHistory(tx: Queryable, id: string) {
   const [summary] = await tx.query(
     "SELECT * FROM conversation_summaries WHERE conversation_id=$1",

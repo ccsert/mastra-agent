@@ -432,7 +432,8 @@ export class Conversations {
     if (!compact) {
       const window = snapshot.agent.executionLimits?.contextTokens ?? 32000;
       const [usage] = await tx.query(
-        `SELECT e.chunk->'data'->'usage'->>'inputTokens' AS tokens
+        `SELECT CASE WHEN jsonb_typeof(e.chunk)='object'
+           THEN (e.chunk->'data'->'usage'->>'inputTokens')::int END AS tokens
          FROM run_events e JOIN runs r ON r.id=e.run_id
          WHERE r.conversation_id=$1 AND e.chunk->>'type'='data-model-step'
          ORDER BY r.created_at DESC,r.id DESC,e.seq DESC LIMIT 1`,

@@ -682,6 +682,9 @@ test("compaction checkpoints only successful summaries and preserves original go
   assert.equal(context.coveredMessages, 4);
   assert.equal(context.totalMessages, 4);
   assert.equal(context.summary, "事实 A；资源 id-B；待用户保存草稿。");
+  // Stringified event chunks never break the occupancy read.
+  assert.equal(context.contextTokens, null);
+  assert.equal(context.contextWindow, 16000);
   await platform.conversations.createRun(
     owner,
     projectId,

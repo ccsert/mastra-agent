@@ -177,6 +177,10 @@ export const ConversationContext = z
     summary: z.string().nullable(),
     runId: Id.nullable(),
     createdAt: z.string().nullable(),
+    /** Largest measured model input for this conversation; null when never run. */
+    contextTokens: z.number().int().nullable().default(null),
+    /** The agent's model context window; null when unknown. */
+    contextWindow: z.number().int().nullable().default(null),
   })
   .openapi("ConversationContext");
 export const ExecutionJob = z.object({

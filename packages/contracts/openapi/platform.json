@@ -2714,6 +2714,20 @@
               "string",
               "null"
             ]
+          },
+          "contextTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "contextWindow": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
           }
         },
         "required": [

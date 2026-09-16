@@ -92,11 +92,13 @@ export function Workspace(session: ConsoleSession) {
   return (
     <>
       {error && (
-        <Alert
-          type="error"
-          title={error}
-          action={<Button onClick={() => void refreshProjects()}>重新加载项目</Button>}
-        />
+        <div className="workspace-alert">
+          <Alert
+            type="error"
+            title={error}
+            action={<Button onClick={() => void refreshProjects()}>重新加载项目</Button>}
+          />
+        </div>
       )}
       {content()}
     </>

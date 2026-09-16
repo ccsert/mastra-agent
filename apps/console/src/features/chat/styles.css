@@ -1668,3 +1668,23 @@
     display: contents;
   }
 }
+
+/* Context occupancy chip at the composer's bottom-right. */
+.composer-usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: #8a9890;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.composer-usage.warn {
+  color: #d48806;
+}
+.composer-usage.danger {
+  color: #cf1322;
+}

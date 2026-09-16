@@ -5,6 +5,11 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Text roles, each verified ≥4.5:1 on the surfaces it renders on (white, #f6f8f7 page, cards, gradients). */
+  --accent: #246b59;
+  --text-secondary: #5f6f68;
+  --text-quiet: #66756e;
+  --text-quiet-dark: #8fb49e;
 }
 * {
   box-sizing: border-box;
@@ -40,10 +45,10 @@ a {
   color: #246b59;
 }
 code {
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 pre {
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 code {
   font-size: 12px;
@@ -58,7 +63,7 @@ a:focus-visible {
   outline-offset: 3px;
 }
 .muted {
-  color: #809089;
+  color: var(--text-quiet);
 }
 .full-loader {
   min-height: 100dvh;
@@ -83,10 +88,10 @@ a:focus-visible {
 }
 .brand small {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: 2px;
-  color: #86928d;
+  color: var(--text-quiet);
   margin-top: 4px;
 }
 .brand-mark {
@@ -115,9 +120,9 @@ a:focus-visible {
   z-index: 20;
 }
 .sidebar-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
-  color: #9aa49e;
+  color: var(--text-quiet);
   padding: 0 28px 12px;
 }
 .sidebar nav {
@@ -138,8 +143,8 @@ a:focus-visible {
   width: 100%;
   border: 0;
   background: none;
-  color: #75827c;
-  text-align: left;
+  color: var(--text-secondary);
+  text-align: start;
   border-radius: 7px;
   font-size: 13px;
 }
@@ -158,8 +163,10 @@ a:focus-visible {
 .nav-item b {
   margin-left: auto;
   background: #dceae1;
-  font-size: 10px;
+  color: #4f6159;
+  font-size: 11px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   border-radius: 4px;
   padding: 1px 6px;
 }
@@ -190,13 +197,13 @@ a:focus-visible {
 }
 .user-row small {
   display: block;
-  color: #9aa69f;
-  font-size: 10px;
+  color: var(--text-quiet);
+  font-size: 11px;
   margin-top: 4px;
 }
 .user-avatar {
   background: #efeae1;
-  color: #8e7959;
+  color: #6a583c;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -204,9 +211,12 @@ a:focus-visible {
   place-items: center;
 }
 .workspace {
-  margin-left: 232px;
+  margin-inline-start: 232px;
   flex: 1;
   min-width: 0;
+}
+.workspace-alert {
+  padding: 12px 24px;
 }
 .topbar {
   height: 76px;
@@ -239,10 +249,10 @@ a:focus-visible {
   font-size: 13px;
 }
 .topbar-project .ant-tag {
-  font-size: 10px;
+  font-size: 11px;
   background: #f5f7f5;
   border-color: #e2e9e3;
-  color: #8c998f;
+  color: var(--text-secondary);
 }
 .mobile-menu {
   display: none;
@@ -270,7 +280,7 @@ a:focus-visible {
 }
 .breadcrumb {
   font-size: 11px;
-  color: #9aa69f;
+  color: var(--text-quiet);
   margin-bottom: 16px;
 }
 .breadcrumb span {
@@ -306,8 +316,8 @@ a:focus-visible {
 }
 .resource-id {
   display: block;
-  color: #a3ada6;
-  font-size: 9px;
+  color: var(--text-quiet);
+  font-size: 11px;
   margin-top: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -319,7 +329,7 @@ a:focus-visible {
   align-items: flex-start;
   font-size: 11px;
   line-height: 1.8;
-  color: #8b9a8f;
+  color: var(--text-quiet);
   margin-top: 30px;
 }
 .scope-note > .anticon {
@@ -336,7 +346,7 @@ a:focus-visible {
 }
 .blank-state p {
   font-size: 12px;
-  color: #8a9b8f;
+  color: var(--text-quiet);
   line-height: 1.8;
   max-width: 410px;
   margin: auto;
@@ -356,8 +366,8 @@ a:focus-visible {
   overflow-wrap: anywhere;
 }
 .cell-title small {
-  font-size: 10px;
-  color: #9aa89f;
+  font-size: 11px;
+  color: var(--text-quiet);
   display: block;
   margin-top: 5px;
   max-width: 260px;
@@ -385,7 +395,7 @@ a:focus-visible {
   font-size: 12px;
 }
 .ant-table-tbody .ant-tag {
-  font-size: 10px;
+  font-size: 11px;
 }
 .form-alert {
   margin-bottom: 20px;
@@ -393,7 +403,7 @@ a:focus-visible {
 .form-note {
   font-size: 12px;
   line-height: 1.8;
-  color: #809087;
+  color: var(--text-quiet);
   margin-bottom: 24px;
 }
 .model-probe {
@@ -416,14 +426,14 @@ a:focus-visible {
 .model-probe span {
   font-size: 12px;
   line-height: 1.7;
-  color: #809087;
+  color: var(--text-quiet);
 }
 .probe-facts {
   display: block;
   margin-top: 6px;
   font-size: 11px;
   line-height: 1.7;
-  color: #809087;
+  color: var(--text-quiet);
 }
 .model-capabilities {
   display: grid;
@@ -443,7 +453,7 @@ a:focus-visible {
 .model-capabilities > div > span {
   font-size: 12px;
   line-height: 1.7;
-  color: #809087;
+  color: var(--text-quiet);
 }
 .capability-tags {
   display: inline-flex;
@@ -464,7 +474,7 @@ a:focus-visible {
   border: 1px solid #e5ece7;
   border-radius: 10px;
   background: #fff;
-  text-align: left;
+  text-align: start;
   color: inherit;
 }
 .agent-picker-item:hover:not(:disabled) {
@@ -487,7 +497,7 @@ a:focus-visible {
 }
 .agent-picker-item small {
   font-size: 11px;
-  color: #809087;
+  color: var(--text-quiet);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -498,7 +508,7 @@ a:focus-visible {
   color: #246b59;
 }
 .code-input {
-  font-family: monospace;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
 }
 .dialog-footer {
@@ -532,12 +542,12 @@ a:focus-visible {
 }
 @media (max-width: 1150px) {
   .workspace {
-    margin-left: 205px;
+    margin-inline-start: 205px;
   }
 }
 @media (max-width: 1150px) {
   .brand {
-    padding-left: 19px;
+    padding-inline-start: 19px;
   }
 }
 @media (max-width: 1150px) {
@@ -689,8 +699,8 @@ a:focus-visible {
   text-overflow: ellipsis;
 }
 .model-endpoint small {
-  font-size: 10px;
-  color: #9aa89f;
+  font-size: 11px;
+  color: var(--text-quiet);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -700,7 +710,7 @@ a:focus-visible {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #8a9890;
+  color: var(--text-quiet);
   white-space: nowrap;
 }
 .model-credential i {
@@ -735,7 +745,7 @@ a:focus-visible {
   background: #4c9a78;
 }
 .capability.off {
-  color: #9aa89f;
+  color: var(--text-quiet);
 }
 .capability.off::before {
   background: #d4ddd6;
@@ -746,13 +756,13 @@ a:focus-visible {
   gap: 4px;
 }
 .model-status small {
-  font-size: 10px;
-  color: #9aa89f;
+  font-size: 11px;
+  color: var(--text-quiet);
 }
 .topbar-page {
   margin: 0 2px 0 10px;
-  padding-left: 12px;
-  border-left: 1px solid #e2e8e3;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid #e2e8e3;
   font-size: 14px;
   font-weight: 600;
   color: #33413a;

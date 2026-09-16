@@ -31,7 +31,7 @@ createRoot(root).render(
         colorPrimary: "#246b59",
         colorInfo: "#246b59",
         colorText: "#263b36",
-        colorTextSecondary: "#71807a",
+        colorTextSecondary: "#5f6f68",
         borderRadius: 8,
         fontFamily:
           'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif',
@@ -39,7 +39,7 @@ createRoot(root).render(
       },
       components: {
         Button: { primaryShadow: "none" },
-        Table: { headerBg: "#f8faf9", headerColor: "#7a8780", cellPaddingBlock: 18 },
+        Table: { headerBg: "#f8faf9", headerColor: "#5f6f68", cellPaddingBlock: 18 },
         Select: { optionSelectedBg: "#eaf2ee" },
       },
     }}

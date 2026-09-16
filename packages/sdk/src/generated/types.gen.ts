@@ -574,6 +574,8 @@ export type ConversationContext = {
     summary: string | null;
     runId: string | null;
     createdAt: string | null;
+    contextTokens?: number | null;
+    contextWindow?: number | null;
 };
 
 export type Conversation = {
