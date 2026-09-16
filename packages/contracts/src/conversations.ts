@@ -181,6 +181,15 @@ export const ConversationContext = z
     contextTokens: z.number().int().nullable().default(null),
     /** The agent's model context window; null when unknown. */
     contextWindow: z.number().int().nullable().default(null),
+    /** Rough composition of the newest assembled request, estimated from character shares. */
+    contextBreakdown: z
+      .object({
+        system: z.number().int().nonnegative(),
+        tools: z.number().int().nonnegative(),
+        messages: z.number().int().nonnegative(),
+      })
+      .nullable()
+      .default(null),
   })
   .openapi("ConversationContext");
 export const ExecutionJob = z.object({

@@ -2728,6 +2728,32 @@
               "null"
             ],
             "default": null
+          },
+          "contextBreakdown": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "system": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tools": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "messages": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "default": null,
+            "required": [
+              "system",
+              "tools",
+              "messages"
+            ]
           }
         },
         "required": [

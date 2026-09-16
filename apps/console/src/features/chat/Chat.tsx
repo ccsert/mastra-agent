@@ -512,6 +512,7 @@ export function Chat({
                         ? {
                             tokens: contextUsage.data.contextTokens,
                             window: contextUsage.data.contextWindow,
+                            breakdown: contextUsage.data.contextBreakdown,
                           }
                         : undefined
                     }

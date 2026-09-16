@@ -1688,3 +1688,90 @@
 .composer-usage.danger {
   color: #cf1322;
 }
+
+/* Context occupancy: ring button + hover details popover. */
+.composer-context-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  padding: 2px;
+  color: #8a9890;
+  cursor: default;
+}
+.composer-context-ring.warn {
+  color: #d48806;
+}
+.composer-context-ring.danger {
+  color: #cf1322;
+}
+.context-usage-popover {
+  min-width: 260px;
+  font-size: 12px;
+  color: #3f4c45;
+}
+.context-usage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.context-usage-head strong {
+  font-size: 14px;
+}
+.context-usage-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: #e5ebe7;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.context-usage-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #4c9a78;
+  transition: width 0.3s ease;
+}
+.context-usage-popover ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.context-usage-popover li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.context-usage-popover li span {
+  flex: 1;
+}
+.context-usage-popover li b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.context-usage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.context-usage-dot.system {
+  background: #8b9bb0;
+}
+.context-usage-dot.tools {
+  background: #a78bfa;
+}
+.context-usage-dot.messages {
+  background: #60a5fa;
+}
+.context-usage-popover p {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8a9890;
+}

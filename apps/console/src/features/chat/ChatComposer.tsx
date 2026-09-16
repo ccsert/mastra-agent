@@ -7,7 +7,6 @@ import {
   CompressOutlined,
   FileZipOutlined,
   InfoCircleOutlined,
-  PieChartOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
 import {
@@ -18,7 +17,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import type { ConversationCapabilities } from "@platform/sdk";
-import { Button, Tag, Tooltip } from "antd";
+import { Button, Popover, Tag } from "antd";
 
 import { ComposerTriggerPopover, TooltipIconButton } from "../../shared/assistant-ui";
 import { skillCommands, skillTriggerMatcher, systemCommands } from "./commands";
@@ -49,7 +48,11 @@ export function ChatComposer({
   error: boolean;
   onRetry(): void;
   onCommand?: (text: string) => boolean;
-  contextUsage?: { tokens?: number | null; window?: number | null };
+  contextUsage?: {
+    tokens?: number | null;
+    window?: number | null;
+    breakdown?: { system: number; tools: number; messages: number } | null;
+  };
 }) {
   const composerText = useAuiState((s) => s.composer.text);
   const running = useAuiState((s) => s.thread.isRunning) || recovering;
@@ -184,22 +187,47 @@ export function ChatComposer({
           </div>
           <div className="composer-submit">
             {contextUsage?.window != null && contextUsage.tokens != null && (
-              <Tooltip
-                title={`上下文占用（最近一次实测）· 达到窗口 75% 时下次运行自动压缩历史，/compact 可立即压缩`}
+              <Popover
+                trigger="hover"
+                placement="topRight"
+                arrow={false}
+                content={
+                  <ContextUsageDetails
+                    tokens={contextUsage.tokens}
+                    window={contextUsage.window}
+                    breakdown={contextUsage.breakdown ?? null}
+                  />
+                }
               >
                 <button
                   type="button"
-                  className={`composer-usage ${ratioLevel(contextUsage.tokens, contextUsage.window)}`}
+                  className={`composer-context-ring ${ratioLevel(contextUsage.tokens, contextUsage.window)}`}
                   aria-label="上下文占用"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onCommand?.("/context");
-                  }}
                 >
-                  <PieChartOutlined />
-                  {formatTokens(contextUsage.tokens)} / {formatTokens(contextUsage.window)}
+                  <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeOpacity="0.25"
+                      strokeWidth="2.5"
+                    />
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeDasharray={`${ringRatio(contextUsage.tokens, contextUsage.window) * 2 * Math.PI * 7.5} ${2 * Math.PI * 7.5}`}
+                      transform="rotate(-90 10 10)"
+                    />
+                  </svg>
                 </button>
-              </Tooltip>
+              </Popover>
             )}
             <span className="composer-key-hint">Shift + Enter 换行</span>
             {!running && (
@@ -238,14 +266,63 @@ export function ChatComposer({
   );
 }
 
-const formatTokens = (tokens: number) =>
-  tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
-
 /** Matches the automatic-compaction trigger: warn at 75% of the window. */
+function ringRatio(tokens: number, window: number) {
+  if (window <= 0) return 0;
+  return Math.max(0.02, Math.min(1, tokens / window));
+}
 function ratioLevel(tokens: number, window: number) {
   if (window <= 0) return "";
   const ratio = tokens / window;
   if (ratio >= 1) return "danger";
   if (ratio >= 0.75) return "warn";
   return "";
+}
+
+function formatTokens(tokens: number) {
+  return tokens >= 10000 ? `${Math.round(tokens / 1000)}K` : `${(tokens / 1000).toFixed(1)}K`;
+}
+
+function ContextUsageDetails({
+  tokens,
+  window,
+  breakdown,
+}: {
+  tokens: number;
+  window: number;
+  breakdown?: { system: number; tools: number; messages: number } | null;
+}) {
+  const percent = window > 0 ? Math.min(100, Math.round((tokens / window) * 100)) : 0;
+  const rows = [
+    { key: "system", label: "系统提示词", tokens: breakdown?.system },
+    { key: "tools", label: "工具定义", tokens: breakdown?.tools },
+    { key: "messages", label: "对话消息", tokens: breakdown?.messages },
+  ].filter((row) => row.tokens != null);
+  return (
+    <div className="context-usage-popover">
+      <div className="context-usage-head">
+        <span>
+          上下文已用 <strong>{percent}%</strong>
+        </span>
+        <span>
+          ~{formatTokens(tokens)} / {formatTokens(window)}
+        </span>
+      </div>
+      <div className="context-usage-bar">
+        <i style={{ width: `${percent}%` }} />
+      </div>
+      {rows.length > 0 && (
+        <ul>
+          {rows.map((row) => (
+            <li key={row.key}>
+              <i className={`context-usage-dot ${row.key}`} aria-hidden="true" />
+              <span>{row.label}</span>
+              <b>~{formatTokens(row.tokens ?? 0)}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p>达到窗口 75% 时，下次运行自动压缩历史；/compact 可立即压缩。</p>
+    </div>
+  );
 }

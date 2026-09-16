@@ -576,6 +576,11 @@ export type ConversationContext = {
     createdAt: string | null;
     contextTokens?: number | null;
     contextWindow?: number | null;
+    contextBreakdown?: {
+        system: number;
+        tools: number;
+        messages: number;
+    } | null;
 };
 
 export type Conversation = {
