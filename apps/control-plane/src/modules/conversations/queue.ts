@@ -296,6 +296,23 @@ export class Queue {
         chunk,
         occurredAt ?? null,
       ]);
+      // Settled aggregates for the conversation stats footer, captured here so
+      // the read side never scans the append-only event log. A malformed or
+      // partial observation is ignored: stats never claim more than reported.
+      const type = (chunk as { type?: unknown }).type;
+      if (type === "data-run-usage") {
+        await tx.query("UPDATE runs SET usage=$2 WHERE id=$1", [
+          id,
+          (chunk as { data?: unknown }).data ?? null,
+        ]);
+      } else if (type === "data-model-response") {
+        const data = (chunk as { data?: { durationMs?: unknown } }).data;
+        if (typeof data?.durationMs === "number" && Number.isFinite(data.durationMs))
+          await tx.query("UPDATE runs SET model_ms=COALESCE(model_ms,0)+$2 WHERE id=$1", [
+            id,
+            Math.max(0, Math.round(data.durationMs)),
+          ]);
+      }
     });
   }
   async finish(id: string, input: z.infer<typeof RuntimeFinishInput>) {

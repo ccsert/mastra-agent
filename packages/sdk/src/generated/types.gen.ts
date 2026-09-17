@@ -583,6 +583,15 @@ export type ConversationContext = {
     } | null;
 };
 
+export type ConversationStats = {
+    turns: number;
+    steps: number;
+    modelMs?: number | null;
+    outputTokens?: number | null;
+    inputTokens?: number | null;
+    cachedInputTokens?: number | null;
+};
+
 export type Conversation = {
     id: string;
     agentId: string;
@@ -4103,6 +4112,58 @@ export type GetConversationContextResponses = {
 };
 
 export type GetConversationContextResponse = GetConversationContextResponses[keyof GetConversationContextResponses];
+
+export type GetConversationStatsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/conversations/{id}/stats';
+};
+
+export type GetConversationStatsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetConversationStatsError = GetConversationStatsErrors[keyof GetConversationStatsErrors];
+
+export type GetConversationStatsResponses = {
+    /**
+     * 成功
+     */
+    200: ConversationStats;
+};
+
+export type GetConversationStatsResponse = GetConversationStatsResponses[keyof GetConversationStatsResponses];
 
 export type ResetConversationData = {
     body: {

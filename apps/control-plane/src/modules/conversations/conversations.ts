@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   ConversationSession,
+  ConversationStats,
   Id,
   Message,
   type Principal,
@@ -173,6 +174,36 @@ export class Conversations {
   async context(actor: Principal, projectId: string, id: string) {
     await this.get(actor, projectId, id);
     return conversationContext(this.db, id);
+  }
+  /** Settled conversation totals for the composer footer. Every figure is a
+   * sum of provider-reported or transport-measured values; a field with no
+   * report anywhere stays null instead of becoming zero. Compaction runs are
+   * excluded: they are maintenance, not conversation turns. */
+  async stats(actor: Principal, projectId: string, id: string) {
+    await this.get(actor, projectId, id);
+    const [row] = await this.db.query(
+      `SELECT count(*) AS turns,
+         sum(COALESCE((r.usage->>'steps')::int, 0)) AS steps,
+         sum(r.model_ms) AS model_ms,
+         sum((r.usage->'usage'->>'inputTokens')::bigint) AS input_tokens,
+         sum((r.usage->'usage'->>'outputTokens')::bigint) AS output_tokens,
+         sum((r.usage->'usage'->>'cachedInputTokens')::bigint) AS cached_input_tokens
+       FROM runs r
+       WHERE r.conversation_id=$1 AND COALESCE(r.context_action,'')<>'compact'`,
+      [id],
+    );
+    const total = (value: unknown) => {
+      const parsed = Number(value);
+      return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+    };
+    return ConversationStats.parse({
+      turns: total(row?.turns) ?? 0,
+      steps: total(row?.steps) ?? 0,
+      modelMs: total(row?.model_ms),
+      inputTokens: total(row?.input_tokens),
+      outputTokens: total(row?.output_tokens),
+      cachedInputTokens: total(row?.cached_input_tokens),
+    });
   }
   async reset(actor: Principal, projectId: string, id: string, requestId: string) {
     return this.db.transaction(async (tx) => {

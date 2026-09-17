@@ -170,6 +170,22 @@ export const TraceQuery = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(20).default(10),
 });
+export const ConversationStats = z
+  .object({
+    /** Completed (or in-flight) user turns with a settled run record. */
+    turns: z.number().int().nonnegative(),
+    /** Total model round trips across those turns. */
+    steps: z.number().int().nonnegative(),
+    /** Sum of measured model-transport durations; null when none was recorded. */
+    modelMs: z.number().int().nonnegative().nullable().default(null),
+    /** Sum of provider-reported output tokens; null when never reported. */
+    outputTokens: z.number().int().nonnegative().nullable().default(null),
+    /** Sum of provider-reported input tokens; null when never reported. */
+    inputTokens: z.number().int().nonnegative().nullable().default(null),
+    /** Sum of provider-reported cached input tokens; null when never reported. */
+    cachedInputTokens: z.number().int().nonnegative().nullable().default(null),
+  })
+  .openapi("ConversationStats");
 export const ConversationContext = z
   .object({
     totalMessages: z.number().int().nonnegative(),

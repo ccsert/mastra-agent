@@ -285,6 +285,25 @@
   font-size: 11px;
   color: #9aa69f;
 }
+.chat-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.chat-stats-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+}
+.chat-stats-item .anticon {
+  font-size: 11px;
+  color: var(--text-quiet);
+}
 .chat-command-selection {
   display: flex;
   flex-wrap: wrap;

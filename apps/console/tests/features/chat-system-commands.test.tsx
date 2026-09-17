@@ -29,6 +29,15 @@ test("click and form submission execute local commands without sending a model r
   globalThis.fetch = async (input) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url.endsWith("/capabilities")) return Response.json({ skills: [] });
+    if (url.endsWith("/stats"))
+      return Response.json({
+        turns: 0,
+        steps: 0,
+        modelMs: null,
+        inputTokens: null,
+        outputTokens: null,
+        cachedInputTokens: null,
+      });
     if (url.endsWith("/context"))
       return Response.json({
         totalMessages: 4,

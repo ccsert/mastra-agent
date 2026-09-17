@@ -6,6 +6,7 @@ import {
   ConversationInput,
   ConversationRunSummary,
   ConversationSession,
+  ConversationStats,
   ConversationTrace,
   ConversationUpdateInput,
   DeriveConversationInput,
@@ -49,6 +50,19 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
     async (c) => {
       const { projectId, id } = c.req.valid("param");
       return c.json(await conversations.context(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "get",
+      path: "/api/v1/projects/{projectId}/conversations/{id}/stats",
+      operationId: "getConversationStats",
+      request: { params: itemParams },
+      responses: { 200: json(ConversationStats), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id } = c.req.valid("param");
+      return c.json(await conversations.stats(c.get("principal"), projectId, id), 200);
     },
   );
   app.openapi(

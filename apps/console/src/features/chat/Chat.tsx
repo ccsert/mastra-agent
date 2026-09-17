@@ -29,6 +29,7 @@ import { ChatFeedback } from "./ChatFeedback";
 import { AssistantContext, MessageContext, MessageExtras, ToolCard } from "./ChatMessage";
 import { ChatReasoning, ChatToolGroup } from "./ChatProcess";
 import { ChatRecovery } from "./ChatRecovery";
+import { ChatStatsBar } from "./ChatStatsBar";
 import { chatToolkit, ToolTraceContext } from "./ChatToolCards";
 import { ChatTurn } from "./ChatTurn";
 import { ChatTurnRail } from "./ChatTurnRail";
@@ -260,8 +261,11 @@ export function Chat({
       pendingCancel.current = false;
       setCancelling(false);
       onFinish();
-      // Context occupancy changes the moment a run settles; refresh the chip.
+      // Context occupancy and the footer totals change the moment a run settles.
       void contextUsage.refetch();
+      void client.invalidateQueries({
+        queryKey: projectKey(projectId, "conversations", conversationId, "stats"),
+      });
     },
   });
   useEffect(() => {
@@ -519,7 +523,11 @@ export function Chat({
                   />
                 </>
               }
-              footer={<p className="chat-footnote">内容由 AI 生成，请结合业务事实核对</p>}
+              footer={
+                assistantMode ? null : (
+                  <ChatStatsBar projectId={projectId} conversationId={conversationId} />
+                )
+              }
             />
             <ChatTurnRail />
           </ArtifactCanvas>
