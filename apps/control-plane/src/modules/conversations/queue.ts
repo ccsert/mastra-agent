@@ -109,6 +109,12 @@ export class Queue {
     await this.db.query(
       "UPDATE runs r SET status=CASE WHEN cancel_requested THEN 'cancelled' ELSE 'failed' END,error_code=CASE WHEN cancel_requested THEN 'CANCELLED' WHEN deadline<now() THEN 'TIMEOUT' WHEN EXISTS(SELECT 1 FROM run_tool_receipts t WHERE t.run_id=r.id AND t.status='running') THEN 'TOOL_OUTCOME_UNKNOWN' WHEN status='queued' THEN 'RUNTIME_UNAVAILABLE' ELSE 'RUNTIME_LOST' END,finished_at=now() WHERE (status='queued' AND deadline<now()) OR (status='running' AND (lease_until<now() OR deadline<now()))",
     );
+    // Gates left pending by a lost runtime follow the run: nobody can answer a
+    // question whose run no longer exists.
+    await this.db.query(
+      `UPDATE run_tool_approvals a SET status='expired',decided_at=now()
+       WHERE a.status='pending' AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.id=a.run_id AND r.status IN ('queued','running'))`,
+    );
     await this.db.query("DELETE FROM auth_nonces WHERE expires_at<now()");
     await this.db.query("DELETE FROM sessions WHERE expires_at<now()");
   }
@@ -362,6 +368,13 @@ export class Queue {
       await tx.query(
         "UPDATE runs SET status=$1,finished_at=now(),error_code=$2,output_text=$3 WHERE id=$4",
         [status, status === "succeeded" ? null : (input.errorCode ?? "CANCELLED"), outputText, id],
+      );
+      // A run that ends with a gate still open has stopped waiting. Retire the
+      // gate as expired right here: the decision nobody made can never be made
+      // on a finished run, and the UI must not keep showing a live question.
+      await tx.query(
+        "UPDATE run_tool_approvals SET status='expired',decided_at=now() WHERE run_id=$1 AND status='pending'",
+        [id],
       );
       // Provider-confirmed context overflow on a normal run: queue a compaction
       // run so the retry works on a summarized view. Best effort — skipped when

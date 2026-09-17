@@ -2992,6 +2992,22 @@
               },
               "deadline": {
                 "type": "string"
+              },
+              "startedAt": {
+                "type": "string"
+              },
+              "finishedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "durationMs": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
               }
             },
             "required": [
@@ -3001,7 +3017,10 @@
               "reservedTokens",
               "maxTokens",
               "recoveries",
-              "deadline"
+              "deadline",
+              "startedAt",
+              "finishedAt",
+              "durationMs"
             ]
           },
           "taskState": {

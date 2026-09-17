@@ -1,7 +1,6 @@
 import "../helpers/dom.ts";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { WebSpeechDictationAdapter } from "@assistant-ui/react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Chat } from "../../src/features/chat/Chat.tsx";
 import { ProjectData } from "../../src/shared/data/ProjectData.tsx";
@@ -49,17 +48,10 @@ test("recall stays out of the way while a draft is being written", async () => {
   assert.equal(input.value, "还没写完的草稿");
 });
 
-test("no voice action is rendered when the browser cannot perform it", async () => {
-  // The gate is the precondition, not a decoration: this asserts that the test
-  // environment really does lack the Web Speech API, so the absence below is
-  // evidence of the gate working rather than of the environment.
-  assert.equal("speechSynthesis" in globalThis.window, false);
-  assert.equal(WebSpeechDictationAdapter.isSupported(), false);
+test("voice actions are fully removed from the composer and message bar", async () => {
   const input = await renderChat();
   assert.equal(screen.queryByRole("button", { name: "朗读这条回复" }), null);
-  assert.equal(screen.queryByRole("button", { name: "停止朗读" }), null);
   assert.equal(screen.queryByRole("button", { name: "语音输入" }), null);
-  assert.equal(screen.queryByRole("button", { name: "停止语音输入" }), null);
   assert.ok(input);
 });
 

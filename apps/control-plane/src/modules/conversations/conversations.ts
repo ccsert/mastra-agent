@@ -360,11 +360,13 @@ export class Conversations {
         projected.workspace.artifacts.push(metadata);
     }
     const [execution] = await this.db.query(
-      "SELECT r.conversation_id,r.deadline,r.recovery_count,l.snapshot,(SELECT count(*) FROM run_model_reservations b WHERE b.run_id=r.id) AS calls,(SELECT coalesce(sum(coalesce(actual_tokens,estimated_tokens)),0) FROM run_model_reservations b WHERE b.run_id=r.id) AS reserved FROM runs r JOIN releases l ON l.id=r.release_id WHERE r.id=$1",
+      "SELECT r.conversation_id,r.deadline,r.recovery_count,r.created_at,r.finished_at,l.snapshot,(SELECT count(*) FROM run_model_reservations b WHERE b.run_id=r.id) AS calls,(SELECT coalesce(sum(coalesce(actual_tokens,estimated_tokens)),0) FROM run_model_reservations b WHERE b.run_id=r.id) AS reserved FROM runs r JOIN releases l ON l.id=r.release_id WHERE r.id=$1",
       [id],
     );
     const agent = ReleaseSnapshot.parse(execution.snapshot).agent,
       limits = ExecutionLimits.parse(agent.executionLimits ?? {});
+    const startedAt = new Date(String(execution.created_at));
+    const finishedAt = execution.finished_at ? new Date(String(execution.finished_at)) : null;
     projected.workspace.execution = {
       maxSteps: agent.maxSteps,
       maxModelCalls: limits.maxModelCalls,
@@ -373,6 +375,9 @@ export class Conversations {
       maxTokens: limits.maxTokens,
       recoveries: Number(execution.recovery_count),
       deadline: new Date(String(execution.deadline)).toISOString(),
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt ? finishedAt.toISOString() : null,
+      durationMs: finishedAt ? Math.max(0, finishedAt.getTime() - startedAt.getTime()) : null,
     };
     projected.workspace.feedback = (
       await this.db.query("SELECT * FROM task_feedback WHERE run_id=$1 ORDER BY position", [id])

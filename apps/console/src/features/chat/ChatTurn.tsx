@@ -23,6 +23,32 @@ const statusNames: Record<string, string> = {
   cancelled: "已停止",
   rejected: "未执行",
 };
+type ExecutionTiming = { startedAt: string; finishedAt: string | null; durationMs: number | null };
+const formatElapsed = (ms: number) =>
+  ms < 1000
+    ? `${ms}ms`
+    : ms < 60_000
+      ? `${(ms / 1000).toFixed(1)}s`
+      : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+/** Ticks once a second only while a run is still going, so a settled turn
+ * never keeps a timer alive. */
+function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+/** The whole turn's wall time: model steps, tool runs, and any wait for a
+ * human confirmation included — the turn really took this long. */
+function useElapsedLabel(execution: ExecutionTiming | undefined, active: boolean) {
+  const now = useNow(active && !!execution && execution.durationMs === null);
+  if (!execution) return "";
+  if (execution.durationMs !== null) return `耗时 ${formatElapsed(execution.durationMs)}`;
+  return `耗时 ${formatElapsed(Math.max(0, now - new Date(execution.startedAt).getTime()))}`;
+}
 export function ChatTurn({ children }: PropsWithChildren) {
   const context = useContext(ToolTraceContext);
   const updateFiles = useContext(ArtifactCanvasContext)?.updateFiles;
@@ -85,14 +111,14 @@ export function ChatTurn({ children }: PropsWithChildren) {
             : status === "incomplete"
               ? "执行已结束"
               : "处理完成";
-  const countLabel = data
-    ? [
-        data.subagents.length && `${data.subagents.length} 个子任务`,
-        data.skills.length && `${data.skills.length} 个 Skill`,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : "";
+  const elapsed = useElapsedLabel(data?.execution, running);
+  const countLabel = [
+    data?.subagents.length && `${data.subagents.length} 个子任务`,
+    data?.skills.length && `${data.skills.length} 个 Skill`,
+    elapsed,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <RunWorkspaceContext.Provider value={data}>
       <div className="chat-turn" data-process-expanded={expanded ?? failed > 0}>

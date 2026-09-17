@@ -67,7 +67,7 @@ function compactionInstruction(options: {
     ...(focus.trim()
       ? [`本轮压缩关注点（在忠实概括全部材料的前提下优先保留）：${focus.slice(0, 1000)}`, ""]
       : []),
-    ...rules.flatMap((rule) => ["- " + rule]),
+    ...rules.flatMap((rule) => [`- ${rule}`]),
     "",
     ...prior,
   ].join("\n");

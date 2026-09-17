@@ -36,6 +36,13 @@ export const RunWorkspace = z
         maxTokens: z.number(),
         recoveries: z.number(),
         deadline: z.string(),
+        /** When the run started executing; the anchor for live elapsed time. */
+        startedAt: z.string(),
+        /** Terminal time; null while the run is still going. */
+        finishedAt: z.string().nullable(),
+        /** Settled turn duration; null while running. Includes tool and
+         * human-confirmation waits, because the turn took this long. */
+        durationMs: z.number().nonnegative().nullable(),
       })
       .optional(),
     taskState: TaskStateInput.extend({ revision: z.number(), runId: Id }).optional(),

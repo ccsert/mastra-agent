@@ -42,7 +42,6 @@ import {
   saveDraft,
 } from "./continuity";
 import { formatRunError } from "./run-status";
-import { voiceAdapters } from "./voice";
 
 function Welcome() {
   return (
@@ -158,7 +157,6 @@ export function Chat({
   const runtime = useChatRuntime({
     id: conversationId,
     messages: initialMessages,
-    adapters: voiceAdapters,
     isSendDisabled:
       disconnected ||
       recovering ||

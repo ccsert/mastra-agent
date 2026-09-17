@@ -1,12 +1,5 @@
+import { FieldTimeOutlined, ToolOutlined } from "@ant-design/icons";
 import {
-  FieldTimeOutlined,
-  PauseCircleOutlined,
-  SoundOutlined,
-  ToolOutlined,
-} from "@ant-design/icons";
-import {
-  ActionBarPrimitive,
-  AuiIf,
   type ToolCallMessagePartComponent,
   useAuiState,
   useMessageTiming,
@@ -26,7 +19,6 @@ import { projectPath } from "../../shared/navigation";
 import { DocumentReader, locationLabel } from "../knowledge";
 import { ChatEditContext } from "./ChatEdit";
 import { ResultToolCard, ToolTraceContext } from "./ChatToolCards";
-import { readAloudSupported } from "./voice";
 
 type Citation = {
   citationId: string;
@@ -178,24 +170,6 @@ export function MessageExtras() {
   const timing = useMessageTiming();
   return (
     <>
-      {readAloudSupported && (
-        <>
-          <AuiIf condition={(s) => s.message.speech == null}>
-            <ActionBarPrimitive.Speak asChild>
-              <TooltipIconButton tooltip="朗读这条回复">
-                <SoundOutlined />
-              </TooltipIconButton>
-            </ActionBarPrimitive.Speak>
-          </AuiIf>
-          <AuiIf condition={(s) => s.message.speech != null}>
-            <ActionBarPrimitive.StopSpeaking asChild>
-              <TooltipIconButton tooltip="停止朗读">
-                <PauseCircleOutlined />
-              </TooltipIconButton>
-            </ActionBarPrimitive.StopSpeaking>
-          </AuiIf>
-        </>
-      )}
       <AssistantDerive />
       {/* useMessageTiming estimates token counts. Only display observed client latency. */}
       {!!timing?.totalStreamTime && (

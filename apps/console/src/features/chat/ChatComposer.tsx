@@ -1,7 +1,5 @@
 import {
   ArrowUpOutlined,
-  AudioMutedOutlined,
-  AudioOutlined,
   BorderOutlined,
   ClearOutlined,
   CompressOutlined,
@@ -10,7 +8,6 @@ import {
   QuestionCircleOutlined,
 } from "@ant-design/icons";
 import {
-  AuiIf,
   ComposerPrimitive,
   unstable_useComposerInputHistory,
   unstable_useSlashCommandAdapter,
@@ -22,7 +19,6 @@ import { Button, Popover, Tag } from "antd";
 import { ComposerTriggerPopover, TooltipIconButton } from "../../shared/assistant-ui";
 import { skillCommands, skillTriggerMatcher, systemCommands } from "./commands";
 import { SkillPicker } from "./SkillPicker";
-import { dictationSupported } from "./voice";
 
 export function ChatComposer({
   skills,
@@ -61,7 +57,6 @@ export function ChatComposer({
   // and it yields to an open popover — which is what keeps it compatible with
   // the `/` slash-command menu below.
   const history = unstable_useComposerInputHistory();
-  const dictation = dictationSupported;
   const unavailable = selected.some(
     (id) => !skills.some((skill) => skill.versionId === id && skill.enabled),
   );
@@ -166,24 +161,6 @@ export function ChatComposer({
               error={error}
               onRetry={onRetry}
             />
-            {dictation && (
-              <AuiIf condition={(s) => s.composer.dictation == null}>
-                <ComposerPrimitive.Dictate asChild>
-                  <TooltipIconButton tooltip="语音输入">
-                    <AudioOutlined />
-                  </TooltipIconButton>
-                </ComposerPrimitive.Dictate>
-              </AuiIf>
-            )}
-            {dictation && (
-              <AuiIf condition={(s) => s.composer.dictation != null}>
-                <ComposerPrimitive.StopDictation asChild>
-                  <TooltipIconButton tooltip="停止语音输入" className="text-destructive">
-                    <AudioMutedOutlined />
-                  </TooltipIconButton>
-                </ComposerPrimitive.StopDictation>
-              </AuiIf>
-            )}
           </div>
           <div className="composer-submit">
             {contextUsage?.window != null && contextUsage.tokens != null && (

@@ -636,6 +636,9 @@ export type RunWorkspace = {
         maxTokens: number;
         recoveries: number;
         deadline: string;
+        startedAt: string;
+        finishedAt: string | null;
+        durationMs: number | null;
     };
     taskState?: {
         baseRevision: number;
