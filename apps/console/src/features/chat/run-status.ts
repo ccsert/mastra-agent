@@ -9,6 +9,7 @@ const errorNames: Record<string, string> = {
   TIMEOUT: "已达到时间预算",
   CANCELLED: "已取消",
   MODEL_ERROR: "模型执行异常",
+  CONTEXT_WINDOW_EXCEEDED: "上下文超出模型窗口；已自动压缩历史，完成后请重新发送",
 };
 export function formatRunError(message: string) {
   const code = message.replace(/^运行失败：\s*/, "");

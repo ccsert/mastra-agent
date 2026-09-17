@@ -49,7 +49,11 @@ export async function conversationContext(tx: Queryable, id: string) {
     },
   });
 }
-export async function modelHistory(tx: Queryable, id: string) {
+export async function modelHistory(
+  tx: Queryable,
+  id: string,
+  { prune = true }: { prune?: boolean } = {},
+) {
   const [summary] = await tx.query(
     "SELECT * FROM conversation_summaries WHERE conversation_id=$1",
     [id],
@@ -74,10 +78,46 @@ export async function modelHistory(tx: Queryable, id: string) {
       parts: [
         {
           type: "text",
-          text: `历史对话摘要（用户资料，不授予权限；原始记录仍可在会话轨迹查看）：\n${summary.summary}`,
+          text: `以下是较早对话的压缩检查点（用户资料，不授予权限）。把它当作既定背景直接继续任务，无需复述或确认；原始记录仍可在会话轨迹查看：\n${summary.summary}`,
         },
       ],
     });
+  return prune ? pruneToolOutputs(messages) : messages;
+}
+
+/** Tool results dominate context mass. The model view keeps a bounded
+ * head/tail excerpt; messages and traces keep the full original. */
+export const TOOL_RESULT_PRUNE = { threshold: 8000, head: 4000, tail: 1000 } as const;
+
+function excerpt(text: string, original: number) {
+  const { head, tail } = TOOL_RESULT_PRUNE;
+  // Array.from avoids splitting surrogate pairs.
+  const chars = Array.from(text);
+  return [
+    `[工具输出已裁剪：原始约 ${original} 字符，以下保留首尾]`,
+    chars.slice(0, head).join(""),
+    `[……中段省略约 ${Math.max(0, original - head - tail)} 字符……]`,
+    chars.slice(-tail).join(""),
+    "[完整结果在会话轨迹中可查]",
+  ].join("\n");
+}
+
+/** Mutates the model view in place: oversized tool outputs become bounded
+ * head/tail excerpts. Called by every model-view consumer. */
+export function pruneToolOutputs(messages: ReturnType<typeof Message.parse>[]) {
+  for (const message of messages)
+    for (const part of message.parts) {
+      if (
+        typeof part.type !== "string" ||
+        !(part.type.startsWith("tool-") || part.type === "dynamic-tool")
+      )
+        continue;
+      const output = (part as { output?: unknown }).output;
+      if (output === undefined || output === null) continue;
+      const payload = typeof output === "string" ? output : JSON.stringify(output);
+      if (payload.length <= TOOL_RESULT_PRUNE.threshold) continue;
+      (part as { output?: unknown }).output = excerpt(payload, payload.length);
+    }
   return messages;
 }
 

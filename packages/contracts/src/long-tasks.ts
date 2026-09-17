@@ -22,6 +22,7 @@ export const AgentLimitError = z.enum([
   "WORKSPACE_UNAVAILABLE",
   "WORKSPACE_LIMIT",
   "WORKSPACE_COMMAND_FAILED",
+  "CONTEXT_WINDOW_EXCEEDED",
 ]);
 export const RuntimeTaskRequest = z
   .discriminatedUnion("operation", [

@@ -10,6 +10,22 @@ import { createLogger } from "@platform/operations";
 import { runtimeClient, type WorkerConfig, waitForPoll } from "../control-plane/index.ts";
 import { executeJob } from "./execute.ts";
 
+/** Provider-specific overflow wording, matched down the cause chain so
+ * wrapped SDK errors still classify instead of collapsing to MODEL_ERROR. */
+function isContextOverflow(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; current instanceof Error && depth < 5; depth++) {
+    if (
+      /maximum context length|context[_ -]?(length|window)|prompt is too long|exceeds the maximum (number of )?tokens/i.test(
+        current.message,
+      )
+    )
+      return true;
+    current = current.cause;
+  }
+  return false;
+}
+
 export async function runAgentWorker(config: WorkerConfig) {
   const post = runtimeClient(config);
   const log = config.logger ?? createLogger("runtime");
@@ -151,9 +167,11 @@ export async function runAgentWorker(config: WorkerConfig) {
           ? "CANCELLED"
           : Date.now() >= current.deadline
             ? "TIMEOUT"
-            : mcpError.success
-              ? mcpError.data
-              : "MODEL_ERROR";
+            : isContextOverflow(error)
+              ? "CONTEXT_WINDOW_EXCEEDED"
+              : mcpError.success
+                ? mcpError.data
+                : "MODEL_ERROR";
       try {
         await post(
           `/internal/runtime/runs/${current.runId}/finish`,

@@ -1509,3 +1509,76 @@ test("large browser images survive the control-plane durable snapshot contract",
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("a provider-confirmed context overflow queues a compaction run for the retry", async () => {
+  const project = await store.projects.create(actor, { name: "Overflow", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Overflow model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "test",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Overflow",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Overflow");
+  const run = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "这条提问超出了模型窗口",
+    "overflow-1",
+  );
+  const { queue } = createApp(store, {
+    origin: "http://127.0.0.1:5173",
+    runtimeToken: "test-token",
+  });
+  // A previous test may have left a queued run behind; drain until ours.
+  let job: Awaited<ReturnType<typeof queue.claim>> = null;
+  for (let attempt = 0; attempt < 5 && !job; attempt++) {
+    const claimed = await queue.claim();
+    assert.ok(claimed);
+    if (claimed.runId === run.id) job = claimed;
+    else
+      await queue.finish(claimed.runId, {
+        leaseToken: claimed.leaseToken,
+        status: "failed",
+        errorCode: "CANCELLED",
+      });
+  }
+  assert.ok(job);
+  await queue.finish(job.runId, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "CONTEXT_WINDOW_EXCEEDED",
+  });
+  const [failed] = await db.query("SELECT status,error_code FROM runs WHERE id=$1", [run.id]);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.error_code, "CONTEXT_WINDOW_EXCEEDED");
+  const [compact] = await db.query(
+    "SELECT id,input_text,context_action,context_through FROM runs WHERE conversation_id=$1 AND context_action='compact' ORDER BY created_at DESC LIMIT 1",
+    [thread.id],
+  );
+  assert.ok(compact, "overflow must queue a compaction run");
+  assert.equal(compact.input_text, "/compact");
+  assert.ok(compact.context_through !== null);
+  // The queued compaction claims with an empty tool set and the conversation's
+  // model view; the user question from the failed run stays in the transcript.
+  const compactJob = await queue.claim();
+  assert.ok(compactJob);
+  assert.equal(compactJob.runId, compact.id);
+  assert.ok(compactJob.compaction);
+  assert.ok(compactJob.compaction.transcript.includes("这条提问超出了模型窗口"));
+  await queue.finish(compactJob.runId, {
+    leaseToken: compactJob.leaseToken,
+    status: "failed",
+    errorCode: "CANCELLED",
+  });
+  assert.equal(await queue.claim(), null);
+});

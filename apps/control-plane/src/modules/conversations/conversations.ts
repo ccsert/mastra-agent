@@ -440,6 +440,30 @@ export class Conversations {
         [conversationId],
       );
       autoCompact = Number(usage?.tokens ?? 0) >= Math.floor(window * 0.75);
+      // Tool-output pruning shrinks the next request relative to the measured
+      // one. Scale the measured usage by the pruned/unpruned character ratio of
+      // the model view — the same estimator on both sides — and skip the
+      // summarization run when pruning alone already relieves the pressure.
+      if (autoCompact) {
+        const viewChars = (messages: Awaited<ReturnType<typeof modelHistory>>) =>
+          messages.reduce(
+            (total, message) =>
+              total +
+              message.parts.reduce(
+                (sum, part) =>
+                  sum +
+                  (typeof part.text === "string"
+                    ? part.text.length
+                    : JSON.stringify(part ?? null).length),
+                0,
+              ),
+            0,
+          );
+        const raw = viewChars(await modelHistory(tx, conversationId, { prune: false }));
+        const pruned = viewChars(await modelHistory(tx, conversationId));
+        autoCompact =
+          Number(usage?.tokens ?? 0) * (pruned / Math.max(1, raw)) >= Math.floor(window * 0.75);
+      }
     }
     if (compact) {
       if (input.replace(/^\/compact\s*/i, "").length > 1000)

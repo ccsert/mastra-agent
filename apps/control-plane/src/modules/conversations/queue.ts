@@ -11,6 +11,7 @@ import {
 import type { Database, Row } from "@platform/database";
 import { uiMessageChunkSchema, validateUIMessages } from "ai";
 import type { Vault } from "../../infrastructure/crypto.ts";
+import { sha256 } from "../../infrastructure/crypto.ts";
 import { ApiError } from "../../infrastructure/errors.ts";
 import { Access } from "../access/index.ts";
 import { executionCredentials } from "../resources/index.ts";
@@ -270,6 +271,41 @@ export class Queue {
         "UPDATE runs SET status=$1,finished_at=now(),error_code=$2,output_text=$3 WHERE id=$4",
         [status, status === "succeeded" ? null : (input.errorCode ?? "CANCELLED"), outputText, id],
       );
+      // Provider-confirmed context overflow on a normal run: queue a compaction
+      // run so the retry works on a summarized view. Best effort — skipped when
+      // another run is already active (the user's own next message is queued).
+      if (status === "failed" && input.errorCode === "CONTEXT_WINDOW_EXCEEDED") {
+        const [busy] = await tx.query(
+          "SELECT id FROM runs WHERE conversation_id=$1 AND status IN ('queued','running')",
+          [run.conversation_id],
+        );
+        const timeoutSeconds = Math.max(
+          180,
+          Math.round(
+            (new Date(String(run.deadline)).getTime() -
+              new Date(String(run.created_at)).getTime()) /
+              1000,
+          ),
+        );
+        if (!busy)
+          await tx.query(
+            `INSERT INTO runs(id,tenant_id,project_id,actor_id,entry,conversation_id,release_id,request_id,input_hash,runtime_id,status,deadline,input_text,skill_version_ids,context_action,context_through)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'queued',now()+make_interval(secs=>$11),'/compact','[]'::jsonb,'compact',(SELECT max(position) FROM messages WHERE conversation_id=$6))`,
+            [
+              randomUUID(),
+              run.tenant_id,
+              run.project_id,
+              run.actor_id,
+              run.entry,
+              run.conversation_id,
+              run.release_id,
+              `overflow-compact-${id}`,
+              sha256(`/compact#${id}`),
+              this.runtimeId,
+              timeoutSeconds,
+            ],
+          );
+      }
     });
   }
 }
