@@ -1740,3 +1740,136 @@ test("compaction replays the newest recorded request as a warm prefix, with guar
   });
   assert.equal(await queue.claim(), null);
 });
+
+test("a write-tool gate pauses the run, records one verdict, and never expires into consent", async () => {
+  const project = await store.projects.create(actor, { name: "Approvals", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Approval model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "approval-chat",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Approval",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Approvals");
+  const run = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "写入订单",
+    "approval-1",
+  );
+  const { queue } = createApp(store, {
+    origin: "http://127.0.0.1:5173",
+    runtimeToken: "test-token",
+  });
+  const job = await queue.claim();
+  assert.ok(job);
+  assert.equal(job.runId, run.id);
+  // Opening a gate extends the deadline: waiting for a person is not execution time.
+  const [before] = await db.query("SELECT deadline FROM runs WHERE id=$1", [run.id]);
+  const opened = await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-request",
+    callId: "call-write-1",
+    toolName: "orders_write",
+  });
+  assert.equal((opened as { status: string }).status, "pending");
+  const [after] = await db.query("SELECT deadline FROM runs WHERE id=$1", [run.id]);
+  assert.ok(
+    new Date(String(after.deadline)).getTime() > new Date(String(before.deadline)).getTime(),
+    "an open gate must extend the run deadline",
+  );
+  // The gate is visible on the run's workspace while the run is still paused.
+  const workspace = await store.conversations.workspace(actor, project.id, run.id);
+  const pending = workspace.workspace.approvals.find((a) => a.toolCallId === "call-write-1");
+  assert.equal(pending?.status, "pending");
+  assert.equal(pending?.decidedBy, null);
+  // Polling before a decision reports pending rather than guessing.
+  const polled = await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-poll",
+    callId: "call-write-1",
+  });
+  assert.equal((polled as { status: string }).status, "pending");
+  // A second request for the same call must not open a second gate.
+  const repeated = await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-request",
+    callId: "call-write-1",
+    toolName: "orders_write",
+  });
+  assert.equal((repeated as { status: string }).status, "pending");
+  const [count] = await db.query("SELECT count(*) AS n FROM run_tool_approvals WHERE run_id=$1", [
+    run.id,
+  ]);
+  assert.equal(Number(count.n), 1);
+  // The person's verdict is recorded with who decided and how long they took.
+  const decided = await store.conversations.decideApproval(
+    actor,
+    project.id,
+    run.id,
+    "call-write-1",
+    true,
+  );
+  assert.equal(decided.status, "approved");
+  assert.equal(decided.decidedBy, actor.id);
+  assert.ok((decided.waitedMs ?? -1) >= 0);
+  // A gate is decided once: the opposite verdict is a conflict, not an overwrite.
+  await assert.rejects(
+    () => store.conversations.decideApproval(actor, project.id, run.id, "call-write-1", false),
+    { code: "APPROVAL_DECIDED" },
+  );
+  const polledAfter = await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-poll",
+    callId: "call-write-1",
+  });
+  assert.equal((polledAfter as { status: string }).status, "approved");
+  // An unanswered gate ages out into `expired`, which is not consent.
+  await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-request",
+    callId: "call-stale",
+    toolName: "orders_write",
+  });
+  await db.query(
+    "UPDATE run_tool_approvals SET requested_at=now()-interval '11 minutes' WHERE run_id=$1 AND call_id='call-stale'",
+    [run.id],
+  );
+  const stale = await queue.task(run.id, {
+    leaseToken: job.leaseToken,
+    operation: "approval-poll",
+    callId: "call-stale",
+  });
+  assert.equal((stale as { status: string }).status, "expired");
+  // The platform refuses the late verdict outright: an expired gate is past
+  // consent, so accepting it would run a call the person no longer decided.
+  await assert.rejects(
+    () => store.conversations.decideApproval(actor, project.id, run.id, "call-stale", true),
+    { code: "APPROVAL_DECIDED" },
+  );
+  // A poll for a call that never had a gate is an error, not a default verdict.
+  await assert.rejects(
+    () =>
+      queue.task(run.id, {
+        leaseToken: job.leaseToken,
+        operation: "approval-poll",
+        callId: "call-unknown",
+      }),
+    { code: "APPROVAL_UNKNOWN" },
+  );
+  await queue.finish(run.id, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "CANCELLED",
+  });
+  assert.equal(await queue.claim(), null);
+});

@@ -33,9 +33,15 @@ export async function mcpFixture(port = 0, enableJsonResponse = true) {
         request.params?.cursor
           ? {
               name: "orders_update",
-              description: "合成写入能力，仅用于确认平台不会自动导入。",
-              inputSchema: { type: "object", properties: {} },
-              annotations: { readOnlyHint: false },
+              description:
+                "合成订单写入：把订单标记为已更新并返回回执。平台对该工具每次调用都会先请求人工确认。",
+              inputSchema: {
+                type: "object",
+                properties: { orderId: { type: "string", minLength: 1, maxLength: 40 } },
+                required: ["orderId"],
+                additionalProperties: false,
+              },
+              annotations: { readOnlyHint: false, destructiveHint: false },
             }
           : {
               name: "orders_lookup",
@@ -66,8 +72,21 @@ export async function mcpFixture(port = 0, enableJsonResponse = true) {
     }));
     protocol.setRequestHandler(CallToolRequestSchema, async (request) => {
       calls.push({ name: request.params.name, arguments: request.params.arguments });
-      if (request.params.name !== "orders_lookup")
-        throw new Error("Writes are disabled in the fixture");
+      if (request.params.name === "orders_update") {
+        // A synthetic write with an observable effect: the next lookup
+        // reports the updated revision.
+        state.changed = true;
+        const receipt = {
+          orderId: request.params.arguments?.orderId,
+          updated: true,
+          note: "合成订单已标记为已更新",
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(receipt) }],
+          structuredContent: receipt,
+        };
+      }
+      if (request.params.name !== "orders_lookup") throw new Error("Unknown fixture tool");
       const data = {
         orderId: request.params.arguments?.orderId,
         status: state.invalidOutput

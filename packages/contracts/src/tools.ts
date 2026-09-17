@@ -15,6 +15,9 @@ export const ToolInput = z
     bearerToken: Credential.default(""),
     inputSchema: JsonSchema,
     outputSchema: JsonSchema,
+    /** Declares that calling this tool can change business data or trigger
+     * external effects, so a run pauses for human confirmation first. */
+    writes: z.boolean().default(false),
   })
   .strict()
   .openapi("ToolInput");

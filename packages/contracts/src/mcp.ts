@@ -47,12 +47,19 @@ export const McpDiscovery = z
     finishedAt: z.string().nullable(),
   })
   .openapi("McpDiscovery");
+/**
+ * Importing a remote MCP capability. Read-only tools need an explicit
+ * confirmation; a tool the service did not declare read-only can still be
+ * imported, but only with `acceptWriteConfirmations=true`, which binds the
+ * operator to the platform's per-call human confirmation.
+ */
 export const McpImport = z
   .object({
     discoveryId: Id,
     remoteName: z.string().min(1).max(128),
     name: z.string().regex(/^[a-z][a-z0-9_]{1,49}$/),
-    confirmedReadOnly: z.literal(true),
+    confirmedReadOnly: z.literal(true).optional(),
+    acceptWriteConfirmations: z.boolean().optional(),
   })
   .strict()
   .openapi("McpImport");

@@ -201,12 +201,20 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
                     title: "服务声明",
                     width: 115,
                     render: (_, d) => (
-                      <Tag>
+                      <Tag
+                        color={
+                          d.annotations?.readOnlyHint === true
+                            ? undefined
+                            : d.annotations?.readOnlyHint === false
+                              ? "warning"
+                              : "default"
+                        }
+                      >
                         {d.annotations?.readOnlyHint === true
                           ? "自称只读"
                           : d.annotations?.readOnlyHint === false
-                            ? "含写入"
-                            : "未声明"}
+                            ? "含写入 · 需确认"
+                            : "未声明 · 视为写入"}
                       </Tag>
                     ),
                   },
@@ -224,6 +232,7 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
                               50,
                             ),
                             confirmedReadOnly: false,
+                            acceptWriteConfirmations: false,
                           });
                           setError("");
                           setReview({ descriptor: d, discoveryId: current.id });
@@ -293,23 +302,42 @@ export function McpDetails({ server, tools }: { server: McpServer; tools: Tool[]
           >
             <Input maxLength={50} />
           </Form.Item>
-          <Form.Item
-            name="confirmedReadOnly"
-            valuePropName="checked"
-            rules={[
-              {
-                validator: (_, value) =>
-                  value === true
-                    ? Promise.resolve()
-                    : Promise.reject(new Error("请确认该工具的只读性质")),
-              },
-            ]}
-          >
-            <Checkbox>我已核实该能力只查询数据，不修改业务记录</Checkbox>
-          </Form.Item>
+          {review?.descriptor.annotations?.readOnlyHint === true ? (
+            <Form.Item
+              name="confirmedReadOnly"
+              valuePropName="checked"
+              rules={[
+                {
+                  validator: (_, value) =>
+                    value === true
+                      ? Promise.resolve()
+                      : Promise.reject(new Error("请确认该工具的只读性质")),
+                },
+              ]}
+            >
+              <Checkbox>我已核实该能力只查询数据，不修改业务记录</Checkbox>
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="acceptWriteConfirmations"
+              valuePropName="checked"
+              rules={[
+                {
+                  validator: (_, value) =>
+                    value === true
+                      ? Promise.resolve()
+                      : Promise.reject(new Error("请确认接受每次调用的人工确认")),
+                },
+              ]}
+            >
+              <Checkbox>该工具未声明只读。我接受它每次调用都需要人工确认后才执行</Checkbox>
+            </Form.Item>
+          )}
         </Form>
         <Typography.Text type="secondary">
-          服务的只读声明不能替代核实。当前不导入需要业务写入审批的能力。
+          {review?.descriptor.annotations?.readOnlyHint === true
+            ? "服务的只读声明不能替代核实。"
+            : "未证实只读的工具不会被静默放行：确认后由平台在每次调用前暂停并等待人工决定，未答复则不会执行。"}
         </Typography.Text>
       </Modal>
       <Modal

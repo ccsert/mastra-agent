@@ -13,6 +13,7 @@ export const traceEventNames = {
   subagent: "data-subagent",
   subagentEvent: "data-subagent-event",
   taskPlan: "data-task-plan",
+  toolApproval: "data-tool-approval",
 } as const;
 
 /**
@@ -52,6 +53,25 @@ export const TraceToolSource = z.enum([
   "browser",
 ]);
 export type TraceToolSource = z.infer<typeof TraceToolSource>;
+
+/**
+ * One human confirmation gate on a write tool. The run pauses at the tool
+ * body until a person decides; `waitedMs` measures the pause itself, and an
+ * unanswered request expires rather than being assumed either way.
+ */
+export const ToolApprovalObservation = z
+  .object({
+    toolCallId: z.string().min(1).max(200),
+    toolName: z.string().min(1).max(200),
+    status: z.enum(["pending", "approved", "denied", "expired"]),
+    requestedAt: instant,
+    decidedAt: instant.nullable(),
+    /** Platform actor who decided; null while pending or after expiry. */
+    decidedBy: z.string().nullable(),
+    waitedMs: z.number().nonnegative().nullable(),
+  })
+  .openapi("ToolApprovalObservation");
+export type ToolApprovalObservation = z.infer<typeof ToolApprovalObservation>;
 
 /**
  * One tool execution, keyed by the model's own `toolCallId` so a call can be

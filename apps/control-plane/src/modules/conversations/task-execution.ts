@@ -2,11 +2,51 @@ import {
   ExecutionLimits,
   ReleaseSnapshot,
   type RuntimeTaskRequest,
+  ToolApprovalObservation,
   type z,
 } from "@platform/contracts";
 import type { Queryable, Row } from "@platform/database";
 import { ApiError } from "../../infrastructure/errors.ts";
 import { feedbackDto, readFeedback } from "./feedback.ts";
+
+/** A gate nobody answered expires; it is never treated as approval or denial. */
+export const APPROVAL_TTL_MS = 10 * 60 * 1000;
+
+/** Reads one gate, retiring it to `expired` once its window has passed. */
+export async function readApproval(tx: Queryable, runId: string, callId: string) {
+  const [row] = await tx.query("SELECT * FROM run_tool_approvals WHERE run_id=$1 AND call_id=$2", [
+    runId,
+    callId,
+  ]);
+  if (!row) return null;
+  if (
+    row.status === "pending" &&
+    Date.now() - new Date(String(row.requested_at)).getTime() > APPROVAL_TTL_MS
+  ) {
+    const [expired] = await tx.query(
+      "UPDATE run_tool_approvals SET status='expired',decided_at=now() WHERE run_id=$1 AND call_id=$2 AND status='pending' RETURNING *",
+      [runId, callId],
+    );
+    return expired ?? row;
+  }
+  return row;
+}
+
+/** Row to API shape: every timestamp crosses as an explicit instant, and a
+ * pending gate reports no decision rather than an empty one. */
+export function approvalDto(row: Row) {
+  const requestedAt = new Date(String(row.requested_at));
+  const decidedAt = row.decided_at ? new Date(String(row.decided_at)) : null;
+  return ToolApprovalObservation.parse({
+    toolCallId: String(row.call_id),
+    toolName: String(row.tool_name),
+    status: row.status,
+    requestedAt: requestedAt.toISOString(),
+    decidedAt: decidedAt ? decidedAt.toISOString() : null,
+    decidedBy: row.decided_by ? String(row.decided_by) : null,
+    waitedMs: decidedAt ? Math.max(0, decidedAt.getTime() - requestedAt.getTime()) : null,
+  });
+}
 
 /** All calls run under the owning run's row lock and its current lease. */
 export async function taskOperation(
@@ -14,7 +54,7 @@ export async function taskOperation(
   run: Row,
   input: z.infer<typeof RuntimeTaskRequest>,
 ) {
-  const runId = run.id;
+  const runId = String(run.id);
   switch (input.operation) {
     case "feedback":
       return { feedback: await readFeedback(tx, run.conversation_id) };
@@ -210,6 +250,32 @@ export async function taskOperation(
         ],
       );
       return { ok: true };
+    case "approval-request": {
+      // One gate per call: a repeated request returns the existing verdict
+      // rather than opening a second one a person would have to answer twice.
+      const [opened] = await tx.query(
+        "INSERT INTO run_tool_approvals(run_id,call_id,tool_name,status) VALUES($1,$2,$3,'pending') ON CONFLICT(run_id,call_id) DO NOTHING RETURNING requested_at",
+        [runId, input.callId, input.toolName],
+      );
+      // A human wait is not execution time. Extending the deadline by the gate
+      // window keeps the run inside its budget for the work it actually does;
+      // without this the tool would be killed mid-wait and reported as a
+      // timeout the operator never caused.
+      if (opened)
+        await tx.query(
+          "UPDATE runs SET deadline=GREATEST(deadline, now() + make_interval(secs => $2)) WHERE id=$1",
+          [runId, APPROVAL_TTL_MS / 1000],
+        );
+      const row = await readApproval(tx, runId, input.callId);
+      return row
+        ? approvalDto(row)
+        : approvalDto({ call_id: input.callId, tool_name: input.toolName, status: "pending" });
+    }
+    case "approval-poll": {
+      const row = await readApproval(tx, runId, input.callId);
+      if (!row) throw new ApiError(409, "APPROVAL_UNKNOWN", "此工具调用没有待确认的请求");
+      return approvalDto(row);
+    }
     case "state": {
       if (input.state.status === "completed" && !input.state.evidence.length)
         throw new ApiError(400, "ACCEPTANCE_EVIDENCE_REQUIRED", "任务完成必须记录验收证据");

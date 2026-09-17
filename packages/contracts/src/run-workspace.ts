@@ -1,7 +1,7 @@
 import { Id, z } from "./common.ts";
 import { TaskStateInput } from "./long-tasks.ts";
 import { TaskFeedback } from "./task-feedback.ts";
-import { SubagentLifecycle } from "./trajectory.ts";
+import { SubagentLifecycle, ToolApprovalObservation } from "./trajectory.ts";
 
 export const SkillActivation = z.object({
   versionId: Id,
@@ -39,6 +39,8 @@ export const RunWorkspace = z
       })
       .optional(),
     taskState: TaskStateInput.extend({ revision: z.number(), runId: Id }).optional(),
+    /** Human confirmation gates for write tools, newest state per call. */
+    approvals: z.array(ToolApprovalObservation).default([]),
     skills: z.array(SkillActivation.extend({ subagentId: Id.nullable() })),
     artifacts: z.array(RunArtifact),
     subagents: z.array(

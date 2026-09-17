@@ -84,6 +84,20 @@ export const RuntimeTaskRequest = z
       output: z.unknown(),
       errorCode: z.string().max(100).optional(),
     }),
+    /** Opens a human confirmation gate for one write-tool call. Repeating the
+     * same callId returns the existing verdict instead of opening a second gate. */
+    z.object({
+      operation: z.literal("approval-request"),
+      callId: z.string().min(1).max(200),
+      toolName: z.string().min(1).max(200),
+    }),
+    /** Reads the current verdict for a gate. A short read: the control plane
+     * owns the expiry policy, so the runtime polls instead of holding a
+     * transaction open while a person decides. */
+    z.object({
+      operation: z.literal("approval-poll"),
+      callId: z.string().min(1).max(200),
+    }),
     z.object({ operation: z.literal("state"), state: TaskStateInput }),
   ])
   .and(z.object({ leaseToken: z.string() }));

@@ -92,6 +92,7 @@ export class Database implements Queryable {
       "utf8",
     );
     const runsUsage = await readFile(new URL("./runs-usage.sql", import.meta.url), "utf8");
+    const toolApprovals = await readFile(new URL("./tool-approvals.sql", import.meta.url), "utf8");
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
@@ -183,6 +184,10 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=24",
       );
       if (!runsUsageApplied) await tx.query(runsUsage);
+      const [toolApprovalsApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=25",
+      );
+      if (!toolApprovalsApplied) await tx.query(toolApprovals);
     });
   }
   async close() {

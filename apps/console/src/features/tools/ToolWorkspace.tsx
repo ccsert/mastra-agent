@@ -78,7 +78,21 @@ function ProjectTools({ onCreate, onEdit }: { onCreate(): void; onEdit(tool: Too
                     <Tag color={v ? "success" : "default"}>{v ? "已加密保存" : "未设置"}</Tag>
                   ),
               },
-              { title: "能力范围", render: () => <Tag>只读 / 无业务写入</Tag> },
+              {
+                // The registry's own record, shown as stored: an authored tool
+                // is read-only by construction, while an imported MCP tool is
+                // read-only only when the remote service declared it so.
+                title: "能力范围",
+                dataIndex: "writes",
+                render: (v: boolean, t) =>
+                  t.kind !== "mcp" ? (
+                    <Tag>只读 / 无业务写入</Tag>
+                  ) : v ? (
+                    <Tag color="warning">写入 · 每次需人工确认</Tag>
+                  ) : (
+                    <Tag color="success">只读（服务声明）</Tag>
+                  ),
+              },
               {
                 title: "定义",
                 render: (_, t) => (

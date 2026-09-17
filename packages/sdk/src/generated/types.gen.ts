@@ -181,6 +181,7 @@ export type Tool = {
     url?: string;
     inputSchema: JsonSchema;
     outputSchema: JsonSchema;
+    writes?: boolean;
     mcp?: {
         serverId: string;
         descriptor: McpDescriptor;
@@ -219,6 +220,7 @@ export type ToolInput = {
     bearerToken?: string;
     inputSchema: JsonSchema;
     outputSchema: JsonSchema;
+    writes?: boolean;
 };
 
 export type AuthoredToolKind = 'sum' | 'http_get';
@@ -649,6 +651,7 @@ export type RunWorkspace = {
         revision: number;
         runId: string;
     };
+    approvals?: Array<ToolApprovalObservation>;
     skills: Array<{
         versionId: string;
         name: string;
@@ -664,6 +667,16 @@ export type RunWorkspace = {
         completedTools: number;
         activity: string;
     }>;
+};
+
+export type ToolApprovalObservation = {
+    toolCallId: string;
+    toolName: string;
+    status: 'pending' | 'approved' | 'denied' | 'expired';
+    requestedAt: string;
+    decidedAt: string | null;
+    decidedBy: string | null;
+    waitedMs: number | null;
 };
 
 export type RunArtifact = {
@@ -1190,7 +1203,8 @@ export type McpImport = {
     discoveryId: string;
     remoteName: string;
     name: string;
-    confirmedReadOnly: true;
+    confirmedReadOnly?: true;
+    acceptWriteConfirmations?: boolean;
 };
 
 export type WorkflowAsset = WorkflowAssetInput & {
@@ -5386,6 +5400,61 @@ export type CancelRunResponses = {
 };
 
 export type CancelRunResponse = CancelRunResponses[keyof CancelRunResponses];
+
+export type DecideRunApprovalData = {
+    body: {
+        approved: boolean;
+    };
+    path: {
+        projectId: string;
+        id: string;
+        callId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/runs/{id}/approvals/{callId}';
+};
+
+export type DecideRunApprovalErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type DecideRunApprovalError = DecideRunApprovalErrors[keyof DecideRunApprovalErrors];
+
+export type DecideRunApprovalResponses = {
+    /**
+     * 成功
+     */
+    200: ToolApprovalObservation;
+};
+
+export type DecideRunApprovalResponse = DecideRunApprovalResponses[keyof DecideRunApprovalResponses];
 
 export type ListRuntimesData = {
     body?: never;

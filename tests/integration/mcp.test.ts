@@ -163,6 +163,37 @@ test("generated SDK → MCP discovery → explicit read-only import → publishe
     assert.notEqual(alias.id, tool.id);
     assert.equal(alias.name, "orders_query_alias");
     assert.equal(alias.mcp?.contractDigest, tool.mcp?.contractDigest);
+    assert.equal(tool.writes, false, "a read-only declaration keeps the tool ungated");
+    // A tool the service did not declare read-only cannot be imported by
+    // asserting read-only, and importing it requires accepting the per-call
+    // human confirmation instead.
+    await assert.rejects(() =>
+      sdk.importMcpTool({
+        client,
+        path: servicePath,
+        body: {
+          discoveryId: discovery.id,
+          remoteName: "orders_update",
+          name: "orders_write",
+          confirmedReadOnly: true,
+        },
+      }),
+    );
+    const writeTool = defined(
+      (
+        await sdk.importMcpTool({
+          client,
+          path: servicePath,
+          body: {
+            discoveryId: discovery.id,
+            remoteName: "orders_update",
+            name: "orders_write",
+            acceptWriteConfirmations: true,
+          },
+        })
+      ).data,
+    );
+    assert.equal(writeTool.writes, true, "an undeclared tool is recorded as writing");
     const model = defined(
       (
         await sdk.createModel({

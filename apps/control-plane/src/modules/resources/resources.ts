@@ -8,9 +8,10 @@ import {
   type ModelUpdate,
   type Principal,
   Tool,
-  type ToolInput,
+  ToolInput,
   type ToolProbeInput,
   type ToolUpdate,
+  type z,
 } from "@platform/contracts";
 import type { Database, Queryable, Row } from "@platform/database";
 import { Ajv } from "ajv";
@@ -181,7 +182,7 @@ export class Resources {
       )
     ).map(toolDto);
   }
-  async createTool(actor: Principal, projectId: string, request: ToolInput) {
+  async createTool(actor: Principal, projectId: string, request: z.input<typeof ToolInput>) {
     await this.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
     const input = authoredTool(request);
@@ -202,7 +203,12 @@ export class Resources {
    * produced by the import flow, so editing it here would silently disagree with
    * the descriptor it claims to be.
    */
-  async updateTool(actor: Principal, projectId: string, id: string, request: ToolUpdate) {
+  async updateTool(
+    actor: Principal,
+    projectId: string,
+    id: string,
+    request: z.input<typeof ToolUpdate>,
+  ) {
     await this.projects.access.require(actor, projectId, "resource.manage");
     requireUser(actor);
     const existing = toolDto(await this.get(actor, projectId, id, "tool"));
@@ -300,8 +306,12 @@ const sumSchemas = {
  * execute. Both create and update go through here so a stored tool cannot be
  * made invalid by editing it after registration.
  */
-function authoredTool<T extends ToolInput | ToolUpdate>(request: T) {
-  const input = { ...request };
+function authoredTool(
+  request: z.input<typeof ToolInput> | z.input<typeof ToolUpdate>,
+): z.infer<typeof ToolInput> {
+  // Parsing here (not only on the HTTP path) is what fills schema defaults for
+  // an in-process call, so a stored tool can never lack the write-tool flag.
+  const input = ToolInput.parse(request);
   if (input.kind === "http_get") checkUrl(input.url);
   if (input.kind === "sum") Object.assign(input, sumSchemas);
   try {

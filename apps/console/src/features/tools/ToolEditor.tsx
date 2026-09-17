@@ -316,7 +316,8 @@ export function ToolEditor({
         <Alert type="error" title="没能完成测试调用" description={probe.message} showIcon />
       )}
       <p className="form-note">
-        只支持只读工具。MCP 工具在「MCP 服务」中导入，且不能在此外编辑；业务写入审批尚未开放。
+        手写工具只支持只读调用。MCP 工具在「MCP 服务」中导入，导入时按服务声明的 readOnlyHint
+        判定；未声明只读的工具每次调用都需要人工确认，且不能在此外编辑。
       </p>
     </EditorForm>
   );

@@ -30,6 +30,7 @@ import {
   runEventDto,
   selectedSkills,
 } from "./records.ts";
+import { approvalDto, readApproval } from "./task-execution.ts";
 import { listConversationSummaries, readConversationTrace } from "./traces.ts";
 import { projectRunWorkspace } from "./workspace.ts";
 
@@ -385,6 +386,16 @@ export class Conversations {
         revision: z.number(),
         runId: Id,
       }).parse(state.data);
+    // Write-tool gates settle here too, so an open gate stays visible while
+    // the run is paused rather than appearing only after the decision.
+    const approvals = await this.db.query(
+      "SELECT * FROM run_tool_approvals WHERE run_id=$1 ORDER BY requested_at",
+      [id],
+    );
+    for (const row of approvals) {
+      const approval = await readApproval(this.db, id, String(row.call_id));
+      if (approval) projected.workspace.approvals.push(approvalDto(approval));
+    }
     return projected;
   }
   async createRun(
@@ -856,6 +867,36 @@ export class Conversations {
       [id],
     );
     return this.run(actor, projectId, id);
+  }
+  /** Records one person's verdict on an open write-tool gate. A gate is
+   * decided once: a second, different verdict is a conflict rather than an
+   * overwrite, so the runtime's read can never observe a verdict flip. */
+  async decideApproval(
+    actor: Principal,
+    projectId: string,
+    runId: string,
+    callId: string,
+    approved: boolean,
+  ) {
+    await this.run(actor, projectId, runId);
+    return this.db.transaction(async (tx) => {
+      const row = await readApproval(tx, runId, callId);
+      if (!row) throw notFound();
+      const verdict = approved ? "approved" : "denied";
+      if (row.status === "pending") {
+        await tx.query(
+          "UPDATE run_tool_approvals SET status=$1,decided_at=now(),decided_by=$2 WHERE run_id=$3 AND call_id=$4 AND status='pending'",
+          [verdict, actor.id, runId, callId],
+        );
+      } else if (row.status !== verdict) {
+        throw new ApiError(409, "APPROVAL_DECIDED", "此工具调用已有人做出决定");
+      }
+      const [current] = await tx.query(
+        "SELECT * FROM run_tool_approvals WHERE run_id=$1 AND call_id=$2",
+        [runId, callId],
+      );
+      return approvalDto(current ?? row);
+    });
   }
 }
 

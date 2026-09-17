@@ -787,6 +787,10 @@
           "outputSchema": {
             "$ref": "#/components/schemas/JsonSchema"
           },
+          "writes": {
+            "type": "boolean",
+            "default": false
+          },
           "mcp": {
             "type": "object",
             "properties": {
@@ -913,6 +917,10 @@
           },
           "outputSchema": {
             "$ref": "#/components/schemas/JsonSchema"
+          },
+          "writes": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
@@ -3078,6 +3086,13 @@
             ],
             "additionalProperties": false
           },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolApprovalObservation"
+            },
+            "default": []
+          },
           "skills": {
             "type": "array",
             "items": {
@@ -3169,6 +3184,63 @@
           "skills",
           "artifacts",
           "subagents"
+        ]
+      },
+      "ToolApprovalObservation": {
+        "type": "object",
+        "properties": {
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "toolName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "denied",
+              "expired"
+            ]
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "decidedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "waitedMs": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "toolCallId",
+          "toolName",
+          "status",
+          "requestedAt",
+          "decidedAt",
+          "decidedBy",
+          "waitedMs"
         ]
       },
       "RunArtifact": {
@@ -5662,13 +5734,15 @@
             "enum": [
               true
             ]
+          },
+          "acceptWriteConfirmations": {
+            "type": "boolean"
           }
         },
         "required": [
           "discoveryId",
           "remoteName",
-          "name",
-          "confirmedReadOnly"
+          "name"
         ],
         "additionalProperties": false
       },
@@ -15471,6 +15545,142 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/runs/{id}/approvals/{callId}": {
+      "post": {
+        "operationId": "decideRunApproval",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "callId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approved": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "approved"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolApprovalObservation"
                 }
               }
             }

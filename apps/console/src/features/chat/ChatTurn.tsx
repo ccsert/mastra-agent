@@ -8,6 +8,7 @@ import { AgentText } from "../../shared/ai/AgentText";
 import { unwrap } from "../../shared/api";
 import { projectKey } from "../../shared/data/ProjectData";
 import { conversationTracePath } from "../../shared/navigation";
+import { ToolApprovalList } from "./ApprovalCard";
 import { ArtifactCard } from "./ArtifactCard";
 import { ArtifactCanvasContext } from "./artifact-context";
 import { RunWorkspaceContext, ToolTraceContext } from "./chat-context";
@@ -123,6 +124,9 @@ export function ChatTurn({ children }: PropsWithChildren) {
         <div id={processId} className="chat-turn-content">
           {children}
         </div>
+        {/* Above the transcript: a paused write is the most urgent thing on
+            screen, and it must stay visible even while the process is collapsed. */}
+        {id && projectId && <ToolApprovalList projectId={projectId} runId={id} />}
         {!!data?.artifacts.length && (
           <section className="chat-artifact-list" aria-label="本轮产物">
             {data.artifacts.map((file) => (

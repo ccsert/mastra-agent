@@ -177,8 +177,6 @@ export class Mcp {
     return this.deps.db.transaction(async (tx) => {
       const server = await this.server(actor, projectId, id, tx, true);
       if (!server.enabled) throw new ApiError(409, "MCP_DISABLED", "MCP 服务已停用");
-      if (!input.confirmedReadOnly)
-        throw new ApiError(400, "MCP_REVIEW_REQUIRED", "请确认工具仅执行只读操作");
       if (input.name === "knowledge_search")
         throw new ApiError(400, "RESERVED_TOOL_NAME", "名称由平台保留");
       const [d] = await tx.query(
@@ -191,6 +189,19 @@ export class Mcp {
         .parse(d.tools)
         .find((t) => t.name === input.remoteName);
       if (!descriptor) throw notFound();
+      // The service's own declaration decides the confirmation an operator
+      // must give: read-only is asserted, a write tool is accepted together
+      // with the platform's per-call human confirmation. Silence counts as a
+      // write, so an undeclared remote tool cannot slip in unconfirmed.
+      const readOnly = descriptor.annotations?.readOnlyHint === true;
+      if (readOnly ? input.confirmedReadOnly !== true : input.acceptWriteConfirmations !== true)
+        throw new ApiError(
+          400,
+          "MCP_REVIEW_REQUIRED",
+          readOnly
+            ? "请确认工具仅执行只读操作"
+            : "该工具未声明只读：导入即表示接受每次调用都需要人工确认",
+        );
       try {
         compileMcpSchema(descriptor.inputSchema);
         if (descriptor.outputSchema) compileMcpSchema(descriptor.outputSchema);
@@ -227,6 +238,7 @@ export class Mcp {
           required: ["text"],
           additionalProperties: false,
         },
+        writes: !readOnly,
         mcp: { serverId: id, descriptor, contractDigest },
       });
       const [resource] = await tx.query(

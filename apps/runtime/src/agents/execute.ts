@@ -31,6 +31,7 @@ import {
 import { retrieve } from "../knowledge/index.ts";
 import { prepareSkills, type SkillAccess } from "../skills/index.ts";
 import { executePlatformTool } from "../tools/index.ts";
+import { awaitApproval } from "./approval.ts";
 import {
   createRunBudget,
   type ModelReservation,
@@ -44,7 +45,7 @@ import { preserveRestartInputs, runStorage, type TaskAccess } from "./durable.ts
 import { withToolImages } from "./model-media.ts";
 import { createPlanTracker } from "./planning.ts";
 import { type AssistantAccess, createAssistantTools } from "./platform-assistant.ts";
-import { wrapToolBodies } from "./tool-boundary.ts";
+import { type WriteGate, wrapToolBodies } from "./tool-boundary.ts";
 import { tracedModelFetch } from "./trace.ts";
 import { type ArtifactUpload, prepareWebWorkspace, type WebWorkspace } from "./web-workspace.ts";
 
@@ -56,6 +57,9 @@ export interface AgentExecutionAccess {
   web?: WebWorkspace;
   reviewOnly?: boolean;
   task?: TaskAccess;
+  /** Built once by the root run and inherited by subagents, so a delegated
+   * write tool still pauses for the same run's confirmation. */
+  writeGate?: WriteGate;
   readFeedback?(): Promise<TaskFeedback[]>;
   reserveModel?(input: ModelReservation): Promise<void>;
   settleModel?(input: ModelSettlement): Promise<void>;
@@ -156,6 +160,13 @@ export function toolExecutionHooks(
         const code = McpErrorCode.or(SkillErrorCode).safeParse(
           error instanceof Error ? error.message : "",
         );
+        // A gated call that a person refused never ran: reporting it as a
+        // success would claim an effect that did not happen.
+        const refused =
+          error === undefined &&
+          typeof hook.output === "object" &&
+          hook.output !== null &&
+          (hook.output as { denied?: unknown }).denied === true;
         const finishedAt = Date.now();
         await onChunk({
           type: traceEventNames.toolExecution,
@@ -167,9 +178,13 @@ export function toolExecutionHooks(
             startedAt: new Date(started).toISOString(),
             finishedAt: new Date(finishedAt).toISOString(),
             durationMs: Math.max(0, finishedAt - started),
-            outcome: error === undefined ? "succeeded" : "failed",
+            outcome: error === undefined && !refused ? "succeeded" : "failed",
             // Only recognised platform codes are recorded; message text is not copied.
-            ...(code.success ? { errorCode: code.data } : {}),
+            ...(refused
+              ? { errorCode: "TOOL_NOT_APPROVED" }
+              : code.success
+                ? { errorCode: code.data }
+                : {}),
           }),
         });
       } catch {
@@ -377,6 +392,25 @@ async function executeAgent(
     ),
   }).chatModel(job.snapshot.model.modelId);
   const observationHooks = toolExecutionHooks(sources, onChunk);
+  // Write tools pause for a person. The root run builds the gate against its
+  // own task channel; subagents inherit it rather than opening their own, so a
+  // delegated write is confirmed by the same person watching the same run.
+  const writes = new Set(
+    (access?.reviewOnly ? [] : job.snapshot.tools)
+      .filter((definition) => definition.writes)
+      .map((definition) => definition.name),
+  );
+  const task = access?.task;
+  const gate: WriteGate | undefined =
+    access?.writeGate ??
+    (task && writes.size
+      ? {
+          writes,
+          decide: (callId, toolName) =>
+            awaitApproval({ callId, toolName, call: task, emit: onChunk, signal }),
+        }
+      : undefined);
+  if (access && gate) access.writeGate = gate;
   wrapToolBodies(
     tools,
     {
@@ -393,6 +427,7 @@ async function executeAgent(
     (error) => {
       mcpFailure = error;
     },
+    gate,
   );
   const agent = new Agent({
     id: job.runId,

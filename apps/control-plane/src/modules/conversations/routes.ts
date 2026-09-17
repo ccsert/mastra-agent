@@ -22,6 +22,7 @@ import {
   SkillSelection,
   TaskFeedback,
   TaskFeedbackInput,
+  ToolApprovalObservation,
   TraceQuery,
   z,
 } from "@platform/contracts";
@@ -474,6 +475,31 @@ export function registerConversationRoutes(app: ApiApp, conversations: Conversat
     async (c) => {
       const { projectId, id } = c.req.valid("param");
       return c.json(await conversations.cancel(c.get("principal"), projectId, id), 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/projects/{projectId}/runs/{id}/approvals/{callId}",
+      operationId: "decideRunApproval",
+      request: {
+        params: itemParams.extend({ callId: z.string().min(1).max(200) }),
+        body: body(z.object({ approved: z.boolean() }).strict()),
+      },
+      responses: { 200: json(ToolApprovalObservation), ...errors },
+    }),
+    async (c) => {
+      const { projectId, id, callId } = c.req.valid("param");
+      return c.json(
+        await conversations.decideApproval(
+          c.get("principal"),
+          projectId,
+          id,
+          callId,
+          c.req.valid("json").approved,
+        ),
+        200,
+      );
     },
   );
 }

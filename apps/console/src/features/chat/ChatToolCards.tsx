@@ -189,6 +189,23 @@ export function ResultToolCard(props: ToolCallMessagePartProps & { children?: Re
   if (props.status.type === "requires-action") return <ToolFallback {...props} />;
   const status = failureStatus(props),
     result = asRecord(props.result);
+  // A gated call a person refused returns a marker instead of an outcome. It
+  // reads as its own state — not a failure, and certainly not a result.
+  if (result.denied === true)
+    return (
+      <ToolFallback.Root className="chat-process" data-refused="true">
+        <ToolHeading
+          props={props}
+          label="写入未执行"
+          summary={result.reason === "expired" ? "等待确认超时" : "用户拒绝"}
+          outcome={result.reason === "expired" ? "已失效" : "已拒绝"}
+        />
+        <ToolFallback.Content>
+          <p className="chat-process-note">{String(result.message ?? "本次写入未执行。")}</p>
+          <CallDetails props={props} />
+        </ToolFallback.Content>
+      </ToolFallback.Root>
+    );
   const scriptFailed =
     props.toolName === "run_skill_script" &&
     typeof result.exitCode === "number" &&
