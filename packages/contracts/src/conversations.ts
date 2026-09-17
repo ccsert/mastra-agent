@@ -193,7 +193,27 @@ export const ConversationContext = z
   })
   .openapi("ConversationContext");
 export const ExecutionJob = z.object({
-  compaction: z.object({ transcript: z.string(), focus: z.string() }).optional(),
+  compaction: z
+    .object({
+      transcript: z.string(),
+      focus: z.string(),
+      /** Provider-native messages and tools of the newest recorded request,
+       * replayed verbatim so the summarization call continues that exact
+       * prefix and reuses the provider's warm cache instead of paying full
+       * price for the whole conversation. Absent when no usable record
+       * exists, or when the retry must shrink rather than replay. */
+      prefix: z
+        .object({
+          model: z.string(),
+          messages: z.array(z.record(z.string(), z.unknown())),
+          tools: z.array(z.record(z.string(), z.unknown())).optional(),
+          toolChoice: z.unknown().optional(),
+          temperature: z.number().optional(),
+          maxTokens: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   systemAssistant: AssistantSystemContext.optional(),
   runId: Id,
   conversationId: Id.optional(),

@@ -1582,3 +1582,161 @@ test("a provider-confirmed context overflow queues a compaction run for the retr
   });
   assert.equal(await queue.claim(), null);
 });
+
+test("compaction replays the newest recorded request as a warm prefix, with guards", async () => {
+  const project = await store.projects.create(actor, { name: "Warm prefix", description: "" });
+  const model = await store.resources.createModel(actor, project.id, {
+    name: "Warm model",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    modelId: "warm-chat",
+    apiKey: "",
+  });
+  const agent = await store.agents.create(actor, project.id, {
+    name: "Warm",
+    description: "",
+    instructions: "Test",
+    modelId: model.id,
+    toolIds: [],
+    maxSteps: 3,
+  });
+  await store.agents.publish(actor, project.id, agent.id, 1);
+  const thread = await store.conversations.create(actor, project.id, agent.id, "Warm");
+  const { queue } = createApp(store, {
+    origin: "http://127.0.0.1:5173",
+    runtimeToken: "test-token",
+  });
+  const record = async (runId: string, request: Record<string, unknown>) => {
+    const job = await queue.claim();
+    assert.ok(job);
+    assert.equal(job.runId, runId);
+    await queue.append(runId, {
+      leaseToken: job.leaseToken,
+      seq: 0,
+      chunk: {
+        type: "data-model-request",
+        data: {
+          requestIndex: 1,
+          preparedAt: new Date().toISOString(),
+          source: "runtime-model-request",
+          request,
+        },
+      },
+    });
+    await queue.finish(runId, {
+      leaseToken: job.leaseToken,
+      status: "succeeded",
+      message: { id: `answer-${runId}`, role: "assistant", parts: [{ type: "text", text: "答" }] },
+    });
+  };
+  const first = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "第一问",
+    "warm-1",
+  );
+  await record(first.id, {
+    model: "warm-chat",
+    messages: [
+      { role: "system", content: "系统提示词" },
+      { role: "user", content: "第一问" },
+      { role: "assistant", content: "答" },
+    ],
+    tools: [{ type: "function", function: { name: "demo" } }],
+    tool_choice: "auto",
+    temperature: 0.3,
+    max_tokens: 4096,
+  });
+  // A manual compaction after a succeeded run replays that exact request.
+  const manual = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "/compact",
+    "warm-2",
+  );
+  let job = await queue.claim();
+  assert.ok(job);
+  assert.equal(job.runId, manual.id);
+  assert.ok(job.compaction?.prefix, "prefix expected after a succeeded newest run");
+  assert.equal(job.compaction.prefix.model, "warm-chat");
+  assert.deepEqual(
+    "messages" in job.compaction.prefix ? job.compaction.prefix.messages : undefined,
+    [
+      { role: "system", content: "系统提示词" },
+      { role: "user", content: "第一问" },
+      { role: "assistant", content: "答" },
+    ],
+  );
+  assert.equal(job.compaction.prefix.toolChoice, "auto");
+  assert.equal(job.compaction.prefix.temperature, 0.3);
+  await queue.finish(manual.id, {
+    leaseToken: job.leaseToken,
+    status: "succeeded",
+    message: { id: "manual-summary", role: "assistant", parts: [{ type: "text", text: "摘要" }] },
+  });
+  // Guard: a failed newest run has no request that certainly includes the latest turn.
+  const failed = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "第二问",
+    "warm-3",
+  );
+  job = await queue.claim();
+  assert.ok(job);
+  await queue.finish(failed.id, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "MODEL_ERROR",
+  });
+  const afterFailure = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "/compact",
+    "warm-4",
+  );
+  job = await queue.claim();
+  assert.ok(job);
+  assert.equal(job.runId, afterFailure.id);
+  assert.equal(job.compaction?.prefix, undefined, "a failed newest run must not supply a prefix");
+  await queue.finish(afterFailure.id, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "CANCELLED",
+  });
+  // Guard: overflow recovery must shrink, never replay the request that failed.
+  const overflowed = await store.conversations.createRun(
+    actor,
+    project.id,
+    thread.id,
+    "再问",
+    "warm-5",
+  );
+  job = await queue.claim();
+  assert.ok(job);
+  await queue.finish(overflowed.id, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "CONTEXT_WINDOW_EXCEEDED",
+  });
+  const [queued] = await db.query(
+    "SELECT id FROM runs WHERE conversation_id=$1 AND context_action='compact' ORDER BY created_at DESC LIMIT 1",
+    [thread.id],
+  );
+  job = await queue.claim();
+  assert.ok(job);
+  assert.equal(job.runId, queued.id);
+  assert.equal(
+    job.compaction?.prefix,
+    undefined,
+    "overflow recovery must not replay the failed request",
+  );
+  await queue.finish(job.runId, {
+    leaseToken: job.leaseToken,
+    status: "failed",
+    errorCode: "CANCELLED",
+  });
+  assert.equal(await queue.claim(), null);
+});

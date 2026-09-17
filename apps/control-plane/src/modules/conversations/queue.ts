@@ -8,7 +8,7 @@ import {
   type RuntimeFinishInput,
   type RuntimeTaskRequest,
 } from "@platform/contracts";
-import type { Database, Row } from "@platform/database";
+import type { Database, Queryable, Row } from "@platform/database";
 import { uiMessageChunkSchema, validateUIMessages } from "ai";
 import type { Vault } from "../../infrastructure/crypto.ts";
 import { sha256 } from "../../infrastructure/crypto.ts";
@@ -18,6 +18,80 @@ import { executionCredentials } from "../resources/index.ts";
 import { compactTranscript, modelHistory } from "./context.ts";
 import { replayRunMessage } from "./history.ts";
 import { taskOperation } from "./task-execution.ts";
+
+/** Replaying a huge recorded request would risk the internal payload limit
+ * without adding cache value; oversized prefixes fall back to a fresh call. */
+const WARM_PREFIX_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * The newest recorded model request this conversation may replay as the
+ * summarization prefix, so the provider's prompt cache already covers it. It
+ * must come from the newest completed non-compaction run (so it contains the
+ * latest user turn), from the current release, follow the latest summary, and
+ * stay within the size cap. A confirmed overflow is excluded on purpose: its
+ * retry must shrink the request, not replay the one that just failed.
+ */
+async function warmPrefix(tx: Queryable, run: Row, modelId: string) {
+  if (String(run.request_id ?? "").startsWith("overflow-compact-")) return {};
+  const [latest] = await tx.query(
+    `SELECT id,status,release_id,created_at FROM runs
+     WHERE conversation_id=$1 AND context_action IS NULL
+     ORDER BY created_at DESC, id DESC LIMIT 1`,
+    [run.conversation_id],
+  );
+  // Only a succeeded newest run guarantees the replay includes the latest turn.
+  if (latest?.status !== "succeeded" || latest.release_id !== run.release_id) return {};
+  const [summary] = await tx.query(
+    "SELECT created_at FROM conversation_summaries WHERE conversation_id=$1",
+    [run.conversation_id],
+  );
+  // A pre-summary request would replay raw history the summary already covers.
+  if (summary && new Date(String(summary.created_at)) >= new Date(String(latest.created_at)))
+    return {};
+  const [record] = await tx.query(
+    `SELECT e.chunk->'data'->'request' AS request FROM run_events e
+     WHERE e.run_id=$1 AND e.chunk->>'type'='data-model-request'
+       AND octet_length(e.chunk::text) <= $2
+     ORDER BY e.seq DESC LIMIT 1`,
+    [latest.id, WARM_PREFIX_MAX_BYTES],
+  );
+  const request = record?.request as
+    | {
+        model?: unknown;
+        messages?: unknown;
+        tools?: unknown;
+        tool_choice?: unknown;
+        temperature?: unknown;
+        max_tokens?: unknown;
+      }
+    | undefined;
+  if (
+    !request ||
+    typeof request.model !== "string" ||
+    request.model !== modelId ||
+    !Array.isArray(request.messages) ||
+    request.messages.some(
+      (message) => typeof message !== "object" || message === null || Array.isArray(message),
+    )
+  )
+    return {};
+  return {
+    prefix: {
+      model: request.model,
+      messages: request.messages as Record<string, unknown>[],
+      ...(Array.isArray(request.tools)
+        ? { tools: request.tools as Record<string, unknown>[] }
+        : {}),
+      // A forced tool choice would derail summarization; "auto"/"none" keep
+      // the original semantics and travel outside the cached prompt anyway.
+      ...(request.tool_choice === "auto" || request.tool_choice === "none"
+        ? { toolChoice: request.tool_choice }
+        : {}),
+      ...(typeof request.temperature === "number" ? { temperature: request.temperature } : {}),
+      ...(typeof request.max_tokens === "number" ? { maxTokens: request.max_tokens } : {}),
+    },
+  };
+}
 export class Queue {
   constructor(
     readonly db: Database,
@@ -121,6 +195,7 @@ export class Queue {
         ? {
             transcript: compactTranscript(messages.filter((m) => m.metadata?.runId !== run.id)),
             focus: String(run.input_text).replace(/^\/compact\s*/i, ""),
+            ...(await warmPrefix(tx, run, snapshot.model.modelId)),
           }
         : undefined;
       const [events] = await tx.query(

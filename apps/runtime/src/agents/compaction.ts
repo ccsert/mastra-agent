@@ -1,5 +1,6 @@
-import { type ExecutionJob, RunUsage } from "@platform/contracts";
+import { type ExecutionJob, ModelStep, RunUsage, traceEventNames } from "@platform/contracts";
 import type { UIMessage, UIMessageChunk } from "ai";
+import { summarizeWithPrefix } from "./compaction-prefix.ts";
 
 /** Structured checkpoint contract, so a fresh model can resume with no loss of
  * essential context. Sections mirror the resumption needs: intent, concepts,
@@ -9,8 +10,9 @@ function compactionInstruction(options: {
   focus: string;
   priorSummary: string;
   part?: { index: number; passes: number };
+  replay?: boolean;
 }) {
-  const { outputChars, focus, priorSummary, part } = options;
+  const { outputChars, focus, priorSummary, part, replay } = options;
   const rules = [
     "使用简体中文工程散文；逐字保留文件路径、命令、错误信息、标识符、数值与代码片段，不做转述。",
     "用户纠正与最新要求优先；早期说法与后续修正冲突时以最新为准。",
@@ -18,15 +20,23 @@ function compactionInstruction(options: {
     "只输出检查点文本：不要调用任何工具，不要采取其他动作。",
     `全文不超过 ${outputChars} 字。`,
   ];
-  const prior = part
-    ? [
-        "“已有摘要”是先前的检查点：不要逐字照抄——保留仍然成立的事实，删除过时内容，把新增材料合并为一份统一的检查点。",
-        `已有摘要：${priorSummary || "无"}`,
-        `新增材料（${part.index + 1}/${part.passes}，可能从一条消息中间延续）：`,
-      ]
-    : ["对话材料："];
+  if (replay)
+    rules.push(
+      "上面的对话中若已包含先前的压缩检查点，不要逐字照抄——保留仍然成立的事实，删除过时内容，与新信息合并为一份统一的检查点。",
+    );
+  const prior = replay
+    ? ["上面的对话就是全部材料，从最早的消息开始整理。"]
+    : part
+      ? [
+          "“已有摘要”是先前的检查点：不要逐字照抄——保留仍然成立的事实，删除过时内容，把新增材料合并为一份统一的检查点。",
+          `已有摘要：${priorSummary || "无"}`,
+          `新增材料（${part.index + 1}/${part.passes}，可能从一条消息中间延续）：`,
+        ]
+      : ["对话材料："];
   return [
-    "你是会话压缩引擎。把下面的对话材料整理成一份让另一个模型无损接续工作的结构化检查点。",
+    replay
+      ? "你是会话压缩引擎。把上面这段对话（从最早的消息到最新）整理成一份让另一个模型无损接续工作的结构化检查点。"
+      : "你是会话压缩引擎。把下面的对话材料整理成一份让另一个模型无损接续工作的结构化检查点。",
     "",
     "输出必须严格采用以下 Markdown 结构：保留全部小节与顺序，用简短条目而非段落；某节没有内容就写“（无）”，不得省略小节。",
     "",
@@ -83,11 +93,85 @@ export async function compactConversation(
   const characters = Array.from(source.transcript);
   const passes = Math.max(1, Math.ceil(characters.length / inputChars));
   let summary = "",
-    final: UIMessage | undefined;
+    final: UIMessage | undefined,
+    replayed = false;
   const observations = new Map<number, RunUsage>();
   let attempted = 0;
   try {
-    for (let index = 0; index < passes; index++) {
+    // Preferred path: continue the newest recorded provider request verbatim
+    // and append the instruction, so the provider's prompt cache covers the
+    // replayed conversation. It applies only when the job carries a prefix and
+    // the transcript fits one pass — a multi-pass rollup must shrink, and a
+    // shrinking retry after a confirmed overflow must never replay the request
+    // that already failed.
+    if (source.prefix && passes === 1) {
+      try {
+        await emit({
+          type: "data-context-compaction",
+          transient: true,
+          data: { pass: 1, passes: 1, status: "running" },
+        });
+        attempted++;
+        const result = await summarizeWithPrefix({
+          prefix: source.prefix,
+          instruction: compactionInstruction({
+            outputChars: maxSummary,
+            focus: source.focus,
+            priorSummary: "",
+            replay: true,
+          }),
+          stepIndex: job.nextStepIndex,
+          requestIndex: job.nextEventSeq,
+          baseUrl: job.snapshot.model.baseUrl,
+          apiKey: job.credentials.modelApiKey,
+          signal,
+          emit,
+        });
+        if (!result.text.trim() || result.text.length > Math.floor(limit / 2))
+          throw new Error("MODEL_ERROR");
+        summary = result.text;
+        await emit({
+          type: traceEventNames.modelStep,
+          transient: true,
+          data: ModelStep.parse({
+            stepIndex: job.nextStepIndex,
+            completedAt: new Date().toISOString(),
+            modelId: job.snapshot.model.modelId,
+            finishReason: result.finishReason,
+            usage: result.usage,
+          }),
+        });
+        observations.set(
+          0,
+          RunUsage.parse({
+            usage: result.usage,
+            steps: 1,
+            finishReason: result.finishReason,
+            traceId: null,
+            spanId: null,
+            perStep: [
+              {
+                stepIndex: job.nextStepIndex,
+                modelId: job.snapshot.model.modelId,
+                finishReason: result.finishReason,
+                usage: result.usage,
+              },
+            ],
+          }),
+        );
+        final = {
+          id: `compact-${job.runId}`,
+          role: "assistant",
+          parts: [{ type: "text", text: summary }],
+        };
+        replayed = true;
+      } catch (error) {
+        // A replay the provider rejects falls back to a standalone call so
+        // compaction still completes; cancellation always wins.
+        if (signal.aborted) throw error;
+      }
+    }
+    for (let index = 0; !replayed && index < passes; index++) {
       signal.throwIfAborted();
       attempted++;
       await emit({
