@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  type ApprovalPolicy,
   ConversationSession,
   ConversationStats,
   Id,
@@ -822,12 +823,12 @@ export class Conversations {
       )
     ).map(runEventDto);
   }
-  /** Rename or pin a conversation; unspecified fields keep their current value. */
+  /** Update mutable conversation fields; unspecified fields keep their value. */
   async update(
     actor: Principal,
     projectId: string,
     id: string,
-    input: { title?: string; pinned?: boolean },
+    input: { title?: string; pinned?: boolean; approvalPolicy?: z.infer<typeof ApprovalPolicy> },
   ) {
     await this.get(actor, projectId, id);
     const sets: string[] = [],
@@ -839,6 +840,10 @@ export class Conversations {
     if (input.pinned !== undefined) {
       values.push(input.pinned ? new Date() : null);
       sets.push(`pinned_at=$${values.length}`);
+    }
+    if (input.approvalPolicy !== undefined) {
+      values.push(input.approvalPolicy);
+      sets.push(`approval_policy=$${values.length}`);
     }
     if (sets.length)
       await this.db.query(`UPDATE conversations SET ${sets.join(",")} WHERE id=$1`, values);

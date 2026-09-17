@@ -152,7 +152,7 @@ export function ChatTurn({ children }: PropsWithChildren) {
         </div>
         {/* Above the transcript: a paused write is the most urgent thing on
             screen, and it must stay visible even while the process is collapsed. */}
-        {id && projectId && <ToolApprovalList projectId={projectId} runId={id} />}
+        {id && projectId && <ToolApprovalList projectId={projectId} runId={id} parts={parts} />}
         {!!data?.artifacts.length && (
           <section className="chat-artifact-list" aria-label="本轮产物">
             {data.artifacts.map((file) => (

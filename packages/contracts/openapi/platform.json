@@ -2870,6 +2870,9 @@
               "null"
             ],
             "default": null
+          },
+          "approvalPolicy": {
+            "$ref": "#/components/schemas/ApprovalPolicy"
           }
         },
         "required": [
@@ -2881,6 +2884,15 @@
           "title",
           "createdAt"
         ]
+      },
+      "ApprovalPolicy": {
+        "type": "string",
+        "enum": [
+          "readonly",
+          "ask",
+          "auto"
+        ],
+        "default": "ask"
       },
       "TaskFeedback": {
         "type": "object",
@@ -4739,6 +4751,9 @@
           },
           "pinned": {
             "type": "boolean"
+          },
+          "approvalPolicy": {
+            "$ref": "#/components/schemas/ApprovalPolicy"
           }
         },
         "additionalProperties": false

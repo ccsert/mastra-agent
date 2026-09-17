@@ -1824,3 +1824,82 @@
 .chat-process[data-refused="true"] .chat-process-trigger {
   color: #8a6d1f;
 }
+.approval-mode-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.approval-mode-trigger:hover {
+  background: #eef3ef;
+}
+.approval-mode-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 240px;
+}
+.approval-mode-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: #263b36;
+}
+.approval-mode-item:hover {
+  background: #eef3ef;
+}
+.approval-mode-item.is-active {
+  background: #eaf2ee;
+}
+.approval-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+.approval-mode-text strong {
+  font-size: 13px;
+}
+.approval-mode-text small {
+  font-size: 11px;
+  color: var(--text-quiet);
+}
+.approval-mode-check {
+  color: #246b59;
+}
+.approval-mode-note {
+  margin: 6px 0 0;
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  color: var(--text-quiet);
+  border-top: 1px solid #e6ece8;
+}
+.chat-approval-args {
+  margin: 4px 0 6px;
+  font-size: 12px;
+}
+.chat-approval-args summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.chat-approval-args pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 180px;
+  overflow: auto;
+  background: #f6f8f7;
+  border-radius: 8px;
+  font-size: 11px;
+}

@@ -6,6 +6,19 @@ import { unwrap } from "../../shared/api";
 import { projectKey } from "../../shared/data/ProjectData";
 import { RunWorkspaceContext } from "./chat-context";
 
+/** A compact, honest view of what the model asked to do: the registered tool
+ * plus its actual arguments, so the decision is about this call, not a name. */
+function ArgsPreview({ args }: { args: Record<string, unknown> | undefined }) {
+  if (!args || !Object.keys(args).length) return null;
+  const text = JSON.stringify(args, null, 1);
+  return (
+    <details className="chat-approval-args">
+      <summary>调用参数</summary>
+      <pre>{text.length > 2000 ? `${text.slice(0, 2000)}…` : text}</pre>
+    </details>
+  );
+}
+
 /** One open gate, answered in place. The decision is the platform's record:
  * the card reports what was sent and disables itself rather than assuming the
  * tool proceeded. */
@@ -13,10 +26,12 @@ export function ToolApprovalCard({
   projectId,
   runId,
   approval,
+  args,
 }: {
   projectId: string;
   runId: string;
   approval: ToolApprovalObservation;
+  args?: Record<string, unknown>;
 }) {
   const client = useQueryClient();
   const [error, setError] = useState("");
@@ -53,6 +68,7 @@ export function ToolApprovalCard({
             这次调用已暂停，等待你决定。拒绝不会执行任何修改；未答复超过 10
             分钟后自动失效，同样不会执行。
           </p>
+          <ArgsPreview args={args} />
           {error && (
             <p className="chat-approval-error" role="alert">
               {error}
@@ -84,11 +100,27 @@ export function ToolApprovalCard({
 
 /** Every gate of the current run, in order: open ones first so a pending
  * decision is never hidden below settled history. */
-export function ToolApprovalList({ projectId, runId }: { projectId: string; runId: string }) {
+export function ToolApprovalList({
+  projectId,
+  runId,
+  parts,
+}: {
+  projectId: string;
+  runId: string;
+  parts: readonly { type: string; toolCallId?: string; input?: unknown }[];
+}) {
   const workspace = useContext(RunWorkspaceContext);
   const approvals = workspace?.approvals ?? [];
   const [showSettled, setShowSettled] = useState(false);
   if (!approvals.length) return null;
+  // The arguments were already streamed with the tool call; show that copy so
+  // the user judges the very input the tool would receive.
+  const argsOf = (callId: string) => {
+    const part = parts.find((candidate) => candidate.toolCallId === callId);
+    return part && typeof part.input === "object" && part.input !== null
+      ? (part.input as Record<string, unknown>)
+      : undefined;
+  };
   const pending = approvals.filter((approval) => approval.status === "pending");
   const settled = approvals.filter((approval) => approval.status !== "pending");
   return (
@@ -99,6 +131,7 @@ export function ToolApprovalList({ projectId, runId }: { projectId: string; runI
           projectId={projectId}
           runId={runId}
           approval={approval}
+          args={argsOf(approval.toolCallId)}
         />
       ))}
       {settled.length > 0 && (

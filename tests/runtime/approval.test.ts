@@ -105,3 +105,19 @@ test("a verdict that arrives as expired is never treated as consent", async () =
   });
   assert.equal(verdict, "expired");
 });
+
+test("the gate vocabulary stays closed so a rogue verdict cannot open it", async () => {
+  // The control plane only ever returns pending/approved/denied/expired; the
+  // runtime's own mapping is what keeps an unknown value fail-closed.
+  const platform = fakePlatform(["pending", "pending", "approved"]);
+  const { emit } = recorder();
+  const verdict = await awaitApproval({
+    callId: "call-5",
+    toolName: "orders_write",
+    call: platform.call as never,
+    emit,
+    signal: new AbortController().signal,
+  });
+  assert.equal(verdict, "approved");
+  assert.ok(platform.polls.every((status) => ["pending", "approved"].includes(status)));
+});

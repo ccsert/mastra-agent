@@ -499,6 +499,7 @@ export function Chat({
                     />
                   )}
                   <ChatComposer
+                    modeTarget={assistantMode ? undefined : { projectId, conversationId }}
                     onCommand={command}
                     skills={capabilities.data?.skills ?? []}
                     selected={selected}

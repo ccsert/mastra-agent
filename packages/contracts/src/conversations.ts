@@ -9,6 +9,13 @@ export const ConversationInput = z
   .object({ agentId: Id, title: z.string().trim().min(1).max(100).default("新会话") })
   .strict()
   .openapi("ConversationInput");
+/**
+ * What happens when a run wants to call a write tool. `readonly` refuses every
+ * gated call without prompting anyone; `ask` pauses for a person per call;
+ * `auto` runs gated tools without asking. The choice belongs to the
+ * conversation and applies from its next run.
+ */
+export const ApprovalPolicy = z.enum(["readonly", "ask", "auto"]).openapi("ApprovalPolicy");
 export const Conversation = z
   .object({
     id: Id,
@@ -21,17 +28,21 @@ export const Conversation = z
     pinnedAt: z.string().nullable().default(null),
     parentConversationId: Id.nullable().default(null),
     parentMessageId: z.string().nullable().default(null),
+    approvalPolicy: ApprovalPolicy.default("ask"),
   })
   .openapi("Conversation");
 export const ConversationUpdateInput = z
   .object({
     title: z.string().trim().min(1).max(100).optional(),
     pinned: z.boolean().optional(),
+    approvalPolicy: ApprovalPolicy.optional(),
   })
   .strict()
-  .refine((input) => input.title !== undefined || input.pinned !== undefined, {
-    message: "至少提供 title 或 pinned 之一",
-  })
+  .refine(
+    (input) =>
+      input.title !== undefined || input.pinned !== undefined || input.approvalPolicy !== undefined,
+    { message: "至少提供 title、pinned 或 approvalPolicy 之一" },
+  )
   .openapi("ConversationUpdate");
 export const DeriveConversationInput = z
   .object({
@@ -209,6 +220,9 @@ export const ConversationContext = z
   })
   .openapi("ConversationContext");
 export const ExecutionJob = z.object({
+  /** The conversation's write-tool mode at claim time. Mid-run changes wait
+   * for the next run; the current one keeps the policy it started with. */
+  approvalPolicy: ApprovalPolicy.default("ask"),
   compaction: z
     .object({
       transcript: z.string(),

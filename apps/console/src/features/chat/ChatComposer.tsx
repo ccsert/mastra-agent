@@ -17,6 +17,7 @@ import type { ConversationCapabilities } from "@platform/sdk";
 import { Button, Popover, Tag } from "antd";
 
 import { ComposerTriggerPopover, TooltipIconButton } from "../../shared/assistant-ui";
+import { ApprovalModePicker } from "./ApprovalModePicker";
 import { skillCommands, skillTriggerMatcher, systemCommands } from "./commands";
 import { SkillPicker } from "./SkillPicker";
 
@@ -32,6 +33,7 @@ export function ChatComposer({
   onRetry,
   onCommand,
   contextUsage,
+  modeTarget,
 }: {
   skills: ConversationCapabilities["skills"];
   selected: string[];
@@ -49,6 +51,9 @@ export function ChatComposer({
     window?: number | null;
     breakdown?: { system: number; tools: number; messages: number } | null;
   };
+  /** Present when the chat owns a conversation; the write-tool mode selector
+   * lives next to the Skills picker. */
+  modeTarget?: { projectId: string; conversationId: string };
 }) {
   const composerText = useAuiState((s) => s.composer.text);
   const running = useAuiState((s) => s.thread.isRunning) || recovering;
@@ -152,6 +157,13 @@ export function ChatComposer({
         />
         <div className="composer-footer">
           <div className="composer-tools">
+            {modeTarget && (
+              <ApprovalModePicker
+                projectId={modeTarget.projectId}
+                conversationId={modeTarget.conversationId}
+                disabled={running}
+              />
+            )}
             <SkillPicker
               skills={skills}
               selected={selected}

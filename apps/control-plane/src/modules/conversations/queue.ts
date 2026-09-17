@@ -121,8 +121,9 @@ export class Queue {
   async claim(runtimeId = this.runtimeId): Promise<ExecutionJob | null> {
     await this.heartbeat(runtimeId);
     return this.db.transaction(async (tx) => {
+      // The write-tool mode belongs to the conversation, not the run row.
       const [run] = await tx.query(
-        "SELECT * FROM runs WHERE runtime_id=$1 AND status='queued' AND deadline>now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+        "SELECT r.*,c.approval_policy FROM runs r JOIN conversations c ON c.id=r.conversation_id WHERE r.runtime_id=$1 AND r.status='queued' AND r.deadline>now() ORDER BY r.created_at FOR UPDATE SKIP LOCKED LIMIT 1",
         [runtimeId],
       );
       if (!run) return null;
@@ -227,6 +228,7 @@ export class Queue {
             )
           : undefined;
       return ExecutionJob.parse({
+        approvalPolicy: run.approval_policy ?? "ask",
         compaction,
         systemAssistant:
           assistant && !compact ? { version: 1, ...(assistant.context as object) } : undefined,

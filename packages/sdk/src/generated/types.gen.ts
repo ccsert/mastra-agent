@@ -605,7 +605,10 @@ export type Conversation = {
     pinnedAt?: string | null;
     parentConversationId?: string | null;
     parentMessageId?: string | null;
+    approvalPolicy?: ApprovalPolicy;
 };
+
+export type ApprovalPolicy = 'readonly' | 'ask' | 'auto';
 
 export type TaskFeedback = {
     id: string;
@@ -977,6 +980,7 @@ export type ConversationInput = {
 export type ConversationUpdate = {
     title?: string;
     pinned?: boolean;
+    approvalPolicy?: ApprovalPolicy;
 };
 
 export type ConversationDerive = {

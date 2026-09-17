@@ -87,6 +87,9 @@ test("opening an active run resumes by GET, restores exactly one answer and can 
         outputTokens: null,
         cachedInputTokens: null,
       });
+    // The composer's write-tool mode picker reads the conversation once.
+    if (/\/conversations\/[^/]+$/.test(url))
+      return Response.json({ id: "existing", approvalPolicy: "ask" });
     if (url.includes("/context"))
       return Response.json({
         totalMessages: 0,

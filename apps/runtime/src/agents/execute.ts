@@ -194,6 +194,21 @@ export function toolExecutionHooks(
   };
 }
 
+/**
+ * The complete current meaning of the conversation's write-tool mode, stated in
+ * the system prompt so the model knows the rules before it picks a tool (dsh's
+ * policy-snapshot idea): what runs automatically, what pauses for a person,
+ * and what is refused outright.
+ */
+function policyInstructions(policy: "readonly" | "ask" | "auto", hasWriteTools: boolean) {
+  if (!hasWriteTools) return "";
+  if (policy === "auto")
+    return "\n\n写入权限模式：完全权限。已登记的写入工具调用会直接执行，无需人工确认；因此只应在用户明确要求的写入时调用，并在回复中说明已执行的修改。";
+  if (policy === "readonly")
+    return "\n\n写入权限模式：仅可查看。写入工具在本会话中不会执行，调用会被直接拒绝且不会发起确认。请不要尝试写入，用只读方式完成回答，或请用户切换权限模式。";
+  return "\n\n写入权限模式：确认后修改。每个已登记的写入工具在执行前都会暂停并等待用户确认；被拒绝或超时的调用不会执行，也不要用相同参数重试。";
+}
+
 async function executeAgent(
   job: ExecutionJob,
   signal: AbortSignal,
@@ -392,9 +407,10 @@ async function executeAgent(
     ),
   }).chatModel(job.snapshot.model.modelId);
   const observationHooks = toolExecutionHooks(sources, onChunk);
-  // Write tools pause for a person. The root run builds the gate against its
-  // own task channel; subagents inherit it rather than opening their own, so a
-  // delegated write is confirmed by the same person watching the same run.
+  // Write tools follow the conversation's mode: `ask` pauses for a person,
+  // `readonly` refuses without prompting, `auto` runs without asking. The root
+  // run builds the gate against its own task channel; subagents inherit it
+  // rather than opening their own, so a delegated write obeys the same mode.
   const writes = new Set(
     (access?.reviewOnly ? [] : job.snapshot.tools)
       .filter((definition) => definition.writes)
@@ -406,6 +422,7 @@ async function executeAgent(
     (task && writes.size
       ? {
           writes,
+          policy: job.approvalPolicy,
           decide: (callId, toolName) =>
             awaitApproval({ callId, toolName, call: task, emit: onChunk, signal }),
         }
@@ -434,6 +451,7 @@ async function executeAgent(
     name: job.snapshot.agent.name,
     instructions:
       job.snapshot.agent.instructions +
+      policyInstructions(job.approvalPolicy, writes.size > 0) +
       (job.systemAssistant
         ? `\n本次任务开始页面（仅供定位参考，不包含用户未提交表单）：${JSON.stringify(job.systemAssistant)}`
         : "") +
