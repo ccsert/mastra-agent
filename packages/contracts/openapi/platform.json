@@ -1178,13 +1178,13 @@
           "maxTokens": {
             "type": "integer",
             "minimum": 1000,
-            "maximum": 2000000,
+            "maximum": 20000000,
             "default": 400000
           },
           "contextTokens": {
             "type": "integer",
             "minimum": 4000,
-            "maximum": 128000,
+            "maximum": 2000000,
             "default": 32000
           },
           "maxOutputTokens": {

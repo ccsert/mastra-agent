@@ -10,8 +10,19 @@ import {
   Select,
   Switch,
 } from "antd";
+import { useEffect, useRef } from "react";
 import { SkillBindingsField } from "../skills/index";
 import { type AgentValues, startingPoints, taskPresets } from "./agent-form";
+import { formatTokenShort, parseTokenShort, recommendedMaxTokens } from "./token-short";
+
+const tokenField = {
+  formatter: (value: number | string | undefined | null) =>
+    value == null || value === "" ? "" : formatTokenShort(Number(value)),
+  parser: (display: string | undefined) => {
+    const parsed = parseTokenShort(String(display ?? ""));
+    return Number.isNaN(parsed) ? String(display ?? "") : parsed;
+  },
+};
 
 export type AgentSection = "purpose" | "knowledge" | "tools" | "runtime" | "releases";
 export function AgentFields({
@@ -43,6 +54,24 @@ export function AgentFields({
       values.planningEnabled ||
       values.delegation?.enabled ||
       values.workspaceEnabled);
+  const contextTokens = values.executionLimits?.contextTokens,
+    maxOutputTokens = values.executionLimits?.maxOutputTokens,
+    maxModelCalls = values.executionLimits?.maxModelCalls;
+  // The run budget follows the window while the user has not claimed the field:
+  // editing context, output cap or call count re-derives it, a manual edit stops
+  // the auto-derivation for good (touched is sticky in antd).
+  const maxTokensTouched = form.isFieldTouched(["executionLimits", "maxTokens"]);
+  const limitInputs = `${contextTokens ?? ""}|${maxOutputTokens ?? ""}|${maxModelCalls ?? ""}`;
+  const previousInputs = useRef<string | null>(null);
+  useEffect(() => {
+    const changed = previousInputs.current !== null && previousInputs.current !== limitInputs;
+    previousInputs.current = limitInputs;
+    if (!changed || maxTokensTouched || !contextTokens) return;
+    form.setFieldValue(
+      ["executionLimits", "maxTokens"],
+      recommendedMaxTokens(contextTokens, maxOutputTokens ?? 4096, maxModelCalls ?? 100),
+    );
+  }, [limitInputs, maxTokensTouched, contextTokens, maxOutputTokens, maxModelCalls, form]);
   return (
     <>
       <section hidden={section !== "purpose"} className="agent-config-section">
@@ -284,14 +313,43 @@ export function AgentFields({
                   <Form.Item name={["executionLimits", "maxModelCalls"]} label="总模型请求上限">
                     <InputNumber min={1} max={240} precision={0} placeholder="100" />
                   </Form.Item>
-                  <Form.Item name={["executionLimits", "maxTokens"]} label="Token 保护额度">
-                    <InputNumber min={1000} max={2000000} precision={0} placeholder="400000" />
+                  <Form.Item
+                    name={["executionLimits", "maxTokens"]}
+                    label="Token 保护额度"
+                    dependencies={[
+                      ["executionLimits", "contextTokens"],
+                      ["executionLimits", "maxOutputTokens"],
+                    ]}
+                    extra="整轮所有模型调用共享的总额度；支持 128k / 1m 简写。未手动调整时随上下文窗口自动推导（默认按前 10 次满窗口调用预留）。"
+                    rules={[
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          const need =
+                            (getFieldValue(["executionLimits", "contextTokens"]) ?? 32000) +
+                            (getFieldValue(["executionLimits", "maxOutputTokens"]) ?? 4096);
+                          if (value == null || value >= need) return Promise.resolve();
+                          return Promise.reject(
+                            new Error(`需至少容纳一次完整调用：≥ 上下文窗口 + 单次输出（${need}）`),
+                          );
+                        },
+                      }),
+                    ]}
+                  >
+                    <InputNumber min={1000} max={20000000} placeholder="自动推导" {...tokenField} />
                   </Form.Item>
-                  <Form.Item name={["executionLimits", "contextTokens"]} label="上下文窗口预算">
-                    <InputNumber min={4000} max={128000} precision={0} placeholder="32000" />
+                  <Form.Item
+                    name={["executionLimits", "contextTokens"]}
+                    label="上下文窗口预算"
+                    extra="单次模型请求可用的窗口大小，超出部分会被裁剪；支持 128k / 1m 简写。"
+                  >
+                    <InputNumber min={4000} max={2000000} placeholder="32000" {...tokenField} />
                   </Form.Item>
-                  <Form.Item name={["executionLimits", "maxOutputTokens"]} label="单次输出上限">
-                    <InputNumber min={512} max={32000} precision={0} placeholder="4096" />
+                  <Form.Item
+                    name={["executionLimits", "maxOutputTokens"]}
+                    label="单次输出上限"
+                    extra="单次模型请求允许的最大输出；支持 32k 简写。"
+                  >
+                    <InputNumber min={512} max={32000} placeholder="4096" {...tokenField} />
                   </Form.Item>
                   <Form.Item name={["delegation", "maxCalls"]} label="每轮最多委派">
                     <InputNumber min={1} max={8} precision={0} />
