@@ -7,8 +7,8 @@ export const ExecutionLimits = z
   .object({
     timeoutSeconds: z.number().int().min(30).max(7200).default(180),
     maxModelCalls: z.number().int().min(1).max(240).default(100),
-    maxTokens: z.number().int().min(1000).max(2000000).default(400000),
-    contextTokens: z.number().int().min(4000).max(128000).default(32000),
+    maxTokens: z.number().int().min(1000).max(20000000).default(400000),
+    contextTokens: z.number().int().min(4000).max(2000000).default(32000),
     maxOutputTokens: z.number().int().min(512).max(32000).default(4096),
   })
   .strict()
