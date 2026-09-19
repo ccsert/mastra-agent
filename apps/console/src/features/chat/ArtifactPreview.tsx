@@ -1,6 +1,6 @@
 import type { RunArtifact } from "@platform/sdk";
 import { Code2, Download, Eye, Monitor, RotateCcw, Smartphone } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArtifactIcon } from "./ArtifactCard";
 
 /** Generated HTML stays in an opaque origin. This policy must precede page code. */
@@ -9,38 +9,60 @@ const maxTextBytes = 2 * 1024 * 1024;
 
 // The owner keys this view by run + artifact + hash; file switches cannot display
 // the previous file's response, even if a fetch completes after cancellation.
-export function ArtifactPreview({ file, url }: { file: RunArtifact; url: string }) {
+export function ArtifactPreview({
+  file,
+  url,
+  inlineContent,
+}: {
+  file: RunArtifact;
+  url: string;
+  /** Transcript code blocks preview from memory; there is no stored file to fetch. */
+  inlineContent?: string;
+}) {
   const [mobile, setMobile] = useState(false),
     [source, setSource] = useState(false),
-    [text, setText] = useState<string | null>(null),
+    [fetched, setFetched] = useState<string | null>(null),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
-  const html = file.mediaType === "text/html";
+  const inline = inlineContent != null;
+  const text = inline ? inlineContent : fetched;
+  const blobUrl = useMemo(() => {
+    if (!inline) return null;
+    return URL.createObjectURL(new Blob([inlineContent], { type: "text/html" }));
+  }, [inline, inlineContent]);
+  useEffect(
+    () => () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    },
+    [blobUrl],
+  );
+  const html = inline || file.mediaType === "text/html";
   const image =
     file.mediaType === "image/png" ||
     file.mediaType === "image/jpeg" ||
     file.mediaType === "image/webp";
   const readable =
     html || file.mediaType.startsWith("text/") || file.mediaType === "application/json";
-  const tooLarge = readable && file.size > maxTextBytes;
+  const tooLarge = readable && !inline && file.size > maxTextBytes;
   useEffect(() => {
-    if (!readable || tooLarge) return;
+    if (inline || !readable || tooLarge) return;
     const controller = new AbortController();
-    setText(null);
+    setFetched(null);
     setError("");
     void fetch(url, { signal: controller.signal, cache: revision ? "reload" : "default" })
       .then(async (response) => {
         if (!response.ok) throw new Error("文件读取失败，请重试或下载原文件。");
         const content = await response.text();
         if (content.length > maxTextBytes) throw new Error("文件过大，请下载后查看。");
-        if (!controller.signal.aborted) setText(content);
+        if (!controller.signal.aborted) setFetched(content);
       })
       .catch((error) => {
         if (!controller.signal.aborted)
           setError(error instanceof Error ? error.message : "文件读取失败");
       });
     return () => controller.abort();
-  }, [url, readable, tooLarge, revision]);
+  }, [url, readable, tooLarge, revision, inline]);
+  const downloadHref = inline ? (blobUrl ?? url) : url;
   return (
     <div className="artifact-preview">
       <div className="artifact-preview-toolbar">
@@ -87,9 +109,9 @@ export function ArtifactPreview({ file, url }: { file: RunArtifact; url: string 
         )}
         <a
           className="artifact-download"
-          href={url}
+          href={downloadHref}
           download={file.name}
-          title={`SHA-256 ${file.sha256}`}
+          title={inline ? "下载此 HTML 片段" : `SHA-256 ${file.sha256}`}
           aria-label={`下载当前文件 ${file.name}`}
         >
           <Download size={14} />

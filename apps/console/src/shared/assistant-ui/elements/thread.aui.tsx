@@ -55,6 +55,8 @@ export type ThreadComponents = {
   AssistantBody?: ComponentType<PropsWithChildren>;
   AssistantMessage?: ComponentType | undefined;
   Welcome?: ComponentType | undefined;
+  /** Present when the host can preview an HTML code block outside the thread. */
+  onPreviewCode?: ((code: string) => void) | undefined;
   ToolFallback?: ToolCallMessagePartComponent | undefined;
   ToolGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
   ReasoningGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
@@ -139,7 +141,9 @@ const ThreadRoot: FC<{
       }}
     >
       <ThreadPrimitive.Viewport
-        turnAnchor="top"
+        // Default "bottom" turn anchor keeps autoScroll enabled (it defaults
+        // off under "top"), so streaming output stays pinned to the latest
+        // content and the viewport follows as the reply grows.
         data-slot="aui_thread-viewport"
         className="relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth"
       >
@@ -254,6 +258,7 @@ const AssistantMessage: FC = () => {
     ReasoningGroup,
     AssistantFooter,
     AssistantBody = PlainBody,
+    onPreviewCode,
   } = useContext(ThreadComponentsContext);
 
   return (
@@ -306,7 +311,7 @@ const AssistantMessage: FC = () => {
                   );
                 }
                 case "text":
-                  return <MarkdownText />;
+                  return <MarkdownText onPreviewCode={onPreviewCode} />;
                 case "reasoning":
                   return <Reasoning {...part} />;
                 case "tool-call":

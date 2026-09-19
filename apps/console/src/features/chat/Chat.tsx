@@ -17,12 +17,13 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreateUIMessage, UIMessage } from "ai";
 import { Alert, Drawer, List } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
 import { unwrap } from "../../shared/api";
 import { Thread, type ThreadComponents } from "../../shared/assistant-ui";
 import { projectKey, useStorageScope } from "../../shared/data/ProjectData";
 import { ArtifactCanvas } from "./ArtifactCanvas";
+import { ArtifactCanvasContext } from "./artifact-context";
 import { ChatComposer } from "./ChatComposer";
 import { ChatEdit, ChatEditContext } from "./ChatEdit";
 import { ChatFeedback } from "./ChatFeedback";
@@ -69,6 +70,36 @@ const THREAD_COMPONENTS: ThreadComponents = {
   AssistantFooter: AssistantContext,
   AssistantActions: MessageExtras,
 };
+
+/** Rendered inside the canvas provider so markdown code blocks can reach the
+ * canvas context; the thread itself never imports platform modules. */
+function CanvasWiredThread({
+  components,
+  composer,
+  footer,
+}: {
+  components?: Partial<ThreadComponents>;
+  composer: ReactNode;
+  footer?: ReactNode;
+}) {
+  const canvas = useContext(ArtifactCanvasContext);
+  const threadComponents = useMemo(
+    () => ({
+      ...THREAD_COMPONENTS,
+      onPreviewCode: (code: string) =>
+        canvas?.openInline({
+          id: `html-${Date.now()}`,
+          name: "代码片段.html",
+          content: code,
+        }),
+      ...components,
+    }),
+    [canvas, components],
+  );
+  return (
+    <Thread maxWidth="68rem" components={threadComponents} composer={composer} footer={footer} />
+  );
+}
 
 export function Chat({
   projectId,
@@ -453,9 +484,8 @@ export function Chat({
           }}
         >
           <ArtifactCanvas key={`${projectId}/${conversationId}`} projectId={projectId}>
-            <Thread
-              maxWidth="68rem"
-              components={{ ...THREAD_COMPONENTS, ...components }}
+            <CanvasWiredThread
+              components={components}
               composer={
                 <>
                   <ChatRecovery
