@@ -55,6 +55,8 @@ export type ThreadComponents = {
   AssistantBody?: ComponentType<PropsWithChildren>;
   AssistantMessage?: ComponentType | undefined;
   Welcome?: ComponentType | undefined;
+  /** Replaces the raw streamed error text (default renders String(error)). */
+  Error?: ComponentType | undefined;
   ToolFallback?: ToolCallMessagePartComponent | undefined;
   ToolGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
   ReasoningGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
@@ -254,6 +256,7 @@ const AssistantMessage: FC = () => {
     ReasoningGroup,
     AssistantFooter,
     AssistantBody = PlainBody,
+    Error: ErrorComponent = MessageError,
   } = useContext(ThreadComponentsContext);
 
   return (
@@ -329,7 +332,7 @@ const AssistantMessage: FC = () => {
               }
             }}
           </MessagePrimitive.GroupedParts>
-          <MessageError />
+          <ErrorComponent />
         </AssistantBody>
       </div>
 

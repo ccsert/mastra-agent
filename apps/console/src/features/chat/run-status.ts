@@ -1,5 +1,5 @@
 const errorNames: Record<string, string> = {
-  TOKEN_BUDGET: "下一次请求将超出 Token 预算",
+  TOKEN_BUDGET: "本轮 Token 预算已用尽，执行已停止；发送新消息将开启新的预算",
   MODEL_CALL_LIMIT: "已达到模型调用上限",
   STEP_LIMIT: "已达到执行步数上限",
   TOOL_OUTCOME_UNKNOWN: "上次工具结果待确认，已停止自动重试",
