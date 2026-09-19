@@ -259,7 +259,7 @@ export function AgentFields({
           name="workspaceEnabled"
           label="网页任务工作区"
           valuePropName="checked"
-          extra="使用隔离的文件、命令和浏览器；需 Runtime 已配置网页任务环境。"
+          extra="使用隔离的文件、命令和浏览器；需 Runtime 已配置网页任务环境，未配置时对话会立即失败（配置见 docs/operations/web-agent.md）。"
         >
           <Switch />
         </Form.Item>
