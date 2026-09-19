@@ -24,7 +24,7 @@ const Workflows = lazy(() =>
   import("../../features/workflows/index").then((m) => ({ default: m.WorkflowWorkspace })),
 );
 export function ProjectPage() {
-  const { page, user, openEditor, registerGuard } = useConsoleNavigation();
+  const { page, user, openEditor, registerGuard, refreshProjects } = useConsoleNavigation();
   const access = useProjectAccess();
   const can = (permission: string) => access?.permissions?.some((p) => p === permission) ?? false;
   const projectId = useProjectId(),
@@ -63,7 +63,14 @@ export function ProjectPage() {
     );
   switch (page) {
     case "settings":
-      return <MembersWorkspace key={projectId} scope="project" user={user} />;
+      return (
+        <MembersWorkspace
+          key={projectId}
+          scope="project"
+          user={user}
+          refreshProjects={refreshProjects}
+        />
+      );
     case "overview":
       if (!can("resource.manage")) return <AgentCollection {...agentActions} />;
       return (

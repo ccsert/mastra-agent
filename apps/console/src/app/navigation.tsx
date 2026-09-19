@@ -31,7 +31,7 @@ export const navigation: [Page, string, React.ReactNode][] = [
   ["settings", "项目设置", <SettingOutlined key="SettingOutlined" aria-hidden="true" />],
 ];
 export const pageTitles: Record<Page, [string, string]> = {
-  settings: ["项目设置", "管理项目成员，明确配置、发布与使用权限。"],
+  settings: ["项目设置", "管理项目信息与成员，明确配置、发布与使用权限。"],
   team: ["团队设置", "管理团队账号、邀请和操作记录。"],
   overview: ["工作台", "从模型配置到业务调用，管理你的 Agent 项目。"],
   agents: ["Agents", "配置角色与工具，发布可供团队和业务系统使用的智能体。"],

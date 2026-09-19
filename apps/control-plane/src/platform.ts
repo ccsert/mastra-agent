@@ -26,8 +26,8 @@ export class Platform {
     readonly vault: Vault,
     readonly runtimeId = "hosted-local",
   ) {
-    this.identity = new Identity(db);
     this.projects = new Projects(db);
+    this.identity = new Identity(db, this.projects.access);
     this.members = new Members(db, this.projects.access);
     this.resources = new Resources(db, vault, this.projects);
     this.skills = new Skills(db, this.projects, runtimeId);
