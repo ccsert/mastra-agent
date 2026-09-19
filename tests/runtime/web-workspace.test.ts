@@ -12,6 +12,15 @@ if (!process.env.TASK_SANDBOX_IMAGE)
     "[web-workspace.test] TASK_SANDBOX_IMAGE is not set; Docker browser sandbox coverage will be skipped",
   );
 
+test("a workspace agent without provisioned sandbox env fails fast with a named error", async () => {
+  const job = agentJob();
+  job.snapshot.agent.workspaceEnabled = true;
+  await assert.rejects(
+    executeJob(job, AbortSignal.timeout(5000), async () => {}),
+    /WORKSPACE_NOT_CONFIGURED/,
+  );
+});
+
 test("model loop writes a webpage, runs it, inspects a real browser and exports bytes", {
   skip: process.env.TASK_SANDBOX_IMAGE
     ? false

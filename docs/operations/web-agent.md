@@ -15,6 +15,8 @@ Runtime 管理 Docker，任务容器不挂载 Docker socket。每个执行尝试
 
 在 Agent 编辑器中启用网页工作区。模型必须支持工具调用，使用截图评审还需配置真实可用的视觉模型。发布后，新会话固定使用该版本；修改 Agent 配置不会改变已有会话的发布快照。
 
+未配置 `TASK_SANDBOX_IMAGE` 或 `TASK_WORKSPACE_ROOT` 时，启用网页工作区的对话会立即失败并报 `WORKSPACE_NOT_CONFIGURED`；这是配置缺失，不是容器运行故障（后者报 `WORKSPACE_UNAVAILABLE` 或 `WORKSPACE_COMMAND_FAILED`）。
+
 ## 预算与步骤
 
 主代理可配置 1–80 个模型步骤，子代理最多 20 步；时间上限 2 小时，总模型请求上限 240，总 Token 预算上限 200 万。10/30/80 是容量预设，不要求 Agent 跑满。模型重试与子代理请求共同计入当前 Run 预算，进程恢复不清零。新用户回合会产生新的 Run 预算。

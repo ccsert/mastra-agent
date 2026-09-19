@@ -4,6 +4,8 @@ const errorNames: Record<string, string> = {
   STEP_LIMIT: "已达到执行步数上限",
   TOOL_OUTCOME_UNKNOWN: "上次工具结果待确认，已停止自动重试",
   WORKSPACE_LIMIT: "工作区达到容量限制",
+  WORKSPACE_NOT_CONFIGURED:
+    "Runtime 未配置网页任务环境：请先配置 TASK_SANDBOX_IMAGE 与 TASK_WORKSPACE_ROOT（见 docs/operations/web-agent.md），或关闭该 Agent 的网页任务工作区",
   WORKSPACE_UNAVAILABLE: "工作区暂不可用",
   BUDGET_UNAVAILABLE: "预算服务暂不可用",
   TIMEOUT: "已达到时间预算",

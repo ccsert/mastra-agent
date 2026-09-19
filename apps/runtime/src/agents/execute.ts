@@ -689,6 +689,11 @@ export async function executeJob(
   }
   let web: WebWorkspace | undefined;
   if (job.snapshot.agent.workspaceEnabled && !access?.web) {
+    // Sandbox image and workspace root are provisioned per deployment (env only,
+    // never per agent). Naming the missing configuration beats a generic
+    // WORKSPACE_UNAVAILABLE surfaced after container setup already failed.
+    if (!access?.taskWorkspaceRoot || !access?.taskSandboxImage)
+      throw new Error("WORKSPACE_NOT_CONFIGURED");
     web = await prepareWebWorkspace(job, signal, {
       root: access?.taskWorkspaceRoot,
       image: access?.taskSandboxImage,
