@@ -4,7 +4,15 @@ import {
   type UseChatRuntimeOptions,
   useChatRuntime,
 } from "@assistant-ui/ai-sdk";
-import { AssistantRuntimeProvider, AuiConfig, AuiIf, Tools } from "@assistant-ui/react";
+import {
+  AssistantRuntimeProvider,
+  AuiConfig,
+  AuiIf,
+  ErrorPrimitive,
+  MessagePrimitive,
+  Tools,
+  useAuiState,
+} from "@assistant-ui/react";
 import {
   type Conversation,
   type ConversationContext,
@@ -58,6 +66,39 @@ function Welcome() {
     </div>
   );
 }
+/**
+ * The streamed error part carries the run's terminal code verbatim ("TOKEN_BUDGET").
+ * Known codes map to the same guidance as the saved-turn banner; unknown text
+ * passes through untouched.
+ */
+function ChatTurnError() {
+  const status = useAuiState((s) => s.message.status);
+  const failure =
+    status?.type === "incomplete" && status.reason === "error"
+      ? (status as { error?: unknown }).error
+      : undefined;
+  const raw =
+    typeof failure === "string"
+      ? failure
+      : failure instanceof Error
+        ? failure.message
+        : failure !== null &&
+            typeof failure === "object" &&
+            "message" in failure &&
+            typeof failure.message === "string"
+          ? failure.message
+          : "";
+  return (
+    <MessagePrimitive.Error>
+      <ErrorPrimitive.Root className="aui-message-error-root border-destructive bg-destructive/10 text-destructive dark:bg-destructive/5 mt-2 rounded-md border p-3 text-sm dark:text-red-200">
+        <ErrorPrimitive.Message className="aui-message-error-message line-clamp-2">
+          {formatRunError(raw) || raw || "执行中断"}
+        </ErrorPrimitive.Message>
+      </ErrorPrimitive.Root>
+    </MessagePrimitive.Error>
+  );
+}
+
 const THREAD_COMPONENTS: ThreadComponents = {
   Welcome,
   EditComposer: ChatEdit,
@@ -68,6 +109,7 @@ const THREAD_COMPONENTS: ThreadComponents = {
   UserFooter: MessageContext,
   AssistantFooter: AssistantContext,
   AssistantActions: MessageExtras,
+  Error: ChatTurnError,
 };
 
 export function Chat({
@@ -243,6 +285,19 @@ export function Chat({
       if (cancelled.current) return;
       setError(formatRunError(error.message));
       if (resumable.getStreamId(conversationId)) setDisconnected(true);
+      // A failed run still settles its usage server-side: the runtime reports
+      // metrics from its finally block before the error surfaces here, so the
+      // footer totals would otherwise stay frozen until the next focus. Refresh
+      // now and once more after the finish has had a beat to land.
+      void contextUsage.refetch();
+      const refreshSettled = () => {
+        void contextUsage.refetch();
+        void client.invalidateQueries({
+          queryKey: projectKey(projectId, "conversations", conversationId, "stats"),
+        });
+      };
+      refreshSettled();
+      setTimeout(refreshSettled, 1500);
     },
     onFinish: ({ isDisconnect }) => {
       setCompacting(undefined);

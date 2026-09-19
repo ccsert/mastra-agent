@@ -96,3 +96,51 @@ test("a streamed reply reports observed latency but never an estimated token rat
   await waitFor(() => assert.equal(/tok\/s/.test(document.body.textContent ?? ""), false));
   assert.equal(/tok\/s/.test(document.body.textContent ?? ""), false);
 });
+
+test("a failed run maps the streamed code to guidance and refetches the totals", async () => {
+  const statsCalls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url.endsWith("/capabilities")) return Response.json({ skills: [] });
+    if (url.includes("/stats")) {
+      statsCalls.push(url);
+      // An empty body keeps the totals bar unrendered (no turns yet); the test
+      // only asserts that a refetch happens, not what the numbers look like.
+      return Response.json({});
+    }
+    if (url.endsWith("/chat")) {
+      return new Response(
+        `${[
+          { type: "start", messageId: "answer" },
+          { type: "error", errorText: "TOKEN_BUDGET" },
+        ]
+          .map((v) => `data: ${JSON.stringify(v)}\n\n`)
+          .join("")}data: [DONE]\n\n`,
+        {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "x-vercel-ai-ui-message-stream": "v1",
+            "x-platform-run-id": "run",
+          },
+        },
+      );
+    }
+    // The failure path also refetches the context usage; a rejection is fine.
+    throw new Error(`Unexpected ${url}`);
+  };
+  render(
+    <ProjectData projectId="project">
+      <Chat projectId="project" conversationId="budget" messages={[]} onFinish={() => {}} />
+    </ProjectData>,
+  );
+  const input = await screen.findByRole("textbox", { name: "消息" });
+  fireEvent.change(input, { target: { value: "继续任务" } });
+  // The mount-time totals fetch lands before the run; only refetches after the
+  // failure prove the error path refreshes the footer.
+  statsCalls.length = 0;
+  fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
+  // Both the live error box and the toast show the mapped guidance.
+  await screen.findAllByText("本轮 Token 预算已用尽，执行已停止；发送新消息将开启新的预算");
+  await waitFor(() => assert.ok(statsCalls.length > 0, "totals should refetch after a failure"));
+  assert.equal(/TOKEN_BUDGET/.test(document.body.textContent ?? ""), false);
+});
