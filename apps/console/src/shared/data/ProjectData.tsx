@@ -6,6 +6,7 @@ import type {
   McpServer,
   Model,
   ModelVendorPreset,
+  Project,
   ProjectAccess,
   Run,
   RuntimeInfo,
@@ -36,6 +37,7 @@ type Resources = {
   knowledgeBases: KnowledgeBase[];
   models: Model[];
   modelVendors: ModelVendorPreset[];
+  project: Project;
   runs: Run[];
   runtimes: RuntimeInfo[];
   tools: Tool[];
@@ -62,6 +64,7 @@ const loaders: {
     return items;
   },
   access: (projectId, signal) => unwrap(api.getProjectAccess({ path: { projectId }, signal })),
+  project: (projectId, signal) => unwrap(api.getProject({ path: { projectId }, signal })),
   agents: (projectId, signal) => unwrap(api.listAgents({ path: { projectId }, signal })),
   applications: (projectId, signal) =>
     unwrap(api.listApplications({ path: { projectId }, signal })),

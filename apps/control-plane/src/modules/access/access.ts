@@ -46,13 +46,17 @@ export class Access {
         actor.tenantId,
       ]);
       if (!project) throw notFound();
+      // Archived projects stop serving application traffic: agent.run is the
+      // only write-shaped permission an application can hold.
+      const archived = project.archived_at != null;
       return {
         project,
         access: ProjectAccess.parse({
           projectId,
           role: null,
           tenantRole: null,
-          permissions: ["project.read", "agent.run"],
+          permissions: archived ? ["project.read"] : ["project.read", "agent.run"],
+          archived,
         }),
       };
     }
@@ -69,13 +73,26 @@ export class Access {
         ? "admin"
         : String(r.member_role ?? "");
     if (!grants[role]) throw notFound();
+    // Archiving freezes a project centrally: every request re-reads the row, so
+    // dropping write/execute permissions here blocks all write routes at once.
+    // project.manage survives for admins so the project can be restored.
+    const archived = r.archived_at != null;
+    const permissions = archived
+      ? grants[role].filter(
+          (permission) =>
+            permission === "project.read" ||
+            permission === "resource.read" ||
+            permission === "project.manage",
+        )
+      : grants[role];
     return {
       project: r,
       access: ProjectAccess.parse({
         projectId,
         role,
         tenantRole: r.tenant_role,
-        permissions: grants[role],
+        permissions,
+        archived,
       }),
     };
   }
@@ -90,7 +107,13 @@ export class Access {
   ) {
     const access = await this.project(actor, projectId, tx);
     if (!access.permissions.includes(permission))
-      throw new ApiError(403, "FORBIDDEN", "当前项目角色没有此操作权限");
+      throw access.archived
+        ? new ApiError(
+            403,
+            "PROJECT_ARCHIVED",
+            "项目已归档：修改与执行已暂停，请先在项目设置中恢复",
+          )
+        : new ApiError(403, "FORBIDDEN", "当前项目角色没有此操作权限");
     return access;
   }
   async record(

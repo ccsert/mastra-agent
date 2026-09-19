@@ -46,6 +46,7 @@ export type ProjectAccess = {
     role: ProjectRole | null;
     tenantRole: TenantRole & (string | null);
     permissions: Array<Permission>;
+    archived?: boolean;
 };
 
 export type ProjectRole = 'admin' | 'editor' | 'member' | 'viewer';
@@ -92,10 +93,16 @@ export type Project = ProjectInput & {
     id: string;
     tenantId: string;
     createdAt: string;
+    archivedAt: string | null;
 };
 
 export type ProjectInput = {
     name: string;
+    description?: string;
+};
+
+export type ProjectPatch = {
+    name?: string;
     description?: string;
 };
 
@@ -1910,6 +1917,115 @@ export type GetCurrentUserResponses = {
 
 export type GetCurrentUserResponse = GetCurrentUserResponses[keyof GetCurrentUserResponses];
 
+export type ChangePasswordData = {
+    body: {
+        currentPassword: string;
+        newPassword: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/password';
+};
+
+export type ChangePasswordErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ChangePasswordError = ChangePasswordErrors[keyof ChangePasswordErrors];
+
+export type ChangePasswordResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+        revokedSessions: number;
+    };
+};
+
+export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type RevokeMyOtherSessionsData = {
+    body: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/sessions/revoke-others';
+};
+
+export type RevokeMyOtherSessionsErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type RevokeMyOtherSessionsError = RevokeMyOtherSessionsErrors[keyof RevokeMyOtherSessionsErrors];
+
+export type RevokeMyOtherSessionsResponses = {
+    /**
+     * 成功
+     */
+    200: {
+        ok: boolean;
+        revoked: number;
+    };
+};
+
+export type RevokeMyOtherSessionsResponse = RevokeMyOtherSessionsResponses[keyof RevokeMyOtherSessionsResponses];
+
 export type ListTeamMembersData = {
     body?: never;
     path?: never;
@@ -2730,6 +2846,214 @@ export type CreateProjectResponses = {
 };
 
 export type CreateProjectResponse = CreateProjectResponses[keyof CreateProjectResponses];
+
+export type GetProjectData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}';
+};
+
+export type GetProjectErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type GetProjectError = GetProjectErrors[keyof GetProjectErrors];
+
+export type GetProjectResponses = {
+    /**
+     * 成功
+     */
+    200: Project;
+};
+
+export type GetProjectResponse = GetProjectResponses[keyof GetProjectResponses];
+
+export type UpdateProjectData = {
+    body: ProjectPatch;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}';
+};
+
+export type UpdateProjectErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UpdateProjectError = UpdateProjectErrors[keyof UpdateProjectErrors];
+
+export type UpdateProjectResponses = {
+    /**
+     * 成功
+     */
+    200: Project;
+};
+
+export type UpdateProjectResponse = UpdateProjectResponses[keyof UpdateProjectResponses];
+
+export type ArchiveProjectData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/archive';
+};
+
+export type ArchiveProjectErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type ArchiveProjectError = ArchiveProjectErrors[keyof ArchiveProjectErrors];
+
+export type ArchiveProjectResponses = {
+    /**
+     * 成功
+     */
+    200: Project;
+};
+
+export type ArchiveProjectResponse = ArchiveProjectResponses[keyof ArchiveProjectResponses];
+
+export type UnarchiveProjectData = {
+    body: {
+        [key: string]: never;
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/unarchive';
+};
+
+export type UnarchiveProjectErrors = {
+    /**
+     * 成功
+     */
+    400: ApiError;
+    /**
+     * 成功
+     */
+    401: ApiError;
+    /**
+     * 成功
+     */
+    403: ApiError;
+    /**
+     * 成功
+     */
+    404: ApiError;
+    /**
+     * 成功
+     */
+    409: ApiError;
+    /**
+     * 成功
+     */
+    429: ApiError;
+    /**
+     * 成功
+     */
+    503: ApiError;
+};
+
+export type UnarchiveProjectError = UnarchiveProjectErrors[keyof UnarchiveProjectErrors];
+
+export type UnarchiveProjectResponses = {
+    /**
+     * 成功
+     */
+    200: Project;
+};
+
+export type UnarchiveProjectResponse = UnarchiveProjectResponses[keyof UnarchiveProjectResponses];
 
 export type ListModelsData = {
     body?: never;

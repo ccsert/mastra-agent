@@ -97,6 +97,10 @@ export class Database implements Queryable {
       new URL("./approval-policy.sql", import.meta.url),
       "utf8",
     );
+    const projectLifecycle = await readFile(
+      new URL("./project-lifecycle.sql", import.meta.url),
+      "utf8",
+    );
     await this.transaction(async (tx) => {
       await tx.query("SELECT pg_advisory_xact_lock(2947301)");
       await tx.query(sql);
@@ -196,6 +200,10 @@ export class Database implements Queryable {
         "SELECT version FROM schema_migrations WHERE version=26",
       );
       if (!approvalPolicyApplied) await tx.query(approvalPolicy);
+      const [projectLifecycleApplied] = await tx.query(
+        "SELECT version FROM schema_migrations WHERE version=27",
+      );
+      if (!projectLifecycleApplied) await tx.query(projectLifecycle);
     });
   }
   async close() {

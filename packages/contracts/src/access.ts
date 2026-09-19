@@ -21,6 +21,7 @@ export const ProjectAccess = z
     role: z.union([ProjectRole, z.null()]),
     tenantRole: TenantRole.nullable(),
     permissions: z.array(Permission),
+    archived: z.boolean().default(false),
   })
   .openapi("ProjectAccess");
 export const TeamMember = z

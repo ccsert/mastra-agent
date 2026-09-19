@@ -15,6 +15,7 @@ import { timestamp, unwrap } from "../../shared/api";
 import { useProjectId } from "../../shared/data/ProjectData";
 import { QueryState } from "../../shared/data/QueryState";
 import { useOperation } from "../../shared/useOperation";
+import { ProjectInfoCard } from "../projects/index";
 
 const auditLabels: Record<string, string> = {
   "knowledge.import": "导入知识资料版本",
@@ -22,6 +23,11 @@ const auditLabels: Record<string, string> = {
   "member.updated": "修改账号角色或状态",
   "member.sessions_revoked": "撤销登录会话",
   "team.owner_transferred": "移交团队所有权",
+  "account.password_changed": "修改登录密码",
+  "account.sessions_revoked": "退出其他设备会话",
+  "project.updated": "更新项目信息",
+  "project.archived": "归档项目",
+  "project.restored": "恢复项目",
   "project.member_updated": "更新项目成员",
   "project.member_removed": "移除项目成员",
   "invitation.created": "创建邀请",
@@ -30,7 +36,15 @@ const auditLabels: Record<string, string> = {
   "agent.published": "发布 Agent",
   "agent.preview_created": "创建草稿试用",
 };
-export function MembersWorkspace({ scope, user }: { scope: "team" | "project"; user: Principal }) {
+export function MembersWorkspace({
+  scope,
+  user,
+  refreshProjects,
+}: {
+  scope: "team" | "project";
+  user: Principal;
+  refreshProjects?: (chooseNewest?: boolean) => Promise<void>;
+}) {
   const projectId = useProjectId(),
     team = scope === "team",
     { modal, message } = App.useApp(),
@@ -151,6 +165,7 @@ export function MembersWorkspace({ scope, user }: { scope: "team" | "project"; u
           closable={{ onClose: () => operation.setError("") }}
         />
       )}
+      {!team && <ProjectInfoCard refreshProjects={refreshProjects} />}
       <Tabs
         activeKey={tab}
         onChange={setTab}

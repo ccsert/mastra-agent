@@ -5,14 +5,16 @@ import {
   MenuOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
 import type { Agent, Model, Project, Tool } from "@platform/sdk";
 import { useIsFetching } from "@tanstack/react-query";
-import { Badge, Button, Drawer, Select, Tag, Tooltip } from "antd";
+import { Alert, Badge, Button, Drawer, Select, Tag, Tooltip } from "antd";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router";
 import { PlatformAssistant } from "../features/assistant/index";
+import { AccountSecurity } from "../features/members/index";
 import { ProjectAccessContext, pagePermission, roleNames } from "../shared/access";
 import { Blank } from "../shared/Blank";
 import { useProjectQuery, useProjectRefresh } from "../shared/data/ProjectData";
@@ -41,6 +43,7 @@ export function ProjectConsole({
   refreshProjects(chooseNewest?: boolean): Promise<void>;
 }) {
   const [mobilePath, setMobilePath] = useState<string>();
+  const [accountOpen, setAccountOpen] = useState(false);
   const { resourceId } = useParams();
   const location = useLocation(),
     navigate = useNavigate();
@@ -157,6 +160,16 @@ export function ProjectConsole({
                     : "团队成员"}
             </small>
           </span>
+          <Tooltip title="账号安全">
+            <Button
+              type="text"
+              aria-label="账号安全"
+              icon={
+                <SafetyCertificateOutlined key="SafetyCertificateOutlined" aria-hidden="true" />
+              }
+              onClick={() => setAccountOpen(true)}
+            />
+          </Tooltip>
           <Tooltip title="退出登录">
             <Button
               type="text"
@@ -246,7 +259,11 @@ export function ProjectConsole({
                       variant="borderless"
                       placeholder="选择项目"
                       value={projectId || undefined}
-                      options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                      options={projects.map((p) => ({
+                        value: p.id,
+                        label: p.archivedAt ? `${p.name} · 已归档` : p.name,
+                        disabled: !!p.archivedAt && p.id !== projectId,
+                      }))}
                       onChange={(id) => {
                         if (id !== projectId) onProjectChange(id);
                       }}
@@ -316,6 +333,17 @@ export function ProjectConsole({
                 data-agent-target="page"
                 className={`main-content page-${page}${conversationPage ? " conversation-page" : ""}${authoringPage ? " agent-authoring-page" : ""}`}
               >
+                {projectId && access?.archived && (
+                  <Alert
+                    className="archived-banner"
+                    type="warning"
+                    showIcon
+                    title="项目已归档：配置修改与新的执行已暂停"
+                    description={
+                      teamAdmin ? "可在项目设置中恢复此项目。" : "请联系团队管理员恢复此项目。"
+                    }
+                  />
+                )}
                 {!projectId && page !== "team" ? (
                   <section className="panel">
                     <Blank
@@ -342,14 +370,26 @@ export function ProjectConsole({
                     {page === "team" ? (
                       <Outlet
                         context={
-                          { page, user, openEditor, registerGuard } satisfies ConsoleNavigation
+                          {
+                            page,
+                            user,
+                            openEditor,
+                            registerGuard,
+                            refreshProjects,
+                          } satisfies ConsoleNavigation
                         }
                       />
                     ) : (
                       <QueryState label="项目权限" query={accessQuery}>
                         <Outlet
                           context={
-                            { page, user, openEditor, registerGuard } satisfies ConsoleNavigation
+                            {
+                              page,
+                              user,
+                              openEditor,
+                              registerGuard,
+                              refreshProjects,
+                            } satisfies ConsoleNavigation
                           }
                         />
                       </QueryState>
@@ -360,6 +400,7 @@ export function ProjectConsole({
             </PlatformAssistant>
           </ProjectAccessContext.Provider>
         </div>
+        <AccountSecurity user={user} open={accountOpen} onClose={() => setAccountOpen(false)} />
         <EditorHost
           key={`${editor ?? "closed"}:${editing?.resource?.id ?? "new"}`}
           kind={editor}

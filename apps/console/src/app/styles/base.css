@@ -768,3 +768,6 @@ a:focus-visible {
   color: #33413a;
   white-space: nowrap;
 }
+.archived-banner {
+  margin-bottom: 18px;
+}

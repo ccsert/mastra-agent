@@ -46,7 +46,7 @@ export function Workspace(session: ConsoleSession) {
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
-  const defaultProject = projects[0];
+  const defaultProject = projects.find((p) => !p.archivedAt) ?? projects[0];
   const landing = location.pathname === "/" || location.pathname === "/login";
   const shell = (id: string, currentPage: Page) => (
     <ProjectData key={id} projectId={id} owner={`${session.user.tenantId}:${session.user.id}`}>

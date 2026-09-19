@@ -9,5 +9,7 @@ export type ConsoleNavigation = {
   /** Omit the resource to create, pass one to edit it. */
   openEditor(kind: EditorKind, resource?: EditorResource): void;
   registerGuard(guard?: () => "busy" | "dirty" | null): void;
+  /** Re-reads the tenant project list after a rename or archive state change. */
+  refreshProjects?: (chooseNewest?: boolean) => Promise<void>;
 };
 export const useConsoleNavigation = () => useOutletContext<ConsoleNavigation>();

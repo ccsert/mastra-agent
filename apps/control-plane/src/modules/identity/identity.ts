@@ -2,10 +2,14 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { Principal } from "@platform/contracts";
 import type { Database } from "@platform/database";
 import { hashPassword, sha256, verifyPassword } from "../../infrastructure/crypto.ts";
-import { ApiError } from "../../infrastructure/errors.ts";
+import { ApiError, notFound } from "../../infrastructure/errors.ts";
 import { text } from "../../infrastructure/records.ts";
+import type { Access } from "../access/index.ts";
 export class Identity {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly access?: Access,
+  ) {}
   async isSetup() {
     return (await this.db.query("SELECT id FROM users LIMIT 1")).length > 0;
   }
@@ -59,5 +63,53 @@ export class Identity {
       entry: "console",
       tenantRole: r.role as Principal["tenantRole"],
     };
+  }
+
+  /** Self-service password change. Other sessions are signed out so a leaked
+   * password cannot keep access; the current session stays signed in. */
+  async changePassword(
+    actor: Principal,
+    currentPassword: string,
+    newPassword: string,
+    currentToken: string,
+  ) {
+    const revoked = await this.db.transaction(async (tx) => {
+      const [user] = await tx.query(
+        "SELECT * FROM users WHERE id=$1 AND tenant_id=$2 AND active FOR UPDATE",
+        [actor.id, actor.tenantId],
+      );
+      if (!user) throw notFound();
+      if (!(await verifyPassword(currentPassword, text(user, "password_hash"))))
+        throw new ApiError(401, "INVALID_CREDENTIALS", "当前密码不正确");
+      if (await verifyPassword(newPassword, text(user, "password_hash")))
+        throw new ApiError(409, "PASSWORD_UNCHANGED", "新密码不能与当前密码相同");
+      await tx.query("UPDATE users SET password_hash=$1 WHERE id=$2", [
+        await hashPassword(newPassword),
+        actor.id,
+      ]);
+      const removed = await tx.query(
+        "DELETE FROM sessions WHERE user_id=$1 AND token_hash<>$2 RETURNING token_hash",
+        [actor.id, sha256(currentToken)],
+      );
+      await this.access?.record(tx, actor, "account.password_changed", actor.id, {
+        revokedSessions: removed.length,
+      });
+      return removed.length;
+    });
+    return { revoked };
+  }
+
+  async revokeOtherSessions(actor: Principal, currentToken: string) {
+    const { revoked } = await this.db.transaction(async (tx) => {
+      const removed = await tx.query(
+        "DELETE FROM sessions WHERE user_id=$1 AND token_hash<>$2 RETURNING token_hash",
+        [actor.id, sha256(currentToken)],
+      );
+      await this.access?.record(tx, actor, "account.sessions_revoked", actor.id, {
+        revoked: removed.length,
+      });
+      return { revoked: removed.length };
+    });
+    return { revoked };
   }
 }

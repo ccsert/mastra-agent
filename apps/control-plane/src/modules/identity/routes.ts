@@ -123,4 +123,57 @@ export function registerIdentityRoutes(
     }),
     (c) => c.json(c.get("principal"), 200),
   );
+  const passwordChange = z
+    .object({
+      currentPassword: z.string().min(12).max(200),
+      newPassword: z.string().min(12).max(200),
+    })
+    .strict();
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/me/password",
+      operationId: "changePassword",
+      request: { body: body(passwordChange) },
+      responses: {
+        200: json(z.object({ ok: z.boolean(), revokedSessions: z.number().int() })),
+        ...errors,
+      },
+    }),
+    async (c) => {
+      const principal = c.get("principal");
+      if (principal.kind !== "user")
+        throw new ApiError(403, "MANAGEMENT_NOT_ALLOWED", "应用身份没有登录密码");
+      const input = c.req.valid("json");
+      const result = await identity.changePassword(
+        principal,
+        input.currentPassword,
+        input.newPassword,
+        getCookie(c, "platform_session") ?? "",
+      );
+      return c.json({ ok: true, revokedSessions: result.revoked }, 200);
+    },
+  );
+  app.openapi(
+    createRoute({
+      method: "post",
+      path: "/api/v1/me/sessions/revoke-others",
+      operationId: "revokeMyOtherSessions",
+      request: { body: body(z.object({}).strict()) },
+      responses: {
+        200: json(z.object({ ok: z.boolean(), revoked: z.number().int() })),
+        ...errors,
+      },
+    }),
+    async (c) => {
+      const principal = c.get("principal");
+      if (principal.kind !== "user")
+        throw new ApiError(403, "MANAGEMENT_NOT_ALLOWED", "应用身份没有登录会话");
+      const result = await identity.revokeOtherSessions(
+        principal,
+        getCookie(c, "platform_session") ?? "",
+      );
+      return c.json({ ok: true, revoked: result.revoked }, 200);
+    },
+  );
 }

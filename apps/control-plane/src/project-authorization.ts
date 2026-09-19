@@ -15,6 +15,16 @@ export async function authorizeProjectRequest(
     read = method === "GET" || method === "HEAD";
   let permission: Permission = "resource.manage";
   switch (resource) {
+    case undefined:
+      // /projects/:id itself: rename, archive and restore are project management.
+      permission = read ? "project.read" : "project.manage";
+      break;
+    case "archive":
+    case "unarchive":
+      // Restore must stay possible while archived, so this maps to project.manage
+      // (kept on archived projects) rather than the default resource.manage.
+      permission = "project.manage";
+      break;
     case "assistant":
       permission = "project.read";
       break;
