@@ -8,8 +8,8 @@ import {
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { type FC, memo, useMemo, useRef } from "react";
+import { CheckIcon, CopyIcon, Eye } from "lucide-react";
+import { createContext, type FC, memo, useContext, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
 import { useCopyToClipboard } from "../hooks/use-copy-to-clipboard";
 import { cn } from "../utils";
@@ -17,7 +17,11 @@ import { TooltipIconButton } from "./tooltip-icon-button";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
   components?: Parameters<typeof memoizeMarkdownComponents>[0];
+  /** Present when the host can preview a code block (e.g. HTML in a canvas). */
+  onPreviewCode?: ((code: string) => void) | undefined;
 };
+
+const PreviewCodeContext = createContext<((code: string) => void) | undefined>(undefined);
 
 const useShallowStable = <T extends Record<string, unknown> | undefined>(value: T): T => {
   const ref = useRef(value);
@@ -33,7 +37,7 @@ const useShallowStable = <T extends Record<string, unknown> | undefined>(value: 
   return ref.current;
 };
 
-const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
+const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, onPreviewCode }) => {
   const stableComponents = useShallowStable(components);
   const markdownComponents = useMemo(() => {
     if (!stableComponents) return defaultComponents;
@@ -44,19 +48,27 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
   }, [stableComponents]);
 
   return (
-    <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm]}
-      className="aui-md"
-      components={markdownComponents}
-      skipHtml
-    />
+    <PreviewCodeContext.Provider value={onPreviewCode}>
+      <MarkdownTextPrimitive
+        remarkPlugins={[remarkGfm]}
+        className="aui-md"
+        components={markdownComponents}
+        skipHtml
+      />
+    </PreviewCodeContext.Provider>
   );
 };
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
+/** HTML blocks preview well in a real renderer; other languages stay code-only. */
+const previewable = (language: string | undefined, code: string | undefined) =>
+  (language === "html" || /^<!doctype html/i.test(code ?? "") || /<html[\s>]/i.test(code ?? "")) &&
+  !!code?.trim();
+
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
+  const onPreview = useContext(PreviewCodeContext);
   const onCopy = () => {
     if (!code || isCopied) return;
     copyToClipboard(code);
@@ -67,10 +79,19 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
       <span className="aui-code-header-language text-muted-foreground font-medium lowercase">
         {language}
       </span>
-      <TooltipIconButton tooltip={isCopied ? "已复制代码" : "复制代码"} onClick={onCopy}>
-        {!isCopied && <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />}
-        {isCopied && <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />}
-      </TooltipIconButton>
+      <div className="flex items-center gap-1">
+        {onPreview && previewable(language, code) && (
+          <TooltipIconButton tooltip="在画布中预览" onClick={() => onPreview(code ?? "")}>
+            <Eye className="animate-in zoom-in-75 fade-in duration-150" />
+          </TooltipIconButton>
+        )}
+        <TooltipIconButton tooltip={isCopied ? "已复制代码" : "复制代码"} onClick={onCopy}>
+          {!isCopied && <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />}
+          {isCopied && (
+            <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
+          )}
+        </TooltipIconButton>
+      </div>
     </div>
   );
 };
